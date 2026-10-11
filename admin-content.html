@@ -614,6 +614,8 @@ async function loadContent(){
     // them back to page 1. applyFilters() clamps it if the page no longer exists.
     applyFilters(true);
 
+    openLinkedContent();
+
   } catch (error) {
 
     console.error(error);
@@ -621,6 +623,26 @@ async function loadContent(){
     grid.innerHTML =
       `<div class="empty">Connection error.</div>`;
   }
+}
+
+/* ?id=<content id> - opened from the calendar on a client's page
+   (user-details.html). Shows that post's details once, then drops the
+   parameter so a reload after an edit or delete is an ordinary visit. A post
+   this admin may not read is not in allContent, and the page simply opens as
+   usual. */
+let linkedContentId = new URLSearchParams(location.search).get("id");
+
+function openLinkedContent(){
+  if(!linkedContentId) return;
+
+  const id = linkedContentId;
+  linkedContentId = null;
+  history.replaceState(null, "", location.pathname);
+
+  if(!allContent.some(item => String(item.id) === String(id))) return;
+
+  selectContent(id);
+  document.getElementById("detailWrap").scrollIntoView({behavior:"smooth", block:"start"});
 }
 
 /* Every post belongs to a client, so the filter is the list of companies that
@@ -917,7 +939,7 @@ loadContent();
 <script src="assets/shell.js?v=3"></script>
 <script src="assets/lightbox.js?v=1"></script>
 <script src="assets/sources-lock.js?v=1"></script>
-<script src="assets/role-nav.js?v=1"></script>
+<script src="assets/role-nav.js?v=2"></script>
 <script>
 /* The calendar belongs to the roles that deal with clients. A plain seo_admin
    works on content, so the link comes out of their sidebar. api/calendar.php

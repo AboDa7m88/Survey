@@ -37,7 +37,11 @@ function respond($success, $message = "", $extra = [], $code = 200)
 |   owner            Account Managers, Super Admins, Admins - anyone
 |   account_manager  Super Admins and Admins - from their own team only
 |   super_admin      Admins - from their own team only
-|   seo_admin        nothing; reads the table
+|   seo_admin        nothing, and not even a read: Clients Management is not
+|                    theirs, so this endpoint turns them away
+|
+| An Admin (seo_admin) can still be *on* a team - that is what scopes their
+| forms and content to a client - they just do not manage teams from here.
 |
 | "Their own team" is admins.managed_by_admin_id, which the owner sets under
 | Settings > Owner Assignments to Team Management. An account manager's team
@@ -70,6 +74,11 @@ try {
     }
 } catch (Throwable $e) {
     respond(false, "Authentication database error.", [], 500);
+}
+
+// Clients Management, which this panel is part of, is not open to seo_admin.
+if ($actor["role"] === "seo_admin") {
+    respond(false, "Clients Management is not available to your role.", [], 403);
 }
 
 $actorId = (int) $actor["id"];

@@ -70,24 +70,37 @@ $sql = "
 $params = [];
 
 /*
-| Same scoping as the forms list: the owner sees everything, everyone else
-| only the clients assigned to them. Without it, filtering by survey_id would
-| still hand over the answers of a client outside the admin's own pool.
+| The owner sees everything. Everyone else sees responses from the clients
+| assigned to them, plus responses to any form they built themselves - the
+| "New response" notification goes to a form's creator (notify.php), and it
+| would be no use if the creator could not then open what it points at.
+| Without this, filtering by survey_id would still hand over the answers of a
+| client outside the admin's own pool.
 */
+
+$where = [];
 
 if ($currentAdmin["role"] !== "owner") {
     $sql .= "
-        INNER JOIN admin_user_assignments aua
+        LEFT JOIN admin_user_assignments aua
             ON aua.user_id = sr.user_id
            AND aua.admin_id = ?
+        LEFT JOIN surveys s ON s.id = sr.survey_id
     ";
+    $params[] = $currentAdmin["id"];
+
+    $where[] = "(aua.admin_id IS NOT NULL OR s.created_by_admin_id = ?)";
     $params[] = $currentAdmin["id"];
 }
 
 // The filter that was missing.
 if ($surveyId) {
-    $sql .= " WHERE sr.survey_id = ?";
+    $where[] = "sr.survey_id = ?";
     $params[] = $surveyId;
+}
+
+if ($where) {
+    $sql .= " WHERE " . implode(" AND ", $where);
 }
 
 $sql .= " ORDER BY sr.submitted_at DESC, sr.id DESC";

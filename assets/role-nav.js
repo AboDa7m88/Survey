@@ -26,6 +26,12 @@
       // Client meetings: the roles that deal with clients, not seo_admin.
       href: "admin-calendar.html",
       roles: ["owner", "super_admin", "account_manager"]
+    },
+    {
+      // Clients Management: the same roles. seo_admin works on content, not
+      // on client accounts.
+      href: "clients-management.html",
+      roles: ["owner", "super_admin", "account_manager"]
     }
   ];
 

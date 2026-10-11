@@ -217,8 +217,9 @@ function requestMeetingFromAdmins(PDO $pdo, array $user, $date, $time, $topic, $
     $appointmentId = (int) $pdo->lastInsertId();
 
     // Opens this request on the calendar, not just the calendar.
-    notifyAdminsForUser(
+    notifyAdminsAboutUser(
         $pdo,
+        meetingAdminIdsForUser($pdo, (int) $user["id"]),
         (int) $user["id"],
         NOTIFY_APPOINTMENT_REQUEST,
         "Meeting request from " . $user["name"],

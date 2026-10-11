@@ -395,14 +395,21 @@ if(!adminToken || !adminUser.role){
   window.location.href = "admin-login.html";
 }
 
+// Not for seo_admin: they work on content, not on client accounts. The link is
+// gone from their sidebar (assets/role-nav.js) and api/admin-user-details.php
+// refuses them; this only stops a typed-in URL landing on an empty page.
+if(adminUser.role === "seo_admin"){
+  window.location.replace("admin.html");
+}
+
 function logoutAdmin(){
   localStorage.removeItem("admin_token");
   localStorage.removeItem("admin_user");
   window.location.href = "admin-login.html";
 }
 
-// Clients Management is open to every admin - what changes per role is the data
-// scope and which actions render, not whether the page loads at all.
+// Every role but seo_admin reaches this page - what changes between them is the
+// data scope and which actions render.
 const myRole = adminUser.role;
 const isOwner = myRole === "owner";
 
@@ -412,14 +419,13 @@ const isOwner = myRole === "owner";
 const USERS_COPY = {
   owner:       { title: "Clients Management", sub: "Approve or reject newly registered clients." },
   super_admin: { title: "Clients Management", sub: "Clients whose team you are on." },
-  seo_admin:   { title: "Clients Management", sub: "Clients whose team you are on." },
   account_manager: { title: "Clients Management", sub: "Clients whose team you are on." }
 };
 
 // Who works on each client is set on the client's own page now, in its Team
 // section - see user-details.html and api/client-team.php.
 document.addEventListener("DOMContentLoaded", function(){
-  const copy = USERS_COPY[myRole] || USERS_COPY.seo_admin;
+  const copy = USERS_COPY[myRole] || USERS_COPY.super_admin;
   document.getElementById("usersPanelTitle").textContent = copy.title;
   document.getElementById("usersPanelSub").textContent = copy.sub;
 });
@@ -682,7 +688,7 @@ loadUsers();
 <script src="assets/notifications.js?v=1"></script>
 <script src="assets/shell.js?v=3"></script>
 <script src="assets/sources-lock.js?v=1"></script>
-<script src="assets/role-nav.js?v=1"></script>
+<script src="assets/role-nav.js?v=2"></script>
 <script>
 /* The calendar belongs to the roles that deal with clients. A plain seo_admin
    works on content, so the link comes out of their sidebar. api/calendar.php

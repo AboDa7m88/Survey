@@ -308,6 +308,13 @@ td a{color:var(--nav-active);font-weight:700}
 .event-card.pending{background:#fef3c7;border:1px solid #fde68a;color:#b45309}
 .event-card.rejected{background:#fef2f2;border:1px solid #fecaca;color:#dc2626}
 .badge.rejected{background:#ffe8e8;color:#c9000b}
+/* Content that went live that day (same as dashboard.html). A link to the post,
+   in its own colour so it never reads as a meeting - on a phone it is a purple dot. */
+.event-card.content{display:block;background:#f0ebff;border:1px solid #ddd2ff;color:#5b3cc4;text-decoration:none}
+.event-card.content:hover{border-color:#b9a6ff}
+.badge.content{background:#f0ebff;color:#5b3cc4}
+.schedule-link{color:inherit;text-decoration:none}
+.schedule-link:hover{text-decoration:underline}
 
 .schedule-list{padding:8px 28px 26px}
 .schedule-row{display:flex;align-items:center;gap:16px;padding:14px 0;border-top:1px solid #f1f3f7}
@@ -534,7 +541,12 @@ if(!adminToken || !adminUser.role){
   window.location.href = "admin-login.html";
 }
 
-// Clients Management is open to every admin, so this page does not narrow on role.
+// Part of Clients Management, which is not for seo_admin. api/admin-user-details.php
+// refuses the role as well; this only stops a typed-in URL loading an empty page.
+if(adminUser.role === "seo_admin"){
+  window.location.replace("admin.html");
+}
+
 (function(){
   const name = adminUser.name || "Admin";
   const label = adminUser.role === "super_admin" ? "Super Admin" : "Administrator";
@@ -597,7 +609,9 @@ function formatSize(bytes){
 
 /* ── Appointments calendar ─────────────────────────────────────────────
    Same behaviour as admin-calendar.html, narrowed to this one client:
-   a month grid, and the schedule for whichever day is selected. */
+   a month grid, and the schedule for whichever day is selected. Like the
+   client's own dashboard.html calendar, it also shows the content posts
+   this client sees, on the day each went live. */
 
 const MONTHS = ["January","February","March","April","May","June",
                 "July","August","September","October","November","December"];
@@ -605,6 +619,7 @@ const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun",
                       "Jul","Aug","Sep","Oct","Nov","Dec"];
 
 let appointments = [];
+let contentItems = [];
 let currentDate = new Date();
 let selectedDate = toDateStr(new Date());
 
@@ -636,6 +651,34 @@ function statusLabel(status){
   if(status === "approved") return "Confirmed";
   if(status === "rejected") return "Declined";
   return "Pending";
+}
+
+/** "YYYY-MM-DD HH:MM:SS" the post went live: its scheduled moment, or when it
+    was created for "Publish immediately". Same as dashboard.html. */
+function contentLiveAt(item){
+  if(item.live_at) return String(item.live_at);
+
+  if(Number(item.publish_now) === 1 || !item.post_date){
+    return String(item.created_at || "");
+  }
+
+  return `${item.post_date} ${item.post_time || "00:00:00"}`;
+}
+
+function contentOn(dateStr){
+  return contentItems
+    .filter(item => contentLiveAt(item).slice(0,10) === dateStr)
+    .sort((a,b) => contentLiveAt(a).localeCompare(contentLiveAt(b)));
+}
+
+/* The admin view of the post - content.html is the client's and needs their
+   session. admin-content.html opens the post named in ?id=. */
+function contentHref(item){
+  return `admin-content.html?id=${encodeURIComponent(item.id)}`;
+}
+
+function contentMeta(item){
+  return [item.platform, item.type_label].filter(Boolean).join(" · ") || "Content";
 }
 
 /** A greyed-out cell from the neighbouring month, used only to pad the weeks. */
@@ -690,6 +733,17 @@ function renderCalendar(){
           </div>`;
       });
 
+    // A post opens itself; stopPropagation keeps the click from also
+    // selecting the day, which would repaint the grid under the link.
+    contentOn(dateStr).forEach(item => {
+      cell.innerHTML += `
+        <a class="event-card content" href="${contentHref(item)}"
+           onclick="event.stopPropagation()" title="Open this post">
+          ■ <b dir="auto">${esc(item.title || "Content")}</b><br>
+          <small>${esc(prettyTime(contentLiveAt(item).slice(11)))} · ${esc(contentMeta(item))}</small>
+        </a>`;
+    });
+
     cell.onclick = () => {
       selectedDate = dateStr;
       renderCalendar();
@@ -711,48 +765,83 @@ function renderDailySchedule(){
   const title = document.getElementById("dailyScheduleTitle");
   if(!list) return;
 
-  title.textContent = `Daily meeting Schedule – ${prettyDate(selectedDate)}`;
+  title.textContent = `Daily Schedule – ${prettyDate(selectedDate)}`;
 
-  const rows = appointments
+  // Meetings and posts in one list, in time order.
+  const meetings = appointments
     .filter(a => a.date === selectedDate)
-    .sort((a,b) => String(a.time).localeCompare(String(b.time)));
+    .map(row => ({ time: String(row.time || ""), html: meetingRow(row) }));
+
+  const posts = contentOn(selectedDate)
+    .map(item => ({ time: contentLiveAt(item).slice(11), html: contentRow(item) }));
+
+  const rows = meetings.concat(posts)
+    .sort((a,b) => a.time.localeCompare(b.time));
 
   if(!rows.length){
     list.innerHTML = `<div class="empty">Nothing scheduled for this day.</div>`;
     return;
   }
 
-  list.innerHTML = rows.map(row => {
-    const date = parseDateStr(row.date);
-    const raisedBy = row.requested_by === "user"
-      ? "Requested by the client"
-      : `Requested by ${row.admin_name || "the team"}`;
+  list.innerHTML = rows.map(row => row.html).join("");
+}
 
-    return `
-      <div class="schedule-row">
-        <div class="schedule-date">
-          <span class="m">${MONTHS_SHORT[date.getMonth()]}</span>
-          <span class="d">${String(date.getDate()).padStart(2,"0")}</span>
-        </div>
+function scheduleDate(dateStr){
+  const date = parseDateStr(dateStr);
 
-        <div class="schedule-info">
-          <h4>${esc(row.topic || row.title || "Meeting")}</h4>
-          <p>${esc(raisedBy)}${row.notes ? " · " + esc(row.notes) : ""}</p>
-        </div>
+  return `
+    <div class="schedule-date">
+      <span class="m">${MONTHS_SHORT[date.getMonth()]}</span>
+      <span class="d">${String(date.getDate()).padStart(2,"0")}</span>
+    </div>`;
+}
 
-        <span class="schedule-time">${esc(prettyTime(row.time))}</span>
-        <span class="badge ${esc(row.status || "pending")}">${statusLabel(row.status)}</span>
-      </div>`;
-  }).join("");
+function meetingRow(row){
+  const raisedBy = row.requested_by === "user"
+    ? "Requested by the client"
+    : `Requested by ${row.admin_name || "the team"}`;
+
+  return `
+    <div class="schedule-row">
+      ${scheduleDate(row.date)}
+
+      <div class="schedule-info">
+        <h4>${esc(row.topic || row.title || "Meeting")}</h4>
+        <p>${esc(raisedBy)}${row.notes ? " · " + esc(row.notes) : ""}</p>
+      </div>
+
+      <span class="schedule-time">${esc(prettyTime(row.time))}</span>
+      <span class="badge ${esc(row.status || "pending")}">${statusLabel(row.status)}</span>
+    </div>`;
+}
+
+/* A post is a link to itself. */
+function contentRow(item){
+  const liveAt = contentLiveAt(item);
+
+  return `
+    <div class="schedule-row">
+      ${scheduleDate(liveAt.slice(0,10))}
+
+      <div class="schedule-info">
+        <h4 dir="auto"><a class="schedule-link" href="${contentHref(item)}">${esc(item.title || "Content")}</a></h4>
+        <p>${esc(contentMeta(item))}</p>
+      </div>
+
+      <span class="schedule-time">${esc(prettyTime(liveAt.slice(11)))}</span>
+      <span class="badge content">Content</span>
+    </div>`;
 }
 
 /** Wires the month controls and paints the calendar, once its markup is in the DOM. */
-function initCalendar(rows){
+function initCalendar(rows, content){
   appointments = rows || [];
+  contentItems = content || [];
 
-  // Land on the month of the newest appointment, so the grid is not empty.
+  // Land on the month of the newest meeting or post, so the grid is not empty.
   const latest = appointments
     .map(a => a.date)
+    .concat(contentItems.map(item => contentLiveAt(item).slice(0,10)))
     .filter(Boolean)
     .sort()
     .pop();
@@ -1538,7 +1627,7 @@ function render(data){
     <div class="panel">
       <div class="panel-head">
         <h2>Appointments ${(data.appointments || []).length ? `<span class="badge neutral">${(data.appointments || []).length}</span>` : ""}</h2>
-        <p>Bookings on the content calendar. Pick a day to see what is on it.</p>
+        <p>Meetings and the content posts this client sees, on the content calendar. Pick a day to see what is on it.</p>
       </div>
       <div class="cal-head">
         <div class="cal-controls">
@@ -1553,8 +1642,8 @@ function render(data){
 
     <div class="panel">
       <div class="panel-head">
-        <h2 id="dailyScheduleTitle">Daily meeting Schedule</h2>
-        <p>Appointments booked with this client on the selected day.</p>
+        <h2 id="dailyScheduleTitle">Daily Schedule</h2>
+        <p>Meetings with this client, and posts that went live for them, on the selected day.</p>
       </div>
       <div class="schedule-list" id="dailySchedule"></div>
     </div>`;
@@ -1604,7 +1693,7 @@ function render(data){
 
   paint(header + details + teamPanel() + surveys + responses + appointments + files + content);
 
-  initCalendar(data.appointments || []);
+  initCalendar(data.appointments || [], data.content || []);
 }
 
 function fail(message){
@@ -1667,6 +1756,7 @@ loadUser();
 <script src="assets/notifications.js?v=1"></script>
 <script src="assets/shell.js?v=3"></script>
 <script src="assets/sources-lock.js?v=1"></script>
+<script src="assets/role-nav.js?v=2"></script>
 <script src="assets/confirm.js?v=1"></script>
 </body>
 </html>

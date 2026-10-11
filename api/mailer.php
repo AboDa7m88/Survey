@@ -215,7 +215,7 @@ function adminEmailHtml(string $heading, string $intro, array $rows, string $pag
 | ── The two alerts ───────────────────────────────────────────────────────────
 |
 | Each one mirrors a notification the caller has just written, to the same
-| admins (see adminIdsForUser() and reviewerAdminIds() in notify.php).
+| admins (see meetingAdminIdsForUser() and reviewerAdminIds() in notify.php).
 */
 
 require_once __DIR__ . "/notify.php";
@@ -281,11 +281,11 @@ function emailReviewersAboutForm(PDO $pdo, string $formTitle, int $userId, int $
 
 /**
  * A client has asked the admin team for a meeting. Goes to the owner and the
- * admins assigned to that client.
+ * admins assigned to that client who can open the calendar.
  */
 function emailAdminsAboutMeetingRequest(PDO $pdo, int $userId, string $clientName, string $topic, string $date, string $time, string $notes, int $appointmentId = 0): int
 {
-    $recipients = adminRecipients($pdo, adminIdsForUser($pdo, $userId));
+    $recipients = adminRecipients($pdo, meetingAdminIdsForUser($pdo, $userId));
 
     if (!$recipients) {
         return 0;

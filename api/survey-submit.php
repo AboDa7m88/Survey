@@ -220,8 +220,10 @@ function submitSurveyResponse(PDO $pdo, array $user, $surveyId, array $answers, 
 
     // After the commit, never inside it - see the rules at the top of
     // notify.php. notify() swallows its own failures.
-    notifyAdminsForUser(
+    // To whoever built the form, and the owner - not the client's whole team.
+    notifyAdminsAboutUser(
         $pdo,
+        formResponseAdminIds($pdo, (int) $survey["id"]),
         (int) $user["id"],
         NOTIFY_FORM_SUBMITTED,
         "New response from " . $user["name"],

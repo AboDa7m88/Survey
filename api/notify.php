@@ -92,30 +92,23 @@ function notify(
 }
 
 /**
- * Every admin responsible for this client, plus the owner.
+ * One row for each admin in $adminIds, caused by a client ($userId).
  *
- * The inverse of isUserInScope() in admin-surveys.php and scopedClients() in
- * calendar.php: those ask "may this admin touch this user", this asks "which
- * admins should hear about this user". The owner is in unconditionally, on
- * the same reasoning that lets them see every client.
- *
- * $exceptAdminId drops whoever performed the action - nobody needs telling
- * about their own click.
+ * Who the admins are is the caller's question, answered by one of the
+ * *AdminIds() helpers further down - each event has its own idea of who it
+ * concerns, and a list that is too wide is noise for everyone on it.
  */
-function notifyAdminsForUser(
+function notifyAdminsAboutUser(
     PDO $pdo,
+    array $adminIds,
     int $userId,
     string $type,
     string $title,
     string $body = "",
-    string $link = "",
-    int $exceptAdminId = 0
+    string $link = ""
 ) {
-    foreach (adminIdsForUser($pdo, $userId) as $id) {
-        if ((int) $id === $exceptAdminId) {
-            continue;
-        }
-        notify($pdo, "admin", (int) $id, $type, $title, $body, $link, "user", $userId);
+    foreach (array_unique(array_map("intval", $adminIds)) as $id) {
+        notify($pdo, "admin", $id, $type, $title, $body, $link, "user", $userId);
     }
 }
 
@@ -145,8 +138,15 @@ function notifyReviewers(
 | notification is always the admin who gets the email.
 */
 
-/** The owner, plus every admin assigned to this client. */
-function adminIdsForUser(PDO $pdo, int $userId): array
+/**
+ * A client's meeting request: the owner, plus the admins on this client's team
+ * who can answer it.
+ *
+ * seo_admin is left out even when assigned - admin-calendar.html is closed to
+ * that role, so the notification would link them to a page that turns them
+ * away. Everyone else on the team (account managers, super admins) is in.
+ */
+function meetingAdminIdsForUser(PDO $pdo, int $userId): array
 {
     if ($userId <= 0) {
         return [];
@@ -156,9 +156,36 @@ function adminIdsForUser(PDO $pdo, int $userId): array
         $stmt = $pdo->prepare("
             SELECT id FROM admins WHERE role = 'owner'
             UNION
-            SELECT admin_id AS id FROM admin_user_assignments WHERE user_id = ?
+            SELECT aua.admin_id AS id
+            FROM admin_user_assignments aua
+            JOIN admins a ON a.id = aua.admin_id
+            WHERE aua.user_id = ? AND a.role <> 'seo_admin'
         ");
         $stmt->execute([$userId]);
+        return $stmt->fetchAll(PDO::FETCH_COLUMN);
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+/**
+ * A client has answered a form: the admin who built it, plus the owner.
+ *
+ * Not the client's whole team - a response is the answer to one admin's
+ * questions, so it goes to that admin. api/response-details.php lets the
+ * creator open it even when they are not on the client's team.
+ */
+function formResponseAdminIds(PDO $pdo, int $surveyId): array
+{
+    try {
+        $stmt = $pdo->prepare("
+            SELECT id FROM admins WHERE role = 'owner'
+            UNION
+            SELECT created_by_admin_id AS id
+            FROM surveys
+            WHERE id = ? AND created_by_admin_id IS NOT NULL
+        ");
+        $stmt->execute([$surveyId]);
         return $stmt->fetchAll(PDO::FETCH_COLUMN);
     } catch (Throwable $e) {
         return [];

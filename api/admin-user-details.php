@@ -26,8 +26,9 @@ function respond($success, $message = "", $extra = [], $code = 200)
 | Authenticate the admin
 |--------------------------------------------------------------------------
 |
-| Any admin may view a user. Clients Management itself is open to every admin,
-| so narrowing here would load the page and then 401 the fetch.
+| Every admin role but seo_admin may view a user - the same roles that see
+| Clients Management, which is the only page that opens this one. An Admin
+| works on content, not on client accounts, and gets a 403 on read and write.
 |
 | The role is read alongside the id because one thing on this page is narrower
 | than the page: the internal note below is the account manager's and the
@@ -57,6 +58,10 @@ try {
     }
 } catch (Throwable $e) {
     respond(false, "Authentication database error.", [], 500);
+}
+
+if (($admin["role"] ?? "") === "seo_admin") {
+    respond(false, "Clients Management is not available to your role.", [], 403);
 }
 
 /* Who may change what is on this page: the internal note, and the client's own
@@ -327,11 +332,20 @@ $files = fetchList($pdo, "
 | Content this user can see: public posts plus anything targeted at their
 | client. Same rule as api/user-content.php - this is the answer to "why does
 | this user see that post?".
+|
+| The scheduling columns come along so the page can file each post on its
+| calendar under live_at, exactly as the client's own dashboard calendar does.
+| The post itself - caption, media, link - stays out: a super_admin may only
+| read their own posts (canViewAllContent() in admin-content.php), and the
+| calendar links through to admin-content.html, which applies that rule.
 */
 $company = trim($user["company_name"] ?? "");
 
 $content = fetchList($pdo, "
-    SELECT id, title, platform, type_label, client, 'published' AS status, created_at
+    SELECT id, title, platform, type_label, client,
+           post_date, post_time, publish_now,
+           'published' AS status, created_at,
+           " . contentLiveAtSql("c") . " AS live_at
     FROM content c
     WHERE " . contentIsLiveSql("c") . "
       AND (client IS NULL OR client = '' OR (? <> '' AND client = ?))

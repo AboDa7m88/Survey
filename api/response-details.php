@@ -14,9 +14,10 @@
 |
 | Same rule as api/admin-responses.php, the list this page is opened from:
 | an admin session is required, the owner may open any response, and every
-| other admin only those from clients assigned to them. A response outside
-| that is reported as not found rather than forbidden, so ids can't be probed
-| for existence.
+| other admin those from clients assigned to them or to forms they built (the
+| notification goes to the form's creator, who may not be on the client's
+| team). A response outside that is reported as not found rather than
+| forbidden, so ids can't be probed for existence.
 */
 
 require_once "db.php";
@@ -58,15 +59,20 @@ $params = [];
 
 if ($currentAdmin["role"] !== "owner") {
     $sql .= "
-        INNER JOIN admin_user_assignments aua
+        LEFT JOIN admin_user_assignments aua
             ON aua.user_id = sr.user_id
            AND aua.admin_id = ?
+        LEFT JOIN surveys s ON s.id = sr.survey_id
+        WHERE sr.id = ?
+          AND (aua.admin_id IS NOT NULL OR s.created_by_admin_id = ?)
     ";
-    $params[] = $currentAdmin["id"];
+    array_push($params, $currentAdmin["id"], $id, $currentAdmin["id"]);
+} else {
+    $sql .= " WHERE sr.id = ?";
+    $params[] = $id;
 }
 
-$sql .= " WHERE sr.id = ? LIMIT 1";
-$params[] = $id;
+$sql .= " LIMIT 1";
 
 $visible = $pdo->prepare($sql);
 $visible->execute($params);
