@@ -1144,6 +1144,20 @@ const PROJECT_STATUSES = [
 ];
 
 /*
+| The bucket every stat card counts, computed once in SQL so no page re-derives
+| the rule in JS and drifts from the cards. Shared by the admin's projects.php
+| and the client's user-projects.php, whose lists label each row with it.
+| Assumes the projects table is aliased `p`.
+*/
+const PROJECT_BUCKET_SQL = "
+    CASE
+        WHEN p.status = 'completed'    THEN 'completed'
+        WHEN p.start_date > CURDATE()  THEN 'upcoming'
+        ELSE 'active'
+    END
+";
+
+/*
 | Nothing runs on a schedule in this codebase, so a future-dated task is not
 | moved from scheduled to live by a cron - the read is filtered instead, and
 | this is the one predicate that does it.

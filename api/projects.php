@@ -161,18 +161,6 @@ function projectScope(array $admin)
 }
 
 /*
-| The bucket every stat card counts, computed once in SQL so the page never
-| re-derives the rule in JS and drifts from the cards.
-*/
-const PROJECT_BUCKET_SQL = "
-    CASE
-        WHEN p.status = 'completed'    THEN 'completed'
-        WHEN p.start_date > CURDATE()  THEN 'upcoming'
-        ELSE 'active'
-    END
-";
-
-/*
 |--------------------------------------------------------------------------
 | Who may create, edit, delete
 |--------------------------------------------------------------------------

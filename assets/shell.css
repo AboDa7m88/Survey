@@ -53,20 +53,23 @@
     top: 0;
     left: 0;
     right: 0;
-    height: 56px;
+    height: 60px;
     align-items: center;
     gap: 10px;
-    padding: 0 12px;
+    padding: 0 16px;
     background: #fff;
     border-bottom: 1px solid var(--line, #eaecf0);
     z-index: 900;
   }
 
   body {
-    padding-top: 56px;
+    padding-top: 60px;
   }
 
+  /* Pulled back by the 8px of padding round the icon, so the three lines
+     themselves sit on the 16px gutter the page content uses. */
   .wz-burger {
+    margin-left: -8px;
     width: 40px;
     height: 40px;
     flex: none;
@@ -85,21 +88,8 @@
   }
 
   .wz-burger svg {
-    width: 22px;
-    height: 22px;
-  }
-
-  .wz-mark {
-    min-width: 0;
-    display: flex;
-    align-items: center;
-  }
-
-  .wz-mark img {
-    height: 26px;
-    width: auto;
-    max-width: 62vw;
-    display: block;
+    width: 24px;
+    height: 24px;
   }
 
   /* ── The sidebar, as a drawer ──────────────────────────────────────────── */
@@ -190,6 +180,52 @@
   .admin-sidebar,
   .wz-scrim {
     transition: none;
+  }
+}
+
+/*
+| ── Page heading on a phone ──────────────────────────────────────────────────
+|
+| Every page sets its own title block - .page-title on most, .welcome on the
+| client Forms page - at desktop sizes, and each shrank it differently for a
+| phone, if at all. One heading for all of them here, as the design draws it:
+| 28px title, a single 14px line under it, 20px to whatever comes next, all on
+| a 16px gutter 20px below the bar.
+|
+| :root lifts these above the pages' own rules, inline or in a media query of
+| their own, whichever order the stylesheets load in. Only the top and sides of
+| the wrapper are set: some pages leave extra room at the bottom on purpose.
+*/
+
+@media (max-width: 768px) {
+
+  :root .admin-main > .admin-content,
+  :root .main > .content,
+  :root .main-wrapper > .main-content {
+    padding-top: 20px;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  :root .page-head {
+    margin-bottom: 20px;
+  }
+
+  :root .page-title h1,
+  :root .welcome h1 {
+    font-size: 28px;
+    line-height: 32px;
+    margin-bottom: 4px;
+  }
+
+  :root .page-title p,
+  :root .welcome p {
+    font-size: 14px;
+    line-height: 20px;
+  }
+
+  :root .welcome p {
+    margin-bottom: 20px;
   }
 }
 

@@ -1275,7 +1275,7 @@ th {
   });
 })();
 </script>
-<link rel="stylesheet" href="assets/shell.css?v=3" />
+<link rel="stylesheet" href="assets/shell.css?v=4" />
 </head>
 
 <body>
@@ -1344,7 +1344,7 @@ th {
       <div class="page-head">
         <div class="page-title">
           <h1>Dashboard</h1>
-          <p>Your meetings and content in one calendar: what's coming up, what's waiting on you, and what has gone out.</p>
+          <p>Manage team meetings, approvals, and requests.</p>
         </div>
 
         <div class="view-toggle" id="viewToggle">
@@ -1409,7 +1409,7 @@ th {
         <div class="section-head">
           <h3>Admin meeting requests</h3>
         </div>
-        <p class="section-sub">Meetings the admin team has scheduled with you.</p>
+        <p class="section-sub">Meetings scheduled with you by admin.</p>
 
         <table class="data-table">
           <thead>
@@ -1439,7 +1439,7 @@ th {
         <div class="section-head">
           <h3>Send a new request</h3>
         </div>
-        <p class="section-sub">Ask the admin team for a slot. They confirm or decline it.</p>
+        <p class="section-sub">Request a meeting slot with admin.</p>
 
         <div class="request-form">
           <div>
@@ -1455,7 +1455,7 @@ th {
             <input type="text" id="reqTopic" maxlength="200" placeholder="e.g. Q3 content review">
           </div>
           <div class="full">
-            <label for="reqNotes">Notes for the admin</label>
+            <label for="reqNotes">Details</label>
             <textarea id="reqNotes" placeholder="Anything they should know before the call"></textarea>
           </div>
         </div>
@@ -1858,7 +1858,7 @@ function renderDailySchedule() {
     .sort((a, b) => a.time.localeCompare(b.time));
 
   if (!rows.length) {
-    list.innerHTML = `<div class="empty-cell" style="padding:22px 0;">Nothing scheduled for this day.</div>`;
+    list.innerHTML = `<div class="empty-cell" style="padding:22px 0;">No events scheduled.</div>`;
     return;
   }
 
@@ -2089,7 +2089,7 @@ function renderAdminRequests() {
     .sort((a, b) => String(b.date).localeCompare(String(a.date)));
 
   if (!rows.length) {
-    table.innerHTML = `<tr><td colspan="4" class="empty-cell">The admin team has not scheduled anything with you yet.</td></tr>`;
+    table.innerHTML = `<tr><td colspan="4" class="empty-cell">No scheduled meetings.</td></tr>`;
     return;
   }
 
@@ -2277,7 +2277,7 @@ function openCalendarDay(date) {
   let html = "";
 
   if (!apps.length && !posts.length) {
-    html = `<div class="day-details-item">Nothing scheduled for this day.</div>`;
+    html = `<div class="day-details-item">No events scheduled.</div>`;
   }
 
   apps.forEach(a => {
@@ -2505,6 +2505,6 @@ document.addEventListener("DOMContentLoaded", () => {
   </div>
 </div>
 <script src="assets/notifications.js?v=1"></script>
-<script src="assets/shell.js?v=2"></script>
+<script src="assets/shell.js?v=3"></script>
 </body>
 </html>

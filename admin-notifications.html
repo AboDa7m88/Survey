@@ -245,6 +245,41 @@ body{padding:0}
   .page-head{flex-direction:column;gap:16px}
   .notif{flex-wrap:wrap}
 }
+
+/* ── The list on a phone ──
+   As the design draws it: plain rows on hairlines, the title with its time
+   opposite and the message under both. The tinted field, the rail and the
+   "New" pill give way to the dot alone, which still marks what is unread;
+   the darker title says it a second time. .notif-text steps aside
+   (display:contents) so its title and message sit on the row's own grid
+   beside the time. */
+@media(max-width:768px){
+  .panel-body{padding:4px 16px}
+  .notif{
+    display:grid;
+    grid-template-columns:8px minmax(0,1fr) auto;
+    grid-template-areas:
+      "dot title time"
+      ".   body  body"
+      ".   clip  clip";
+    gap:0 10px;
+    padding:16px 0;
+    border-radius:0;
+  }
+  .notif:hover,.notif.unread,.notif.unread:hover{background:transparent}
+  .notif.unread::before{content:none}
+  .notif-dot{grid-area:dot;margin-top:6px}
+  .notif-text{display:contents}
+  .notif-text strong{grid-area:title;margin:0;line-height:20px;font-weight:700}
+  .notif.unread .notif-text strong{font-weight:700}
+  .notif-text p{grid-area:body;margin-top:3px;line-height:20px}
+  .notif-clip{grid-area:clip}
+  .notif time{grid-area:time;line-height:20px}
+  .notif-new{display:none}
+
+  /* The popups sit on the same 16px gutter as the page. */
+  .modal{padding:16px}
+}
 /* ── Unread badge on the Notifications nav item ──
    Collapsed, the sidebar hides labels, so the count degrades to a dot on
    the icon - the same affordance the old topbar bell had. */
@@ -296,7 +331,7 @@ document.addEventListener("DOMContentLoaded", function () {
   set("acctName", name);   set("acctRole", label);   set("acctAvatar", initial);
 });
 </script>
-<link rel="stylesheet" href="assets/shell.css?v=3" />
+<link rel="stylesheet" href="assets/shell.css?v=4" />
 </head>
 
 <body>
@@ -848,7 +883,7 @@ loadPage(1);
 </script>
 
 <script src="assets/notifications.js?v=1"></script>
-<script src="assets/shell.js?v=2"></script>
+<script src="assets/shell.js?v=3"></script>
 <script src="assets/sources-lock.js?v=1"></script>
 <script src="assets/role-nav.js?v=1"></script>
 <script>
