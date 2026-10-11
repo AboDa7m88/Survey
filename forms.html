@@ -503,106 +503,165 @@
         }
       }
 
+      /* Phone only: how many forms the list is showing, beside its heading. */
+      .forms-count {
+        display: none;
+        font-size: 12px;
+        color: #98a2b3;
+        white-space: nowrap;
+      }
+
       /*
-      | Phone: the tables keep the columns that identify a row - the name, the
-      | status - and lose the date, so a long title wraps instead of handing the
-      | panel a sideways scrollbar. The text link becomes an icon. The ids beat
-      | shell.css's .wz-tablewrap nowrap rule without !important.
+      | Phone: as the design draws it. The three filter tiles sit side by side,
+      | and each form is a two-line row - its name, "Sent:" and the date under
+      | it - with the status pill and an eye button opposite, the table's own
+      | cells rearranged on a grid. Latest content goes two-up. The page title
+      | is sized by shell.css with every other page's. The ids beat shell.css's
+      | .wz-tablewrap nowrap rule without !important.
       */
       @media (max-width: 768px) {
-        .content {
-          padding: 18px 14px;
-        }
-        .welcome h1 {
-          font-size: 24px;
-        }
-        .welcome p {
-          margin-bottom: 18px;
-        }
-
-        /* Three small filter tiles side by side rather than three tall cards. */
         .stats {
           grid-template-columns: repeat(3, 1fr);
           gap: 10px;
-          margin-bottom: 20px;
+          margin-bottom: 24px;
         }
         .stat {
           flex-direction: column;
           align-items: flex-start;
           gap: 4px;
-          padding: 14px 12px;
-          border-radius: 14px;
+          padding: 15px;
+          border-radius: 16px;
         }
         .stat .icon {
           display: none;
         }
         .stat p {
           font-size: 12px;
-          margin-bottom: 2px;
+          margin-bottom: 4px;
         }
         .stat h2 {
-          font-size: 22px;
+          font-size: 26px;
+          line-height: 32px;
         }
 
         .panel {
-          border-radius: 16px;
-          margin-bottom: 20px;
+          border-radius: 20px;
+          margin-bottom: 24px;
+          padding: 0 17px 4px;
         }
         .panel-head {
-          padding: 16px;
+          gap: 12px;
+          padding: 17px 0 13px;
+          border-bottom: 1px solid #eef1f5;
+        }
+        .panel-head h3 {
+          flex: 1;
+          font-size: 17px;
+        }
+        .forms-count {
+          display: inline;
         }
 
-        #formsTable {
+        #formsTable,
+        #formsTable tbody {
+          display: block;
           min-width: 0;
-          table-layout: fixed;
-          width: 100%;
         }
-        #formsTable th,
-        #formsTable td {
-          white-space: normal;
-          overflow-wrap: anywhere;
-          padding: 12px;
-        }
-        #formsTable th:nth-child(2),
-        #formsTable td:nth-child(2):not(.empty) {
+        #formsTable thead {
           display: none;
         }
-        #formsTable th:nth-child(3) {
-          width: 132px;
+        #formsTable tr {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto auto;
+          grid-template-areas:
+            "name status eye"
+            "sent status eye";
+          column-gap: 10px;
+          align-items: center;
+          padding: 14px 0;
+        }
+        #formsTable tr + tr {
+          border-top: 1px solid #eef1f5;
+        }
+        #formsTable td {
+          display: block;
+          padding: 0;
+          border: none;
+          white-space: normal;
+          overflow-wrap: anywhere;
+        }
+        #formsTable td:nth-child(1) {
+          grid-area: name;
+          font-size: 15px;
+          line-height: 20px;
+        }
+        #formsTable td:nth-child(2) {
+          grid-area: sent;
+          margin-top: 2px;
+          font-size: 12px;
+          color: #98a2b3;
+        }
+        #formsTable td:nth-child(2)::before {
+          content: "Sent: ";
+        }
+        #formsTable td:nth-child(3) {
+          grid-area: status;
+        }
+        #formsTable td:nth-child(4) {
+          grid-area: eye;
         }
         #formsTable .badge {
           display: inline-block;
           white-space: nowrap;
-          padding: 5px 10px;
+          padding: 4px 12px;
         }
-        #formsTable th:nth-child(4) {
-          width: 58px;
+        /* The one-cell rows - loading, empty - stay a plain line of text. */
+        #formsTable tr:has(> td.empty) {
+          display: block;
+        }
+        #formsTable td.empty {
+          padding: 22px 0;
+        }
+        #formsTable td.empty::before {
+          content: none;
         }
         .row-action .view {
           display: none;
         }
         .row-action .eye-btn {
           display: inline-flex;
+          width: 32px;
+          height: 32px;
+          border: none;
+          border-radius: 8px;
         }
 
-        /* One card per row, thumbnail beside the text, so three posts take
-           a screen rather than three. */
+        /* Two cards side by side, picture above the text - so the third
+           would sit alone on a row of its own, and is left to content.html. */
+        .latest-head h3 {
+          font-size: 17px;
+        }
         .latest-grid {
-          grid-template-columns: 1fr;
-          gap: 10px;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 14px;
+        }
+        .latest-card:nth-child(n + 3) {
+          display: none;
         }
         .latest-card {
-          display: flex;
-          gap: 12px;
-          align-items: center;
+          padding: 13px;
+          border-radius: 16px;
         }
         .latest-img {
-          width: 84px;
-          flex: none;
-          aspect-ratio: 1 / 1;
+          aspect-ratio: 4 / 3;
+          border-radius: 10px;
         }
         .latest-body {
-          padding: 2px 4px 2px 0;
+          padding: 10px 0 0;
+        }
+        .latest-body h4 {
+          font-size: 13px;
+          color: var(--text);
         }
       }
 
@@ -832,6 +891,7 @@
           <div class="panel">
             <div class="panel-head">
               <h3 id="formsHeading">All forms</h3>
+              <span class="forms-count" id="formsCount"></span>
               <a href="#" id="showAll" hidden onclick="setFilter('all'); return false;">Show all ›</a>
             </div>
             <table id="formsTable">
@@ -853,7 +913,7 @@
           <div class="latest">
             <div class="latest-head">
               <h3>Latest content</h3>
-              <a href="content.html">View all content ›</a>
+              <a href="content.html">View all ›</a>
             </div>
             <div class="latest-grid" id="latestContent">
               <div class="latest-empty">Loading content...</div>
@@ -919,6 +979,8 @@
           : allSurveys.filter(s => s.status === currentFilter);
 
         document.getElementById("formsHeading").innerText = filterTitles[currentFilter];
+        document.getElementById("formsCount").innerText =
+          `${rows.length} item${rows.length === 1 ? "" : "s"}`;
         document.getElementById("showAll").hidden = currentFilter === "all";
         document.querySelectorAll(".stat").forEach(card => {
           card.classList.toggle("active", card.dataset.filter === currentFilter);
