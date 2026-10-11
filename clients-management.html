@@ -208,7 +208,7 @@ document.addEventListener("DOMContentLoaded", function () {
   set("adminName", name);  set("adminRole", label);  set("adminAvatar", initial);
   set("acctName", name);   set("acctRole", label);   set("acctAvatar", initial);
 });
-</script><link rel="stylesheet" href="assets/shell.css?v=3" />
+</script><link rel="stylesheet" href="assets/shell.css?v=4" />
 <style>
 /*
 | -- Clients on a phone -------------------------------------------------------
@@ -347,7 +347,7 @@ document.addEventListener("DOMContentLoaded", function () {
     <div class="page-head">
       <div class="page-title">
         <h1 id="usersPanelTitle">Clients Management</h1>
-        <p id="usersPanelSub">Registered clients. Open one to approve, reject or delete it.</p>
+        <p id="usersPanelSub">Approve or reject newly registered clients.</p>
       </div>
     </div>
 
@@ -407,7 +407,7 @@ const isOwner = myRole === "owner";
 // and decides on it from the client's own page, everyone below is just looking
 // at the slice handed down to them.
 const USERS_COPY = {
-  owner:       { title: "Clients Management", sub: "Registered clients. Open one to approve, reject or delete it." },
+  owner:       { title: "Clients Management", sub: "Approve or reject newly registered clients." },
   super_admin: { title: "Clients Management", sub: "Clients whose team you are on." },
   seo_admin:   { title: "Clients Management", sub: "Clients whose team you are on." },
   account_manager: { title: "Clients Management", sub: "Clients whose team you are on." }
@@ -795,7 +795,7 @@ loadUsers();
 
 
 <script src="assets/notifications.js?v=1"></script>
-<script src="assets/shell.js?v=2"></script>
+<script src="assets/shell.js?v=3"></script>
 <script src="assets/sources-lock.js?v=1"></script>
 <script src="assets/role-nav.js?v=1"></script>
 <script>

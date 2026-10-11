@@ -162,19 +162,9 @@
       'stroke-width="2" stroke-linecap="round">' +
       '<path d="M4 7h16M4 12h16M4 17h16"/></svg>';
 
+    /* The hamburger alone, as the design has it. The logo is still one tap
+       away, at the head of the drawer this opens. */
     bar.appendChild(burger);
-
-    /* Cloned rather than hardcoded: the sidebar logo is logo.png when an admin
-       has uploaded one and falls back to the bundled wordmark through its own
-       onerror, and the copy should follow whichever it lands on. */
-    var logo = sidebar.querySelector(".logo img, .side-logo img");
-
-    if (logo) {
-      var mark = document.createElement("span");
-      mark.className = "wz-mark";
-      mark.appendChild(logo.cloneNode(true));
-      bar.appendChild(mark);
-    }
 
     document.body.appendChild(bar);
 
