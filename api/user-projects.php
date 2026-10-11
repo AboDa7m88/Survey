@@ -290,7 +290,8 @@ try {
             p.end_date,
             p.progress,
             p.status,
-            p.image_path
+            p.image_path,
+            " . PROJECT_BUCKET_SQL . " AS bucket
         FROM projects p
         $whereSql
         ORDER BY p.start_date DESC, p.id DESC

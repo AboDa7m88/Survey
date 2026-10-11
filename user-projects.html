@@ -160,21 +160,80 @@ td.action{text-align:center;white-space:nowrap}
   .side-head{display:none}
   .content{padding:24px 18px}
 }
+/* ── Status pill ──────────────────────────────────────────────────────────
+   The stat cards' own bucket - active, upcoming or completed, worked out once
+   in SQL - so a card and the tile above it can never disagree. Phone only: the
+   desktop table has never had a status column and is not getting one here. */
+.p-bucket{display:none}
+
+/* ── Projects on a phone ──────────────────────────────────────────────────
+   Below 768px each row becomes the card the design draws: title and status
+   pill, then Type and Timeline as label-and-value lines, then a full-width
+   View Details. The cells are the desktop row's own, rearranged on a grid, so
+   nothing re-renders on resize. Two-class selectors throughout because
+   shell.css loads after this block and pins nowrap on every .wz-tablewrap
+   cell. */
 @media(max-width:768px){
-  /* shell.css pins nowrap on every cell in a .wz-tablewrap, which a long
-     project name needs released now that it has a narrow column to itself.
-     Two-class selectors because shell.css loads after this block and an
-     equally specific rule would lose on source order. */
-  .table-card .wz-tablewrap td,
-  .table-card .wz-tablewrap th{white-space:normal}
-  td.action,th:last-child{white-space:nowrap}
-  /* Type and timeline are context rather than identity, so they come out
-     first. The View Details button stays: it is the only way through to the
-     project, and there is no kebab here to fall back on. */
-  .col-type,.col-timeline{display:none}
-  th,td{padding:20px 12px}
-  th:first-child,td:first-child{padding-left:12px;width:58%}
-  th:last-child,td:last-child{padding-right:12px;width:42%}
+  .table-card{background:transparent;box-shadow:none;padding:0}
+  .table-card .wz-tablewrap > table,
+  .table-card tbody{display:block;min-width:0}
+  .table-card thead{display:none}
+  .table-card tbody{display:flex;flex-direction:column;gap:12px}
+
+  .table-card tbody tr{
+    display:grid;
+    grid-template-columns:minmax(0,1fr);
+    grid-template-areas:"title" "type" "timeline" "action";
+    padding:17px;
+    background:#fff;border:1px solid var(--line);border-radius:16px;
+    box-shadow:0 8px 20px rgba(16,24,40,.04);
+  }
+
+  .table-card .wz-tablewrap td{
+    display:block;width:auto;padding:0;border:none;
+    white-space:normal;text-align:left;
+  }
+
+  .table-card .wz-tablewrap td:nth-child(1){
+    grid-area:title;
+    display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+  }
+  .table-card .p-title{font-size:17px;line-height:24px}
+
+  .table-card .p-bucket{
+    display:inline-flex;align-items:center;gap:6px;flex:none;
+    padding:2px 9px;border-radius:999px;
+    font-size:11px;font-weight:800;line-height:17px;
+    background:#ecfdf3;color:#067647;
+  }
+  .table-card .p-bucket::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+  .table-card .p-bucket.upcoming{background:#eff4ff;color:#3538cd}
+  .table-card .p-bucket.completed{background:#f2f4f7;color:#475467}
+
+  /* The two label-and-value lines. The labels are drawn here rather than put
+     in the markup, where the desktop table would show them twice. */
+  .table-card .wz-tablewrap td.col-type,
+  .table-card .wz-tablewrap td.col-timeline{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    font-size:13px;
+  }
+  .table-card .wz-tablewrap td.col-type{grid-area:type;margin-top:14px}
+  .table-card .wz-tablewrap td.col-timeline{grid-area:timeline;margin-top:10px}
+  .table-card .wz-tablewrap td.col-type::before{content:"Type"}
+  .table-card .wz-tablewrap td.col-timeline::before{content:"Timeline"}
+  .table-card .wz-tablewrap td.col-type::before,
+  .table-card .wz-tablewrap td.col-timeline::before{font-size:12px;color:var(--muted);flex:none}
+  .table-card .timeline{justify-content:flex-end}
+
+  .table-card .wz-tablewrap td.action{grid-area:action;margin-top:16px;white-space:nowrap}
+  .table-card td.action .btn{display:flex;width:100%;padding:8px 14px}
+
+  /* The one-cell rows - loading, empty, failed - stay a plain line of text. */
+  .table-card tbody tr:has(> td[colspan]){display:block;background:transparent;border:none;box-shadow:none;padding:0}
+  .table-card .wz-tablewrap td[colspan]{display:block;padding:24px 0}
+
+  .table-card .pager{border-top:none;padding:16px 0 0}
+}
 }
 @media(max-width:700px){
   .stats{grid-template-columns:repeat(2,1fr);gap:12px}
@@ -564,7 +623,10 @@ function render(){
 
   rows.innerHTML = slice.map(project => `
     <tr>
-      <td><span class="p-title" dir="auto">${esc(project.title)}</span></td>
+      <td>
+        <span class="p-title" dir="auto">${esc(project.title)}</span>
+        ${bucketPill(project.bucket)}
+      </td>
       <td class="col-type"><span class="p-type">${esc(project.type_label)}</span></td>
       <td class="col-timeline">
         <span class="timeline">
@@ -580,6 +642,14 @@ function render(){
   `).join("");
 
   renderPager(total, pages, start, slice.length);
+}
+
+const BUCKET_LABELS = { active: "Active", upcoming: "Upcoming", completed: "Completed" };
+
+// The card's status pill on a phone; the CSS keeps it out of the desktop row.
+function bucketPill(bucket){
+  if (!BUCKET_LABELS[bucket]) return "";
+  return `<span class="p-bucket ${bucket}">${BUCKET_LABELS[bucket]}</span>`;
 }
 
 function renderPager(total, pages, start, shown){

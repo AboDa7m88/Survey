@@ -294,9 +294,7 @@ td.menu-cell,th.col-menu{text-align:right;white-space:nowrap;padding-left:4px}
    Two controls at every width: View, the thing you came to the row to do, and
    a three-dot menu holding the two that change or destroy it. Edit and Delete
    sitting out in the open gave a destructive action the same weight as the
-   ordinary one, and cost the column width it needed on a narrow screen. Below
-   768px the timeline column - context rather than identity - still comes out,
-   but the actions no longer change shape. */
+   ordinary one, and cost the column width it needed on a narrow screen. */
 .kebab-wrap{position:relative;display:inline-block}
 .kebab{
   width:34px;height:34px;border:1px solid #dfe3ea;background:#fff;border-radius:9px;
@@ -315,10 +313,6 @@ td.menu-cell,th.col-menu{text-align:right;white-space:nowrap;padding-left:4px}
   display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:8px;
   font-size:13px;font-weight:700;color:var(--text);text-decoration:none;white-space:nowrap;
 }
-/* View sits in the menu only once the button beside it has gone; above the
-   breakpoint it would be the same destination offered twice in one cell. */
-.kebab-menu .menu-view{display:none}
-
 /* Delete is a <button> rather than a link, so the menu styles both. */
 .kebab-menu button{
   width:100%;font:inherit;background:none;border:none;cursor:pointer;
@@ -333,9 +327,9 @@ td.menu-cell,th.col-menu{text-align:right;white-space:nowrap;padding-left:4px}
 .kebab-menu .danger svg{color:var(--brand)}
 .kebab-menu .danger:hover{background:#fff5f5}
 
-/* A row this admin may only look at has nothing in its menu but View, which
-   above the breakpoint is nothing at all - so the control is hidden but its
-   box is kept, and the View buttons stay in a line down the column. */
+/* A row this admin may only look at has nothing in its menu at all - so the
+   control is hidden but its box is kept, and the View buttons stay in a line
+   down the column. */
 .kebab-wrap.view-only{visibility:hidden}
 
 /* The action cell now holds "View" and a 34px square, so the column can give
@@ -348,35 +342,94 @@ td.menu-cell,th.col-menu{text-align:right;white-space:nowrap;padding-left:4px}
   th:nth-child(3),td:nth-child(3){width:24%}
   td.action{padding-left:8px}
 }
-@media(max-width:768px){
-  /* shell.css pins nowrap on every cell in a .wz-tablewrap, which a long
-     project name needs released now that it has a narrow column to itself.
-     Two-class selectors because shell.css loads after this block and an
-     equally specific rule would lose on source order. */
-  .table-card .wz-tablewrap td,
-  .table-card .wz-tablewrap th{white-space:normal}
-  /* Same two-class weight as the rule above, which would otherwise win on
-     specificity and let the action cell break between View and the kebab. */
-  .table-card .wz-tablewrap td.action,
-  .table-card .wz-tablewrap th:last-child{white-space:nowrap}
-  .col-timeline{display:none}
-  /* View moves into the menu here, which leaves its column holding nothing -
-     so the column goes too, rather than sitting there as an empty heading. */
-  .col-action,td.action{display:none}
-  /* Taller rows, and the two text columns squeezed so a long name uses the
-     second line the clamp above allows instead of one wide one. */
-  th,td{padding:20px 12px}
-  /* Only a 34px square to fit now, so the two text columns take the room. */
-  th:first-child,td:first-child{padding-left:12px;width:60%}
-  th:nth-child(2),td:nth-child(2){width:26%}
-  th:nth-child(5),td:nth-child(5){width:14%}
-  th:last-child,td:last-child{padding-right:12px}
+/* ── Status pill ──────────────────────────────────────────────────────────
+   The stat cards' own bucket - active, upcoming or completed, worked out once
+   in SQL - so a card and the tile above it can never disagree. Phone only: the
+   desktop table has never had a status column and is not getting one here. */
+.p-bucket{display:none}
 
-  /* The menu is the whole cell here, so it gives the padding back. */
-  td.menu-cell,th.col-menu{padding-left:0}
-  .action .action-btns{display:none}
-  .kebab-menu .menu-view{display:flex}
-  .kebab-wrap.view-only{visibility:visible}
+/* ── Projects on a phone ──────────────────────────────────────────────────
+   Below 768px each row becomes the card the design draws: title and status
+   pill, then Client and Timeline as label-and-value lines, then a full-width
+   View with the Edit/Delete menu beside it when this admin has either. The
+   cells are the desktop row's own, rearranged on a grid, so nothing
+   re-renders on resize. Two-class selectors throughout because shell.css
+   loads after this block and pins nowrap on every .wz-tablewrap cell. */
+@media(max-width:768px){
+  .table-card{background:transparent;box-shadow:none;padding:0}
+  .table-card .wz-tablewrap > table,
+  .table-card tbody{display:block;min-width:0}
+  .table-card thead{display:none}
+  .table-card tbody{display:flex;flex-direction:column;gap:12px}
+
+  .table-card tbody tr{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    grid-template-areas:
+      "title    title"
+      "client   client"
+      "timeline timeline"
+      "action   menu";
+    padding:17px;
+    background:#fff;border:1px solid var(--line);border-radius:16px;
+    box-shadow:0 8px 20px rgba(16,24,40,.04);
+  }
+
+  .table-card .wz-tablewrap td{
+    display:block;width:auto;padding:0;border:none;
+    white-space:normal;text-align:left;
+  }
+
+  .table-card .wz-tablewrap td:nth-child(1){
+    grid-area:title;
+    display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+  }
+  .table-card .p-title{font-size:17px;line-height:24px}
+
+  .table-card .p-bucket{
+    display:inline-flex;align-items:center;gap:6px;flex:none;
+    padding:2px 9px;border-radius:999px;
+    font-size:11px;font-weight:800;line-height:17px;
+    background:#ecfdf3;color:#067647;
+  }
+  .table-card .p-bucket::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+  .table-card .p-bucket.upcoming{background:#eff4ff;color:#3538cd}
+  .table-card .p-bucket.completed{background:#f2f4f7;color:#475467}
+
+  /* The two label-and-value lines. The labels are drawn here rather than put
+     in the markup, where the desktop table would show them twice. */
+  .table-card .wz-tablewrap td:nth-child(2),
+  .table-card .wz-tablewrap td.col-timeline{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    font-size:13px;
+  }
+  .table-card .wz-tablewrap td:nth-child(2){grid-area:client;margin-top:14px}
+  .table-card .wz-tablewrap td.col-timeline{grid-area:timeline;margin-top:10px}
+  .table-card .wz-tablewrap td:nth-child(2)::before{content:"Client"}
+  .table-card .wz-tablewrap td.col-timeline::before{content:"Timeline"}
+  .table-card .wz-tablewrap td:nth-child(2)::before,
+  .table-card .wz-tablewrap td.col-timeline::before{font-size:12px;color:var(--muted);flex:none}
+  .table-card .p-client{font-weight:700;color:var(--text);text-align:right}
+  .table-card .timeline{justify-content:flex-end}
+
+  .table-card .wz-tablewrap td.action{grid-area:action;margin-top:16px}
+  .table-card .action-btns{display:flex}
+  .table-card .action-btns .btn{
+    flex:1;padding:8px 14px;
+    background:#fff;color:var(--text);border:1px solid #dfe3ea;
+  }
+  .table-card .action-btns .btn:hover{background:#f6f7f9}
+
+  .table-card .wz-tablewrap td.menu-cell{grid-area:menu;margin:16px 0 0 8px}
+  /* An empty menu keeps its box on a desktop to line the column up; a card
+     has no column, so View takes the whole width. */
+  .table-card .wz-tablewrap td.menu-cell:has(.view-only){display:none}
+
+  /* The one-cell rows - loading, empty, failed - stay a plain line of text. */
+  .table-card tbody tr:has(> td[colspan]){display:block;background:transparent;border:none;box-shadow:none;padding:0}
+  .table-card .wz-tablewrap td[colspan]{display:block;padding:24px 0}
+
+  .table-card .pager{border-top:none;padding:16px 0 0}
 }
 
 /* ── Delete confirmation ───────────────────────────────────────────────────
@@ -879,7 +932,10 @@ function render(){
 
   rows.innerHTML = slice.map(project => `
     <tr>
-      <td><span class="p-title" dir="auto">${esc(project.title)}</span></td>
+      <td>
+        <span class="p-title" dir="auto">${esc(project.title)}</span>
+        ${bucketPill(project.bucket)}
+      </td>
       <td><span class="p-client" dir="auto">${esc(project.company_name || project.client_name || "—")}</span></td>
       <td class="col-timeline">
         <span class="timeline">
@@ -899,6 +955,14 @@ function render(){
 
   wireKebabs();
   renderPager(total, pages, start, slice.length);
+}
+
+const BUCKET_LABELS = { active: "Active", upcoming: "Upcoming", completed: "Completed" };
+
+// The card's status pill on a phone; the CSS keeps it out of the desktop row.
+function bucketPill(bucket){
+  if (!BUCKET_LABELS[bucket]) return "";
+  return `<span class="p-bucket ${bucket}">${BUCKET_LABELS[bucket]}</span>`;
 }
 
 /*
@@ -926,17 +990,10 @@ function rowMenu(project){
       </button>`);
   }
 
-  /* View is in the menu at every width, and showing on a phone. A row whose
-     menu holds nothing else is marked so the CSS can hide the control above the
-     breakpoint while keeping the space it occupies. */
-  items.unshift(`
-      <a class="menu-view" role="menuitem" href="project-details.html?id=${encodeURIComponent(project.id)}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 12S5 5 12 5s10.5 7 10.5 7-3.5 7-10.5 7S1.5 12 1.5 12z"/><circle cx="12" cy="12" r="3"/></svg>
-        View details
-      </a>`);
-
+  /* A row with nothing to offer is marked so the CSS can hide the control
+     while keeping the space it occupies on a desktop. */
   return `
-    <div class="kebab-wrap${items.length === 1 ? " view-only" : ""}">
+    <div class="kebab-wrap${items.length ? "" : " view-only"}">
       <button class="kebab" type="button" aria-haspopup="menu" aria-expanded="false"
               aria-label="More actions for ${esc(project.title)}">
         <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>
