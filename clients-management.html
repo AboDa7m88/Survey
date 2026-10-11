@@ -213,70 +213,73 @@ document.addEventListener("DOMContentLoaded", function () {
 /*
 | -- Clients on a phone -------------------------------------------------------
 |
-| The same shape the Forms list uses, and loaded after shell.css for the same
-| reason: a few rules here undo one of its .wz-tablewrap rules and win on the
-| id selector rather than on !important.
+| Loaded after shell.css: a few rules here undo one of its .wz-tablewrap rules
+| and win on the id selector rather than on !important.
 |
-| Five columns do not fit at 390px. The two that say which client the row is -
-| the company and whether the account is approved - stay, and the row's View
-| button moves into a kebab. The email and the signup date are both on the
-| client's own page, which that menu opens.
+| Five columns do not fit at 390px, so below 768px each row stops being a row
+| and becomes a card, as the design draws it - client and email on the left,
+| the status pill opposite, and underneath the signup time beside the View
+| button. Same markup on every screen; nothing re-renders on resize.
 */
-
-.row-kebab{display:none}
-
-.row-menu{
-  position:fixed;z-index:100000;min-width:190px;padding:6px;
-  background:#fff;border:1px solid var(--line, #eaecf0);border-radius:12px;
-  box-shadow:0 18px 40px rgba(16,24,40,.18);
-}
-.row-menu[hidden]{display:none}
-.row-menu button,
-.row-menu a{
-  display:block;width:100%;padding:11px 12px;border:none;border-radius:9px;
-  background:transparent;text-align:left;text-decoration:none;
-  font:inherit;font-size:14px;font-weight:700;color:#101828;cursor:pointer;
-}
-.row-menu button:hover,
-.row-menu a:hover{background:#f6f7f9}
 
 @media(max-width:768px){
 
-  /* Email and signup date: both are on the client's own page, which the row
-     menu opens. */
-  #pendingPanel table th:nth-child(2),#approvedPanel table th:nth-child(2),#pendingPanel table td:nth-child(2),#approvedPanel table td:nth-child(2),
-  #pendingPanel table th:nth-child(4),#approvedPanel table th:nth-child(4),#pendingPanel table td:nth-child(4),#approvedPanel table td:nth-child(4){
-    display:none;
+  .panel-head{padding:17px 17px 12px;border-bottom:none}
+  .panel-head h1{font-size:18px;line-height:24px;margin-bottom:2px}
+  .panel-head p{font-size:13px}
+
+  #pendingPanel table,#approvedPanel table{min-width:0;display:block}
+  #pendingPanel thead,#approvedPanel thead{display:none}
+  #pendingPanel tbody,#approvedPanel tbody{display:flex;flex-direction:column;gap:12px;padding:5px 17px 17px}
+
+  #pendingPanel tr,#approvedPanel tr{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    grid-template-areas:
+      "name  status"
+      "email status"
+      "date  action";
+    column-gap:12px;
+    padding:15px;
+    border:1px solid var(--line);border-radius:12px;background:#fff;
   }
 
-  /* Two columns fit, so let a long client name wrap instead of handing the
-     panel a horizontal scrollbar. The min-width undoes the 760px this page
-     puts on every table below 800px; the wrapping beats shell.css. Both win
-     on the id rather than on !important. */
-  #pendingPanel table,#approvedPanel table{min-width:0}
-
-  /* Fixed widths so the Pending and Approved tables line up with each other,
-     as the two tables on the Forms page do: Status and Actions sized to their
-     badge and kebab, Client takes what is left. */
-  #pendingPanel table,#approvedPanel table{table-layout:fixed;width:100%}
-  #pendingPanel table th:nth-child(3),#approvedPanel table th:nth-child(3){width:130px}
-  #pendingPanel table th:nth-child(5),#approvedPanel table th:nth-child(5){width:68px}
-  #pendingPanel table th,#approvedPanel table th,#pendingPanel table td,#approvedPanel table td{
-    white-space:normal;
-    padding-left:12px;padding-right:12px;
+  #pendingPanel td,#approvedPanel td{
+    display:block;padding:0;border:none;
+    white-space:normal;overflow-wrap:anywhere;
   }
 
-  #pendingPanel table td:last-child,#approvedPanel table td:last-child{width:44px}
-
-  #pendingPanel table .actions .btn,#approvedPanel table .actions .btn{display:none}
-
-  #pendingPanel table .row-kebab,#approvedPanel table .row-kebab{
-    display:inline-flex;align-items:center;justify-content:center;
-    width:36px;height:36px;padding:0;flex:none;
-    border:1px solid #dfe3ea;border-radius:9px;
-    background:#fff;color:#667085;cursor:pointer;
+  #pendingPanel td:nth-child(1),#approvedPanel td:nth-child(1){grid-area:name;font-size:15px;font-weight:700;line-height:20px}
+  #pendingPanel td:nth-child(2),#approvedPanel td:nth-child(2){grid-area:email;font-size:12px;line-height:16px;color:var(--muted);margin-top:2px}
+  #pendingPanel td:nth-child(3),#approvedPanel td:nth-child(3){grid-area:status;align-self:start}
+  #pendingPanel td:nth-child(4),#approvedPanel td:nth-child(4){
+    grid-area:date;align-self:center;margin-top:10px;
+    display:flex;align-items:center;gap:8px;
+    font-size:12px;color:#98a2b3;
   }
-  .row-kebab svg{width:18px;height:18px}
+  #pendingPanel td:nth-child(3),#approvedPanel td:nth-child(3),
+  #pendingPanel td:nth-child(5),#approvedPanel td:nth-child(5){justify-self:end}
+  #pendingPanel td:nth-child(5),#approvedPanel td:nth-child(5){grid-area:action;margin-top:10px}
+
+  /* A clock ahead of the signup time, drawn rather than shipped as a file. */
+  #pendingPanel td:nth-child(4)::before,#approvedPanel td:nth-child(4)::before{
+    content:"";width:10px;height:10px;flex:none;
+    border:1.5px solid currentColor;border-radius:50%;
+    background:
+      linear-gradient(currentColor,currentColor) 4px 2px/1.5px 3.5px no-repeat,
+      linear-gradient(currentColor,currentColor) 4px 4.5px/3px 1.5px no-repeat;
+  }
+
+  #pendingPanel .badge,#approvedPanel .badge{display:inline-block;padding:3px 10px;border:1px solid color-mix(in srgb, currentColor 35%, transparent);font-size:11px}
+
+  #pendingPanel .action-btn,#approvedPanel .action-btn{
+    display:inline-block;padding:4px 20px;border-radius:6px;
+    background:#101828;font-size:12px;font-weight:700;
+  }
+
+  /* The one-cell rows - loading, empty, failed - stay a plain line of text. */
+  #pendingPanel tr:has(> td[colspan]),#approvedPanel tr:has(> td[colspan]){display:block;border:none;padding:0}
+  #pendingPanel td[colspan],#approvedPanel td[colspan]{padding:20px 0;text-align:center}
 }
 </style>
 </head><body>
@@ -482,120 +485,6 @@ function failTables(message){
   `;
 }
 
-/* ── The row kebab ──────────────────────────────────────────────────────────
-   A phone has room for the client name, the status and one control, so below
-   768px the row's View button is swapped for this and moves into a menu. The
-   button is in the markup on every screen; shell.css's breakpoint decides
-   which of the two is on show, so nothing re-renders when the window resizes.
-
-   The menu is one element reused by every row, positioned under whichever
-   button was pressed - a menu per row would be hundreds of hidden nodes. */
-
-function kebabButton(userId){
-  return `
-    <button class="row-kebab" type="button" aria-haspopup="true" aria-expanded="false"
-            aria-label="Actions" onclick="openRowMenu(event, ${Number(userId)})">
-      <svg viewBox="0 0 24 24" fill="currentColor">
-        <circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/>
-      </svg>
-    </button>
-  `;
-}
-
-let rowMenuButton = null;
-
-function rowMenuEl(){
-  let menu = document.getElementById("rowMenu");
-
-  if(!menu){
-    menu = document.createElement("div");
-    menu.id = "rowMenu";
-    menu.className = "row-menu";
-    menu.hidden = true;
-    document.body.appendChild(menu);
-  }
-
-  return menu;
-}
-
-function openRowMenu(event, userId){
-  event.stopPropagation();
-
-  const button = event.currentTarget;
-
-  // Second press on the same row closes it, the way the button's own toggle
-  // state suggests it should.
-  if(rowMenuButton === button){
-    closeRowMenu();
-    return;
-  }
-
-  closeRowMenu();
-
-  const user = allUsers.find(item => Number(item.id) === Number(userId));
-
-  if(!user) return;
-
-  // The same action the row offers on a desktop: the client's own page, which
-  // is where every decision about the account is made.
-  const items = [
-    `<a href="user-details.html?id=${encodeURIComponent(user.id)}"
-        onclick="closeRowMenu()">View client</a>`
-  ];
-
-  const menu = rowMenuEl();
-  menu.innerHTML = items.join("");
-  menu.hidden = false;
-
-  placeRowMenu(menu, button);
-
-  button.setAttribute("aria-expanded", "true");
-  rowMenuButton = button;
-
-  // preventScroll: the menu is fixed and already on screen, and a scroll here
-  // would trip the listener below and close what was just opened.
-  const first = menu.querySelector("button, a");
-  if(first) first.focus({ preventScroll: true });
-}
-
-/* position:fixed, so the box is measured against the viewport and never
-   clipped by the panel's own overflow. Right-aligned under the button, and
-   flipped above it when the row is near the bottom of the screen. */
-function placeRowMenu(menu, button){
-  const rect = button.getBoundingClientRect();
-  const box = menu.getBoundingClientRect();
-  const gap = 6;
-
-  let left = rect.right - box.width;
-  left = Math.min(Math.max(8, left), window.innerWidth - box.width - 8);
-
-  const below = rect.bottom + gap;
-  const top = below + box.height > window.innerHeight - 8
-    ? Math.max(8, rect.top - gap - box.height)
-    : below;
-
-  menu.style.left = left + "px";
-  menu.style.top = top + "px";
-}
-
-function closeRowMenu(){
-  const menu = document.getElementById("rowMenu");
-  if(menu) menu.hidden = true;
-
-  if(rowMenuButton) rowMenuButton.setAttribute("aria-expanded", "false");
-  rowMenuButton = null;
-}
-
-document.addEventListener("click", closeRowMenu);
-document.addEventListener("keydown", function(event){
-  if(event.key === "Escape") closeRowMenu();
-});
-window.addEventListener("resize", closeRowMenu);
-
-// The menu is position:fixed and the page scrolls behind it, so it would
-// otherwise drift away from its row.
-window.addEventListener("scroll", closeRowMenu, true);
-
 /*
 |------------------------------------------------------------------------------
 | Two tables, not one
@@ -646,10 +535,6 @@ function userRow(user){
       <td>
         <div class="actions">
           <a class="btn action-btn" href="user-details.html?id=${esc(user.id)}">View</a>
-
-          <!-- Phone only, and the whole column there: the View button does not
-               fit beside the client name. Opens the same page. -->
-          ${kebabButton(user.id)}
         </div>
       </td>
     </tr>
