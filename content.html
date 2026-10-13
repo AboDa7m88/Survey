@@ -351,6 +351,50 @@
         grid-template-columns: repeat(3, 1fr);
       }
 
+      /* ── Every image on the post: the big one, and a strip to switch between them ── */
+      .detail-gallery {
+        min-width: 0;
+      }
+      .detail-thumbs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .detail-thumbs:empty {
+        display: none;
+      }
+      .detail.is-horizontal .detail-thumbs {
+        max-width: 672px;
+        margin-left: auto;
+        margin-right: auto;
+        justify-content: center;
+      }
+      .detail-thumb {
+        width: 56px;
+        height: 56px;
+        padding: 0;
+        border: 2px solid transparent;
+        border-radius: 9px;
+        background: #f1f3f7 center/cover no-repeat;
+        cursor: pointer;
+        opacity: 0.7;
+        transition:
+          border-color 0.15s,
+          opacity 0.15s;
+      }
+      .detail-thumb:hover {
+        opacity: 1;
+      }
+      .detail-thumb.active {
+        border-color: var(--nav-active);
+        opacity: 1;
+      }
+      .detail-thumb:focus-visible {
+        outline: 2px solid var(--nav-active);
+        outline-offset: 2px;
+      }
+
       /* ── Timing and the link share one line under the copy ── */
       .detail-footer {
         grid-column: 1/-1;
@@ -951,13 +995,17 @@
             </div>
 
             <article class="detail is-horizontal" id="detailPanel">
-              <!-- Click to open it full size. See assets/lightbox.js. -->
-              <div
-                class="detail-media"
-                id="detailMedia"
-                data-lightbox
-                data-lightbox-alt="Post image"
-              ></div>
+              <div class="detail-gallery">
+                <!-- Click to open it full size. See assets/lightbox.js. -->
+                <div
+                  class="detail-media"
+                  id="detailMedia"
+                  data-lightbox
+                  data-lightbox-alt="Post image"
+                ></div>
+                <!-- One button per image when the post has more than one. -->
+                <div class="detail-thumbs" id="detailThumbs"></div>
+              </div>
               <div class="detail-meta">
                 <div class="field wide">
                   <h5>Caption</h5>
@@ -1387,7 +1435,7 @@
          data-id="${esc(item.id)}" onclick="selectContent('${esc(item.id)}')">
       <div class="card-img" style="${item.media_path ? `background-image:url('${esc(item.media_path)}')` : ""}"></div>
       <div class="card-body">
-        <div class="card-eyebrow">${esc(item.platform)} · ${esc(item.type_label)}</div>
+        <div class="card-eyebrow">${esc(eyebrowFor(item)) || "&nbsp;"}</div>
         <h3>${esc(item.title)}</h3>
         ${cardTimes(item)}
       </div>
@@ -1395,6 +1443,57 @@
   `,
           )
           .join("");
+      }
+
+      /* "Instagram · Reel", or whichever half the post has. */
+      function eyebrowFor(item) {
+        return [item.platform, item.type_label].filter(Boolean).join(" · ");
+      }
+
+      /* The detail panel's images: the first one large, and - when there is
+   more than one - a strip of buttons that swaps which one is large. The
+   lightbox reads the large box's background when clicked, so it opens
+   whichever image is showing. Older rows have only media_path. */
+      function renderGallery(item) {
+        const media = document.getElementById("detailMedia");
+        const thumbs = document.getElementById("detailThumbs");
+
+        const images = Array.isArray(item.images)
+          ? item.images
+          : item.media_path
+            ? [item.media_path]
+            : [];
+
+        const show = (index) => {
+          media.style.backgroundImage = images[index]
+            ? `url('${images[index]}')`
+            : "";
+          thumbs.querySelectorAll(".detail-thumb").forEach((button, i) => {
+            button.classList.toggle("active", i === index);
+            button.setAttribute("aria-pressed", i === index ? "true" : "false");
+          });
+        };
+
+        thumbs.innerHTML =
+          images.length > 1
+            ? images
+                .map(
+                  (src, index) => `
+            <button class="detail-thumb" type="button" data-index="${index}"
+                    style="background-image:url('${esc(src)}')"
+                    aria-label="Show image ${index + 1} of ${images.length}"></button>
+          `,
+                )
+                .join("")
+            : "";
+
+        thumbs.querySelectorAll(".detail-thumb").forEach((button) => {
+          button.addEventListener("click", () =>
+            show(Number(button.dataset.index)),
+          );
+        });
+
+        show(0);
       }
 
       function selectContent(id) {
@@ -1422,8 +1521,7 @@
 
         wrap.style.display = "block";
 
-        document.getElementById("detailEyebrow").innerText =
-          `${item.platform} · ${item.type_label}`;
+        document.getElementById("detailEyebrow").innerText = eyebrowFor(item);
         document.getElementById("detailTitle").innerText = item.title || "";
 
         // One markup block — the orientation class is what swaps the layout.
@@ -1432,10 +1530,7 @@
           "detail " +
           (item.orientation === "vertical" ? "is-vertical" : "is-horizontal");
 
-        const media = document.getElementById("detailMedia");
-        media.style.backgroundImage = item.media_path
-          ? `url('${item.media_path}')`
-          : "";
+        renderGallery(item);
 
         // Alignment travels with the caption HTML, set on the editor's toolbar.
         document.getElementById("detailCaption").innerHTML =

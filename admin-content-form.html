@@ -771,12 +771,25 @@
         font-size: 11px;
         color: #98a2b3;
       }
-      .media-preview {
+      /* Up to five images. The first is the cover - the grid thumbnail and the
+   image the detail panel opens on - so it spans the row; the rest sit under
+   it two to a line. */
+      .media-list {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+      }
+      .media-list:empty {
         display: none;
+      }
+      .media-list + .dropzone {
+        margin-top: 12px;
+      }
+      .media-preview {
         position: relative;
       }
-      .media-preview.show {
-        display: block;
+      .media-preview:first-child {
+        grid-column: 1/-1;
       }
       .media-preview .thumb {
         background: #f1f3f7 center/cover no-repeat;
@@ -785,11 +798,33 @@
       /* 2.4/1, not 16/9: it has to match what the Content page renders, and the
    recommended size the dropzone quotes. A 16/9 box centre-crops a correctly
    sized banner and makes the advice look wrong. */
-      .media-preview.is-horizontal .thumb {
+      .media-list.is-horizontal .thumb {
         aspect-ratio: 2.4/1;
       }
-      .media-preview.is-vertical .thumb {
+      .media-list.is-vertical .thumb {
         aspect-ratio: 9/16;
+      }
+      .media-preview .cover-tag {
+        position: absolute;
+        left: 8px;
+        bottom: 8px;
+        padding: 3px 8px;
+        border-radius: 20px;
+        background: rgba(16, 24, 40, 0.75);
+        color: #fff;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.4px;
+        text-transform: uppercase;
+      }
+      .media-count {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--muted);
+        margin-top: 10px;
+      }
+      .media-count:empty {
+        display: none;
       }
       .media-preview .remove {
         position: absolute;
@@ -1667,6 +1702,9 @@
             <section class="panel">
               <div class="panel-head"><h2>Media Assets</h2></div>
               <div class="panel-body">
+                <!-- Drawn by renderMedia(); the first image is the cover. -->
+                <div class="media-list is-horizontal" id="mediaList"></div>
+
                 <div
                   class="dropzone"
                   id="dropzone"
@@ -1684,31 +1722,20 @@
                     <polyline points="17 8 12 3 7 8" />
                     <line x1="12" y1="3" x2="12" y2="15" />
                   </svg>
-                  <strong>Upload image</strong>
+                  <strong>Upload images</strong>
                   <!-- Rewritten by updateMediaHint() whenever the orientation changes. -->
-                  <span id="mediaHint">Max size 3 MB</span>
+                  <span id="mediaHint">Up to 5 images · max 3 MB each</span>
                 </div>
 
-                <div class="media-preview is-horizontal" id="mediaPreview">
-                  <div class="thumb" id="mediaThumb"></div>
-                  <button
-                    class="remove"
-                    type="button"
-                    onclick="clearMedia()"
-                    title="Remove image"
-                  >
-                    &times;
-                  </button>
-                </div>
-
-                <input type="file" id="mediaInput" accept="image/*" hidden />
+                <input type="file" id="mediaInput" accept="image/*" multiple hidden />
+                <div class="media-count" id="mediaCount"></div>
                 <div class="media-error" id="mediaError"></div>
               </div>
             </section>
 
             <!-- Scheduling belongs to the roles that own the posting calendar:
-             the account manager and the owner. Everyone else writes the post
-             and it goes out as soon as it is saved. -->
+             the account manager and the owner. Everyone else fills the post
+             in and its schedule stays as they set it. -->
             <section class="panel" id="panelScheduling" hidden>
               <div class="panel-head"><h2>Scheduling</h2></div>
               <div class="panel-body">
@@ -1820,6 +1847,13 @@
 
       const editId = new URLSearchParams(location.search).get("id");
 
+      /* Only the owner and the account managers create posts; the other roles
+   open one they made to fill it in. api/admin-content.php refuses the create
+   too - this only saves writing a whole post for nothing. */
+      if (!editId && !["owner", "account_manager"].includes(adminUser.role)) {
+        window.location.replace("admin-content.html");
+      }
+
       /* ── Content types ───────────────────────────────────────────────────────────
    Nine fixed types, one per icon in assets/icon - the icon's own file name is
    the type's title, so the two can never drift apart. Types are not created
@@ -1870,8 +1904,12 @@
 
       let selectedType = null;
       let orientation = "horizontal";
-      let mediaFile = null;
-      let removeMedia = false;
+
+      /* The post's images, cover first: { kind: "kept", path } for one already
+   on the server, { kind: "new", file, url } for one picked here. Same cap as
+   CONTENT_MAX_IMAGES in api/db.php. */
+      const MAX_IMAGES = 5;
+      let mediaItems = [];
 
       function esc(value) {
         return String(value == null ? "" : value)
@@ -1974,8 +2012,8 @@
    throws away. The grid thumbnail is a square centre-crop either way, so keep
    the subject away from the edges. */
       const MEDIA_GUIDE = {
-        horizontal: { size: "1440 × 600 px", ratio: "2.4:1" },
-        vertical: { size: "1080 × 1920 px", ratio: "9:16" },
+        horizontal: { size: "1440 × 600 px", ratio: "2.4:1", width: 1440, height: 600 },
+        vertical: { size: "1080 × 1920 px", ratio: "9:16", width: 1080, height: 1920 },
       };
 
       function updateMediaHint() {
@@ -1984,7 +2022,7 @@
 
         const guide = MEDIA_GUIDE[orientation] || MEDIA_GUIDE.horizontal;
 
-        hint.innerText = `Max size 3 MB · ${guide.size} recommended (${guide.ratio})`;
+        hint.innerText = `Up to ${MAX_IMAGES} images · ${guide.size} recommended (${guide.ratio}) · resized and compressed on save`;
       }
 
       function selectOrientation(value) {
@@ -1997,11 +2035,8 @@
           );
         });
 
-        // The media thumbnail follows the same aspect ratio the post will use.
-        const preview = document.getElementById("mediaPreview");
-        const shown = preview.classList.contains("show");
-        preview.className =
-          "media-preview is-" + value + (shown ? " show" : "");
+        // The media thumbnails follow the same aspect ratio the post will use.
+        document.getElementById("mediaList").className = "media-list is-" + value;
 
         updateMediaHint();
       }
@@ -2113,14 +2148,22 @@
 
       /* ── Media ── */
 
+      // What the server accepts per image (api/admin-content.php).
       const MAX_MEDIA = 3 * 1024 * 1024;
+
+      // What can be picked. Images are shrunk before upload (optimiseImage), so a
+      // phone photo well over 3 MB still lands under it - only a GIF, which is
+      // sent untouched, has to be under 3 MB already.
+      const MAX_ORIGINAL = 20 * 1024 * 1024;
 
       const dropzone = document.getElementById("dropzone");
 
       document
         .getElementById("mediaInput")
         .addEventListener("change", (event) => {
-          if (event.target.files[0]) handleMedia(event.target.files[0]);
+          handleMedia(event.target.files);
+          // Cleared so picking the same file again after removing it still fires.
+          event.target.value = "";
         });
 
       ["dragenter", "dragover"].forEach((type) => {
@@ -2138,50 +2181,204 @@
       });
 
       dropzone.addEventListener("drop", (event) => {
-        const file = event.dataTransfer.files[0];
-        if (file) handleMedia(file);
+        handleMedia(event.dataTransfer.files);
       });
 
-      function handleMedia(file) {
+      /* Adds what fits. A file that is not an image or is too large is skipped
+   with a reason, and so is anything past the fifth - the ones that do fit
+   still go in, so one bad file does not cost the rest. */
+      function handleMedia(fileList) {
         const error = document.getElementById("mediaError");
+        const problems = [];
 
-        if (!file.type.startsWith("image/")) {
-          error.innerText = "Only image files are allowed.";
-          error.classList.add("show");
-          return;
-        }
+        [...(fileList || [])].forEach((file) => {
+          if (!file.type.startsWith("image/")) {
+            problems.push(`${file.name} is not an image.`);
+            return;
+          }
 
-        if (file.size > MAX_MEDIA) {
-          error.innerText = "That image is over 3 MB. Pick a smaller one.";
-          error.classList.add("show");
-          return;
-        }
+          if (file.type === "image/gif" && file.size > MAX_MEDIA) {
+            problems.push(`${file.name} is over 3 MB. GIFs are uploaded as they are, so pick a smaller one.`);
+            return;
+          }
 
-        error.classList.remove("show");
-        mediaFile = file;
-        removeMedia = false;
+          if (file.size > MAX_ORIGINAL) {
+            problems.push(`${file.name} is over 20 MB. Pick a smaller one.`);
+            return;
+          }
 
-        const reader = new FileReader();
-        reader.onload = () => showMedia(reader.result);
-        reader.readAsDataURL(file);
+          if (mediaItems.length >= MAX_IMAGES) {
+            problems.push(`A post can have up to ${MAX_IMAGES} images, so ${file.name} was left out.`);
+            return;
+          }
+
+          mediaItems.push({ kind: "new", file, url: URL.createObjectURL(file) });
+        });
+
+        error.innerText = problems.join(" ");
+        error.classList.toggle("show", problems.length > 0);
+
+        renderMedia();
       }
 
-      function showMedia(url) {
-        document.getElementById("mediaThumb").style.backgroundImage =
-          `url('${url}')`;
-        document.getElementById("mediaPreview").classList.add("show");
-        dropzone.style.display = "none";
+      function mediaSrc(item) {
+        return item.kind === "new" ? item.url : item.path;
       }
 
-      function clearMedia() {
-        mediaFile = null;
-        removeMedia = true;
+      function renderMedia() {
+        const list = document.getElementById("mediaList");
 
-        document.getElementById("mediaInput").value = "";
-        document.getElementById("mediaThumb").style.backgroundImage = "";
-        document.getElementById("mediaPreview").classList.remove("show");
+        list.innerHTML = mediaItems
+          .map(
+            (item, index) => `
+    <div class="media-preview">
+      <div class="thumb" style="background-image:url('${esc(mediaSrc(item))}')"></div>
+      ${index === 0 ? `<span class="cover-tag">Cover</span>` : ""}
+      <button class="remove" type="button" onclick="removeMediaAt(${index})"
+              title="Remove image" aria-label="Remove image ${index + 1}">&times;</button>
+    </div>
+  `,
+          )
+          .join("");
+
+        // Full means full: the dropzone goes until an image is taken off.
+        dropzone.style.display = mediaItems.length >= MAX_IMAGES ? "none" : "";
+
+        document.getElementById("mediaCount").innerText = mediaItems.length
+          ? `${mediaItems.length} / ${MAX_IMAGES} images`
+          : "";
+      }
+
+      function removeMediaAt(index) {
+        const [item] = mediaItems.splice(index, 1);
+        if (item && item.kind === "new") URL.revokeObjectURL(item.url);
+
         document.getElementById("mediaError").classList.remove("show");
-        dropzone.style.display = "";
+        renderMedia();
+      }
+
+      /* ── Image compression ──────────────────────────────────────────────────────
+   Every new image is resized and re-encoded in the browser before it is sent.
+   It is scaled down until it just covers the box the Content page shows it in
+   (MEDIA_GUIDE, already ~2x the CSS size), so the cover crop and the full-size
+   view stay sharp - never scaled up. Then it is saved as WebP at 80%, or JPEG
+   where the browser cannot write WebP (older Safari hands back a PNG instead).
+   A GIF is left alone: re-encoding it would drop the animation.
+
+   It runs on save, not on pick, because the box depends on the orientation,
+   which can still change after the images are in. */
+
+      const IMAGE_QUALITY = 0.8;
+
+      async function decodeImage(file) {
+        if (window.createImageBitmap) {
+          try {
+            // from-image applies a phone photo's EXIF rotation.
+            return await createImageBitmap(file, { imageOrientation: "from-image" });
+          } catch (e) {
+            // Fall through to an <img>, which some browsers decode more formats with.
+          }
+        }
+
+        return new Promise((resolve, reject) => {
+          const url = URL.createObjectURL(file);
+          const img = new Image();
+          img.onload = () => {
+            URL.revokeObjectURL(url);
+            resolve(img);
+          };
+          img.onerror = () => {
+            URL.revokeObjectURL(url);
+            reject(new Error("Could not read " + file.name));
+          };
+          img.src = url;
+        });
+      }
+
+      function canvasBlob(canvas, type) {
+        return new Promise((resolve) => canvas.toBlob(resolve, type, IMAGE_QUALITY));
+      }
+
+      async function optimiseImage(file, box) {
+        if (file.type === "image/gif") return file;
+
+        const source = await decodeImage(file);
+        const sourceWidth = source.naturalWidth || source.width;
+        const sourceHeight = source.naturalHeight || source.height;
+
+        const scale = Math.min(
+          1,
+          Math.max(box.width / sourceWidth, box.height / sourceHeight),
+        );
+
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(sourceWidth * scale));
+        canvas.height = Math.max(1, Math.round(sourceHeight * scale));
+
+        const context = canvas.getContext("2d");
+        context.imageSmoothingQuality = "high";
+        context.drawImage(source, 0, 0, canvas.width, canvas.height);
+        if (source.close) source.close();
+
+        let blob = await canvasBlob(canvas, "image/webp");
+
+        if (!blob || blob.type !== "image/webp") {
+          // JPEG has no transparency, so a transparent PNG gets white behind it
+          // rather than black.
+          context.globalCompositeOperation = "destination-over";
+          context.fillStyle = "#fff";
+          context.fillRect(0, 0, canvas.width, canvas.height);
+          blob = await canvasBlob(canvas, "image/jpeg");
+        }
+
+        if (!blob) return file;
+
+        // An already-small, already-compressed file can come out bigger.
+        if (scale === 1 && blob.size >= file.size) return file;
+
+        const extension = blob.type === "image/webp" ? "webp" : "jpg";
+        const name = file.name.replace(/\.[^.]+$/, "") + "." + extension;
+
+        return new File([blob], name, { type: blob.type });
+      }
+
+      /* The files to send, compressed for the current orientation. The result is
+   kept on the item, so a save that fails and is tried again does not redo
+   the work. An image the browser cannot decode goes as it is, and the
+   server's own type check has the last word on it. */
+      async function prepareUploads() {
+        const box = MEDIA_GUIDE[orientation] || MEDIA_GUIDE.horizontal;
+        const fresh = mediaItems.filter((item) => item.kind === "new");
+
+        if (fresh.some((item) => !item.ready || item.ready.orientation !== orientation)) {
+          setStatus("Optimising images...", "");
+        }
+
+        const files = [];
+
+        for (const item of fresh) {
+          if (!item.ready || item.ready.orientation !== orientation) {
+            let file;
+
+            try {
+              file = await optimiseImage(item.file, box);
+            } catch (error) {
+              file = item.file;
+            }
+
+            item.ready = { orientation, file };
+          }
+
+          if (item.ready.file.size > MAX_MEDIA) {
+            throw new Error(
+              `${item.file.name} is still over 3 MB after compressing. Pick a smaller one.`,
+            );
+          }
+
+          files.push(item.ready.file);
+        }
+
+        return files;
       }
 
       /* ── Scheduling ─────────────────────────────────────────────────────────────
@@ -2212,14 +2409,40 @@
           time.value = "";
         }
 
+        updateSubmitLabel();
+      }
+
+      /* What saving will make of the post. Anyone else's save leaves the status
+   alone - api/admin-content.php keeps the stored schedule for them - so the
+   "draft" sent then is not acted on. For the owner and the account managers,
+   a post with no date and no Publish immediately is a draft: the task stage,
+   before there is anything to schedule. */
+      function postStatus() {
+        if (!canPublish) return "draft";
+        if (document.getElementById("publishNow").checked) return "published";
+
+        const dated =
+          document.getElementById("postDate").value ||
+          document.getElementById("postTime").value;
+
+        return dated ? "scheduled" : "draft";
+      }
+
+      function updateSubmitLabel() {
+        const status = postStatus();
+
         document.getElementById("submitLabel").innerText = editId
           ? "Update Content"
-          : !canPublish
-            ? "Save as Draft"
-            : on
-              ? "Publish Content"
-              : "Schedule Content";
+          : status === "published"
+            ? "Publish Content"
+            : status === "scheduled"
+              ? "Schedule Content"
+              : "Save as Draft";
       }
+
+      ["postDate", "postTime"].forEach((id) =>
+        document.getElementById(id).addEventListener("input", updateSubmitLabel),
+      );
 
       /* ── Save ── */
 
@@ -2229,7 +2452,29 @@
         status.className = "status-text " + (kind || "");
       }
 
+      /* Compressing the images takes a moment before the upload starts, so the
+   button is held down for the whole save - a second click would send the
+   post twice. A save that succeeds leaves the page, so it stays disabled. */
+      let saving = false;
+
       async function save() {
+        if (saving) return;
+
+        const button = document.getElementById("submitBtn");
+        saving = true;
+        button.disabled = true;
+
+        try {
+          await saveContent();
+        } finally {
+          if (!leavingIntentionally) {
+            saving = false;
+            button.disabled = false;
+          }
+        }
+      }
+
+      async function saveContent() {
         const title = document.getElementById("title").value.trim();
         const client = document.getElementById("client").value.trim();
         const link = document.getElementById("link").value.trim();
@@ -2239,49 +2484,36 @@
         const captionHtml = caption.innerHTML.trim();
         const captionText = caption.innerText.trim();
 
+        // A post starts as a task: the title is the one thing it must have. The
+        // rest is filled in later, often by someone else.
         if (!title) {
           openPanel("panelDetails");
           setStatus("Add a campaign title.", "error");
           return;
         }
 
-        // Every post belongs to one client - there is no publish-to-everyone option.
-        if (!client) {
-          openPanel("panelDetails");
-          setStatus("Pick the client this post is for.", "error");
-          return;
-        }
-
-        if (!selectedType) {
-          openPanel("panelType");
-          setStatus("Pick a content type.", "error");
-          return;
-        }
-
-        if (!captionText) {
-          openPanel("panelDetails");
-          setStatus("Write a caption before saving.", "error");
-          return;
-        }
-
-        // Only the roles that can choose a time have a time to get wrong.
-        if (canPublish && !publishNow && (!postDate || !postTime)) {
+        // Only the roles that can choose a time have a time to get wrong. Neither
+        // set means the post is saved as a draft to schedule later.
+        if (canPublish && !publishNow && Boolean(postDate) !== Boolean(postTime)) {
           setStatus(
-            "Set a post date and time, or turn on Publish immediately.",
+            "Set both a post date and a time, or leave both empty to save a draft.",
             "error",
           );
           return;
         }
 
+        const status = postStatus();
+
+        // A post with no client reaches every client, so nothing goes out
+        // without one. A draft can wait for it.
+        if (status !== "draft" && !client) {
+          openPanel("panelDetails");
+          setStatus("Pick a client before scheduling or publishing.", "error");
+          return;
+        }
+
         const type = types.find((entry) => entry.id === selectedType);
         const platform = currentPlatform();
-        // A post from an admin who cannot publish is saved in full and left as a
-        // draft for the account manager or the owner to send out.
-        const status = !canPublish
-          ? "draft"
-          : publishNow
-            ? "published"
-            : "scheduled";
 
         const form = new FormData();
         if (editId) form.append("id", editId);
@@ -2289,9 +2521,10 @@
         form.append("title", title);
         form.append("client", client);
         form.append("link", link);
-        form.append("caption", captionHtml);
-        form.append("content_type", type.id);
-        form.append("type_label", type.label);
+        form.append("caption", captionText ? captionHtml : "");
+        // The type can be left for whoever fills the post in.
+        form.append("content_type", type ? type.id : "");
+        form.append("type_label", type ? type.label : "");
         // The platform doubles as the category, which is what the Content pages
         // group their filter tabs by.
         form.append("platform", platform);
@@ -2302,8 +2535,23 @@
         form.append("publish_now", publishNow ? "1" : "0");
         form.append("status", status);
 
-        if (mediaFile) form.append("media", mediaFile);
-        if (removeMedia && !mediaFile) form.append("remove_media", "1");
+        let uploads;
+
+        try {
+          uploads = await prepareUploads();
+        } catch (error) {
+          setStatus(error.message, "error");
+          return;
+        }
+
+        // The images kept from the server, then the new ones; the API saves them
+        // in that order and the first is the cover. keep_media_sent tells it the
+        // list is complete even when it keeps none.
+        form.append("keep_media_sent", "1");
+        mediaItems.forEach((item) => {
+          if (item.kind === "kept") form.append("keep_media[]", item.path);
+        });
+        uploads.forEach((file) => form.append("media[]", file));
 
         try {
           setStatus(editId ? "Updating content..." : "Saving content...", "");
@@ -2474,11 +2722,10 @@
     |--------------------------------------------------------------------------
     */
 
-          if (item.media_path) {
-            showMedia(item.media_path);
+          mediaItems = (item.images || (item.media_path ? [item.media_path] : []))
+            .map((path) => ({ kind: "kept", path }));
 
-            removeMedia = false;
-          }
+          renderMedia();
 
           setStatus("", "");
         } catch (error) {
@@ -2615,7 +2862,7 @@
       }
 
       function isDirty() {
-        return hasWork(currentDraft()) || Boolean(mediaFile);
+        return hasWork(currentDraft()) || mediaItems.some((item) => item.kind === "new");
       }
 
       function saveDraft() {
@@ -2623,7 +2870,7 @@
 
         try {
           // hasWork(), not isDirty(): an attached image is worth warning about on the
-          // way out, but it cannot be written to localStorage. Saving on mediaFile
+          // way out, but it cannot be written to localStorage. Saving on images
           // alone leaves a draft holding nothing but the content type and the
           // orientation - it restores nothing, so it must not be stored at all.
           if (hasWork(currentDraft())) {
@@ -2717,7 +2964,7 @@
         restoredDraft = true;
 
         document.getElementById("restoreText").innerText =
-          `Restored unsaved changes from ${describeAge(draft.savedAt)}. Re-attach the image if you had one.`;
+          `Restored unsaved changes from ${describeAge(draft.savedAt)}. Re-attach any images you had.`;
         document.getElementById("restoreBar").hidden = false;
       }
 

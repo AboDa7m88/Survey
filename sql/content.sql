@@ -22,7 +22,8 @@ CREATE TABLE IF NOT EXISTS content (
 
   orientation   ENUM('horizontal','vertical') NOT NULL DEFAULT 'horizontal',
 
-  media_path    VARCHAR(255)     NULL,        -- web-relative, e.g. uploads/content/<hex>.jpg
+  media_path    VARCHAR(255)     NULL,        -- web-relative, e.g. uploads/content/<hex>.jpg - always the first image
+  media_paths   TEXT             NULL,        -- every image, in order, as a JSON array (up to 5)
 
   post_date     DATE             NULL,
   post_time     TIME             NULL,

@@ -114,6 +114,7 @@ try {
             c.category,
             c.orientation,
             c.media_path,
+            c.media_paths,
             c.post_date,
             c.post_time,
             c.publish_now,
@@ -141,9 +142,18 @@ try {
 
     $stmt->execute([contentNow(), $company, $company]);
 
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Every image on the post, for the detail panel's thumbnails.
+    foreach ($rows as &$row) {
+        $row["images"] = contentImages($row);
+        unset($row["media_paths"]);
+    }
+    unset($row);
+
     echo json_encode([
         "success" => true,
-        "content" => $stmt->fetchAll(PDO::FETCH_ASSOC)
+        "content" => $rows
     ], JSON_UNESCAPED_UNICODE);
 
 } catch (Throwable $e) {

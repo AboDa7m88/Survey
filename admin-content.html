@@ -65,6 +65,7 @@ body{background:#f6f7fb;color:var(--text);padding:0}
 .page-title p{font-size:14px;color:var(--muted);max-width:620px}
 .create-btn{flex:none;display:inline-flex;align-items:center;gap:8px;background:var(--nav-active);color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:800}
 .create-btn:hover{background:#282c52}
+.create-btn[hidden]{display:none}
 .create-btn svg{width:16px;height:16px}
 
 /* Every control on the bar is one 36px row now that each label sits beside
@@ -79,8 +80,9 @@ body{background:#f6f7fb;color:var(--text);padding:0}
 
 /* ── Card grid ── */
 /* Every thumbnail is the same square crop regardless of orientation — only the
-   detail panel below reflects the layout the admin picked. */
-.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+   detail panel below reflects the layout the admin picked. Five to a line on a
+   desktop, stepping down with the width; a phone keeps one full-size card. */
+.grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:20px}
 .card{background:#fff;border-radius:14px;padding:8px;box-shadow:0 6px 18px rgba(16,24,40,.06);border:2px solid transparent;transition:border-color .15s,transform .15s;display:flex;flex-direction:column}
 .card:hover{transform:translateY(-2px)}
 .card.selected{border-color:var(--nav-active)}
@@ -129,6 +131,16 @@ body{background:#f6f7fb;color:var(--text);padding:0}
 .detail.is-horizontal .detail-media{aspect-ratio:2.4/1;width:100%;max-width:672px;max-height:280px;margin:0 auto}
 .detail.is-horizontal .detail-meta{grid-template-columns:repeat(3,1fr)}
 
+/* ── Every image on the post: the big one, and a strip to switch between them ── */
+.detail-gallery{min-width:0}
+.detail-thumbs{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.detail-thumbs:empty{display:none}
+.detail.is-horizontal .detail-thumbs{max-width:672px;margin-left:auto;margin-right:auto;justify-content:center}
+.detail-thumb{width:56px;height:56px;padding:0;border:2px solid transparent;border-radius:9px;background:#f1f3f7 center/cover no-repeat;cursor:pointer;transition:border-color .15s,opacity .15s;opacity:.7}
+.detail-thumb:hover{opacity:1}
+.detail-thumb.active{border-color:var(--nav-active);opacity:1}
+.detail-thumb:focus-visible{outline:2px solid var(--nav-active);outline-offset:2px}
+
 /* ── Client, Created by, Timing and the link share one line under the copy ── */
 .detail-footer{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:flex-start;gap:22px 40px}
 .detail-footer .field{min-width:0}
@@ -154,7 +166,23 @@ body{background:#f6f7fb;color:var(--text);padding:0}
 /* The title reads left-aligned whatever the body does. */
 .detail-head h2{text-align:left}
 
-@media(max-width:1100px){.grid{grid-template-columns:repeat(2,1fr)}}
+/* Smaller cards wherever there is more than one to a line. A phone (950px and
+   under) skips all of this and keeps the full-size card. */
+@media(min-width:951px){
+  .grid{gap:14px}
+  .card{border-radius:12px;padding:6px}
+  .card-img{border-radius:8px}
+  .badge{top:7px;right:7px;padding:4px 8px;font-size:9px}
+  .card-body{padding:10px 5px 0}
+  .card-body:last-child{padding-bottom:8px}
+  .card-eyebrow{font-size:10px;margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .card-body h3{font-size:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .card-times{font-size:10px;margin-top:7px}
+  .card-actions{gap:6px;padding:10px 4px 4px}
+  .card-actions a,.card-actions button{font-size:11px;padding:7px 0;border-radius:8px}
+}
+@media(max-width:1280px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:1100px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:950px){
   /* Force-collapsed below this width, so the head has nothing left to show. */
   .side-head{display:none}
@@ -301,7 +329,8 @@ function closeAccount(){ document.getElementById("acctModal").classList.remove("
         <h1>Content</h1>
         <p>All client content ready for publication.</p>
       </div>
-      <a class="create-btn" href="admin-content-form.html">
+      <!-- Hidden until the API says this admin may create (can_create). -->
+      <a class="create-btn" id="createBtn" href="admin-content-form.html" hidden>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Create Content
       </a>
@@ -346,8 +375,12 @@ function closeAccount(){ document.getElementById("acctModal").classList.remove("
         <!-- Clicking it opens the image over the page: the panel shows it in a
              fixed 2.4:1 strip, which is enough to recognise a post and not
              enough to read one. See assets/lightbox.js. -->
-        <div class="detail-media" id="detailMedia"
-             data-lightbox data-lightbox-alt="Post image"></div>
+        <div class="detail-gallery">
+          <div class="detail-media" id="detailMedia"
+               data-lightbox data-lightbox-alt="Post image"></div>
+          <!-- One button per image when the post has more than one. -->
+          <div class="detail-thumbs" id="detailThumbs"></div>
+        </div>
         <div class="detail-meta">
           <div class="field wide">
             <h5>Caption</h5>
@@ -435,8 +468,9 @@ let currentClient = "All";
 let currentType = "All";
 let selectedId = null;
 
-// Six cards to a page; the rest live behind the pager under the grid.
-const PAGE_SIZE = 6;
+// Twenty cards to a page - four lines of five on a desktop; the rest live
+// behind the pager under the grid.
+const PAGE_SIZE = 20;
 let currentPage = 1;
 
 function esc(value){
@@ -606,6 +640,9 @@ async function loadContent(){
 
     currentAdminId = data.admin_id != null ? String(data.admin_id) : null;
     currentAdminRole = data.admin_role || null;
+
+    // Only the owner and the account managers create posts.
+    document.getElementById("createBtn").hidden = !data.can_create;
 
     renderFilters();
     renderTypeFilter();
@@ -784,17 +821,25 @@ function renderPager(total, totalPages, start, shown){
   `;
 }
 
-/* A post is editable by the admin who wrote it, plus the owner and the account
-   managers, who run the posting calendar and manage everything - same rule as
-   canManageContent() in api/admin-content.php. super_admin and seo_admin see
-   the card and its detail panel but get no buttons on a post they did not
-   create, however senior the role sounds. */
-function canManage(item){
-  if(currentAdminRole === "owner" || currentAdminRole === "account_manager") return true;
+/* What this admin may do with a post comes with the row - canEditContent() and
+   canDeleteContent() in api/admin-content.php. The owner and the account
+   managers get both; super_admin and seo_admin fill posts in, so they get Edit
+   but no Delete on a post someone else created. */
+function cardActions(item){
+  if(!item.can_edit && !item.can_delete) return "";
 
-  return currentAdminId != null
-    && item.created_by_id != null
-    && String(item.created_by_id) === currentAdminId;
+  return `
+    <div class="card-actions">
+      ${item.can_edit ? `<a href="admin-content-form.html?id=${esc(item.id)}">Edit</a>` : ""}
+      ${item.can_delete ? `<button class="danger" type="button"
+              onclick="deleteContent('${esc(item.id)}','${esc(item.title)}')">Delete</button>` : ""}
+    </div>`;
+}
+
+/* "Instagram · Reel", or whichever half the post has - a task saved with only
+   a title has neither yet. */
+function eyebrowFor(item){
+  return [item.platform, item.type_label].filter(Boolean).join(" · ");
 }
 
 function renderGrid(items){
@@ -813,19 +858,48 @@ function renderGrid(items){
         <span class="badge ${esc(item.status)}">${esc(item.status)}</span>
       </div>
       <div class="card-body" onclick="selectContent('${esc(item.id)}')">
-        <div class="card-eyebrow">${esc(item.platform)} · ${esc(item.type_label)}</div>
+        <div class="card-eyebrow">${esc(eyebrowFor(item)) || "&nbsp;"}</div>
         <h3>${esc(item.title)}</h3>
         ${cardTimes(item)}
       </div>
-      ${canManage(item) ? `
-        <div class="card-actions">
-          <a href="admin-content-form.html?id=${esc(item.id)}">Edit</a>
-          <button class="danger" type="button"
-                  onclick="deleteContent('${esc(item.id)}','${esc(item.title)}')">Delete</button>
-        </div>
-      ` : ""}
+      ${cardActions(item)}
     </div>
   `).join("");
+}
+
+/* The detail panel's images: the first one large, and - when there is more
+   than one - a strip of buttons that swaps which one is large. The lightbox
+   reads the large box's background when clicked, so it opens whichever image
+   is showing. Rows from before a post could hold several have only media_path. */
+function renderGallery(item){
+  const media = document.getElementById("detailMedia");
+  const thumbs = document.getElementById("detailThumbs");
+
+  const images = Array.isArray(item.images)
+    ? item.images
+    : (item.media_path ? [item.media_path] : []);
+
+  const show = index => {
+    media.style.backgroundImage = images[index] ? `url('${images[index]}')` : "";
+    thumbs.querySelectorAll(".detail-thumb").forEach((button, i) => {
+      button.classList.toggle("active", i === index);
+      button.setAttribute("aria-pressed", i === index ? "true" : "false");
+    });
+  };
+
+  thumbs.innerHTML = images.length > 1
+    ? images.map((src, index) => `
+        <button class="detail-thumb" type="button" data-index="${index}"
+                style="background-image:url('${esc(src)}')"
+                aria-label="Show image ${index + 1} of ${images.length}"></button>
+      `).join("")
+    : "";
+
+  thumbs.querySelectorAll(".detail-thumb").forEach(button => {
+    button.addEventListener("click", () => show(Number(button.dataset.index)));
+  });
+
+  show(0);
 }
 
 function selectContent(id){
@@ -848,15 +922,14 @@ function selectContent(id){
 
   wrap.style.display = "block";
 
-  document.getElementById("detailEyebrow").innerText = `${item.platform} · ${item.type_label}`;
+  document.getElementById("detailEyebrow").innerText = eyebrowFor(item);
   document.getElementById("detailTitle").innerText = item.title || "";
 
   // One markup block — the orientation class is what swaps the layout.
   const panel = document.getElementById("detailPanel");
   panel.className = "detail " + (item.orientation === "vertical" ? "is-vertical" : "is-horizontal");
 
-  document.getElementById("detailMedia").style.backgroundImage =
-    item.media_path ? `url('${item.media_path}')` : "";
+  renderGallery(item);
 
   // Alignment travels with the caption HTML, set on the editor's toolbar.
   document.getElementById("detailCaption").innerHTML = sanitizeCaption(item.caption) || "—";
