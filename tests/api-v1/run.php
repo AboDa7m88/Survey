@@ -368,7 +368,7 @@ $o = $ov["data"];
 check("seo overview: no calendar section", !isset($o["upcoming_meetings"])
     && in_array("calendar:read", array_column($o["not_included"], "needs_scope"), true), json_encode($o["not_included"]));
 check("seo overview: only own forms", $o["open_forms"] === [], json_encode($o["open_forms"]));
-check("seo overview: only own content", array_column($o["upcoming_content"], "id") === [300] && $o["recent_content"] === [],
+check("seo overview: the client's whole content", array_column($o["upcoming_content"], "id") === [302, 300] && array_column($o["recent_content"], "id") === [303],
     json_encode([$o["upcoming_content"], $o["recent_content"]]));
 
 [, $t] = get("clients.php?id=10&part=team", $am);
@@ -439,11 +439,11 @@ check("lead: labelled answers in form order", array_column($l["data"]["untrusted
 
 sees("owner sees all content", "content.php", $owner, [300, 301, 302, 303]);
 sees("account manager sees all content", "content.php", $am2, [300, 301, 302, 303]);
-sees("super admin sees only their own", "content.php", $sa, [302]);
-sees("seo admin sees only their own", "content.php", $seo, [300]);
+sees("super admin sees all content", "content.php", $sa, [300, 301, 302, 303]);
+sees("seo admin sees all content", "content.php", $seo, [300, 301, 302, 303]);
 sees("a scheduled post whose time passed reads as published", "content.php?status=published", $owner, [301, 303]);
 sees("filter by client", "content.php?client=10", $owner, [300, 302, 303]);
-refused("another admin's post is a 404", "content.php?id=301", $sa, 404);
+refused("a post that doesn't exist is a 404", "content.php?id=399", $sa, 404);
 
 [, $c] = get("content.php?id=300", $seo);
 check("content: caption as plain text", ($c["data"]["untrusted_content"]["caption"] ?? null) === "Draft & more" && $c["data"]["status"] === "draft", json_encode($c));

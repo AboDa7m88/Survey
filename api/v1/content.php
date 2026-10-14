@@ -7,8 +7,9 @@
 |   GET content.php?id=N                                      get_content
 |   GET content.php?types=1                                   list_content_types
 |
-| Scope content:read. Same rule as admin-content.php: the owner and account
-| managers see the whole library, everyone else only the posts they wrote.
+| Scope content:read. Same rule as admin-content.php: the owner, account
+| managers, super_admin and seo_admin see the whole library, anyone else
+| only the posts they wrote.
 |
 | A scheduled post goes live by itself once its date and time pass - nothing
 | moves it, the reads ask (db.php contentIsLiveSql). So `status` here is the

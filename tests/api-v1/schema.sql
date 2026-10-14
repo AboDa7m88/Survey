@@ -100,6 +100,7 @@ CREATE TABLE content (
   category      VARCHAR(60)      NULL,
   orientation   ENUM('horizontal','vertical') NOT NULL DEFAULT 'horizontal',
   media_path    VARCHAR(255)     NULL,
+  media_paths   TEXT             NULL,
   post_date     DATE             NULL,
   post_time     TIME             NULL,
   publish_now   TINYINT(1)   NOT NULL DEFAULT 0,

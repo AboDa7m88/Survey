@@ -122,10 +122,26 @@ check("page: the owner creates an inquiry", ($r["success"] ?? false) && ($r["nam
 [, $r] = post("api/admin-inquiries.php", $am, ["title" => "Not mine", "fields" => [["label" => "Name"]]]);
 check("page: only the owner creates inquiries", ($r["message"] ?? "") === "Only the owner can create inquiries", json_encode($r));
 
-[, $r] = post("api/admin-content.php", $seo, ["title" => "Page post", "client" => "Acme Ltd", "content_type" => "videos", "link" => "acme.example", "status" => "published"], [], true);
-$post = one($pdo, "SELECT status, link FROM content WHERE title = 'Page post'");
-check("page: content links get https, and a non-publisher's post stays a draft",
-    $post && $post["link"] === "https://acme.example" && $post["status"] === "draft", json_encode([$r, $post]));
+[$status, $r] = post("api/admin-content.php", $seo, ["title" => "Page post", "client" => "Acme Ltd", "status" => "draft"], [], true);
+check("page: only the owner and account managers create content", $status === 403
+    && !one($pdo, "SELECT id FROM content WHERE title = 'Page post'"), "HTTP $status " . json_encode($r));
+
+[, $r] = post("api/admin-content.php", $am, ["title" => "Page post", "link" => "acme.example", "status" => "draft"], [], true);
+$post = one($pdo, "SELECT status, link, client, content_type FROM content WHERE title = 'Page post'");
+check("page: a title is all a new post needs, and links get https",
+    $post && $post["status"] === "draft" && $post["link"] === "https://acme.example" && $post["client"] === null && $post["content_type"] === "",
+    json_encode([$r, $post]));
+
+[$status, $r] = post("api/admin-content.php", $am, ["title" => "Page post 2", "publish_now" => "1", "status" => "published"], [], true);
+check("page: nothing goes live without a client", $status === 400 && !one($pdo, "SELECT id FROM content WHERE title = 'Page post 2'"),
+    "HTTP $status " . json_encode($r));
+
+// 302 is the super admin's scheduled post; the seo admin fills it in.
+[, $r] = post("api/admin-content.php", $seo, ["id" => 302, "title" => "Acme reel", "client" => "Acme Ltd", "caption" => "<p>Filled in</p>",
+    "status" => "draft", "publish_now" => "1"], [], true);
+$post = one($pdo, "SELECT status, post_date, publish_now, caption FROM content WHERE id = 302");
+check("page: filling a post in keeps its schedule", ($r["success"] ?? false) && $post["status"] === "scheduled"
+    && $post["post_date"] === day("+3") && (int) $post["publish_now"] === 0 && $post["caption"] === "<p>Filled in</p>", json_encode([$r, $post]));
 
 // ── 2. api/v1 changes ───────────────────────────────────────────────────
 
@@ -195,10 +211,12 @@ refusedChange("changes: a super admin keeps no notes", $sa, "save_my_client_note
 check("changes: the inquiry is created closed", one($pdo, "SELECT status FROM inquiries WHERE title = 'AI inquiry'")["status"] === "inactive", json_encode($done));
 refusedChange("changes: only the owner drafts inquiries", $am, "create_inquiry_draft", ["title" => "x", "fields" => [["label" => "a"]]], 403);
 
-[, $done] = change("changes: a content draft", $seo, "create_content_draft",
+refusedChange("changes: only the owner and account managers draft content", $seo, "create_content_draft",
+    ["client" => 10, "type" => "videos", "title" => "x"], 403);
+[, $done] = change("changes: a content draft", $am, "create_content_draft",
     ["client" => 10, "type" => "videos", "title" => "AI teaser", "caption" => "Line one\n\nLine <two>", "date" => $tomorrow, "time" => "10:15", "link" => "acme.example/x"]);
 $aiPost = one($pdo, "SELECT * FROM content WHERE title = 'AI teaser'");
-check("changes: the post is a draft, by its author, as the page saves it", $aiPost && $aiPost["status"] === "draft" && (int) $aiPost["created_by"] === 5
+check("changes: the post is a draft, by its author, as the page saves it", $aiPost && $aiPost["status"] === "draft" && (int) $aiPost["created_by"] === 3
     && $aiPost["client"] === "Acme Ltd" && $aiPost["type_label"] === "Videos" && $aiPost["caption"] === "<p>Line one</p><p>Line &lt;two&gt;</p>"
     && $aiPost["post_time"] === "10:15:00" && $aiPost["link"] === "https://acme.example/x", json_encode($aiPost));
 refusedChange("changes: content needs a company", $owner, "create_content_draft", ["client" => 12, "type" => "videos", "title" => "x"], 422);

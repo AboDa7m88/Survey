@@ -70,9 +70,9 @@ function bearerToken()
 |   forms:review     O, AM     admin-survey-review.php $canReview
 |   inquiries:read   O, AM*    admin-inquiries.php - *with inquiries_access
 |   inquiries:write  O         admin-inquiries.php create / edit / delete
-|   content:read     all       admin-content.php (own posts; O and AM see all)
-|   content:write    all       admin-content.php - non-publishers are forced
-|                              to draft, and nothing here publishes
+|   content:read     all       admin-content.php (O, AM, SA, seo_admin see all)
+|   content:write    O, AM     admin-content.php canCreateContent() - only they
+|                              create posts, and nothing here publishes
 |   calendar:*       O, SA, AM calendar.php $calendarRoles - closed to seo_admin
 |   projects:*       all       projects.php / project-tasks.php - seo_admin
 |                              only on projects they are a member of, which
@@ -97,7 +97,7 @@ const SCOPE_ROLES = [
     "inquiries:read"      => OWNER_AND_AM,   // plus inquiries_access for AM, below
     "inquiries:write"     => ["owner"],
     "content:read"        => ADMIN_ROLES,
-    "content:write"       => ADMIN_ROLES,
+    "content:write"       => OWNER_AND_AM,
     "calendar:read"       => CALENDAR_ROLES,
     "calendar:write"      => CALENDAR_ROLES,
     "projects:read"       => ADMIN_ROLES,

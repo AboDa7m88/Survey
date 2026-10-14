@@ -137,49 +137,53 @@ ensureNotificationsTable($pdo);
 
 /*
 |--------------------------------------------------------------------------
-| Helper: who may edit or delete a post
+| Helpers: who may do what with a post
 |--------------------------------------------------------------------------
 |
-| A post belongs to the admin who wrote it. The exceptions are the roles
-| that run the posting calendar - `owner` and `account_manager` - which
-| manage every post on the system: they see the whole library and are the
-| only ones who can schedule or publish, so a draft another admin wrote has
-| to be theirs to open. super_admin and seo_admin stay read-only on someone
-| else's content no matter how senior the role sounds.
+| A post works like a task. The roles that run the posting calendar -
+| `owner` and `account_manager` - create it, often with nothing but a title,
+| and they alone schedule, publish and delete. super_admin and seo_admin are
+| the ones who fill it in: they see the whole library and can edit any post,
+| but cannot create one, move its schedule or delete it.
+|
+| Posts written before this rule keep working for their author, who can
+| still edit and delete what they wrote.
 |
 */
+
+const CONTENT_EDITOR_ROLES = ["owner", "account_manager", "super_admin", "seo_admin"];
 
 function canPublishContent($admin)
 {
     return in_array($admin["role"] ?? "", ["owner", "account_manager"], true);
 }
 
-function canManageContent($admin, $creatorId)
+function canCreateContent($admin)
 {
-    if (canPublishContent($admin)) {
+    return canPublishContent($admin);
+}
+
+function canViewAllContent($admin)
+{
+    return in_array($admin["role"] ?? "", CONTENT_EDITOR_ROLES, true);
+}
+
+function canEditContent($admin, $creatorId)
+{
+    if (canViewAllContent($admin)) {
         return true;
     }
 
     return (int) $creatorId === (int) $admin["id"];
 }
 
-/*
-|--------------------------------------------------------------------------
-| Helper: who may see a post at all
-|--------------------------------------------------------------------------
-|
-| Separate from the edit rule above, and a shorter list. The owner and the
-| account managers see the whole library because they answer for what goes
-| out. Everyone else - including super_admin - sees only their own posts.
-|
-| Note super_admin appears in neither list: it can neither read nor touch
-| another admin's content. That is deliberate, not an oversight.
-|
-*/
-
-function canViewAllContent($admin)
+function canDeleteContent($admin, $creatorId)
 {
-    return in_array($admin["role"] ?? "", ["owner", "account_manager"], true);
+    if (canPublishContent($admin)) {
+        return true;
+    }
+
+    return (int) $creatorId === (int) $admin["id"];
 }
 
 /*
@@ -217,16 +221,84 @@ function deleteContentImage($relativePath)
 
 /*
 |--------------------------------------------------------------------------
-| Helper: Upload Image
+| Helper: the uploaded images as a plain list
+|--------------------------------------------------------------------------
+|
+| The form sends media[] - PHP files that as one array per field (name[],
+| tmp_name[], ...) rather than one entry per file. A single `media` field,
+| as older clients send, comes through as one file.
+|
+*/
+
+function contentUploads()
+{
+    $field = $_FILES["media"] ?? null;
+
+    if (!is_array($field) || !isset($field["error"])) {
+        return [];
+    }
+
+    if (!is_array($field["error"])) {
+        return $field["error"] === UPLOAD_ERR_NO_FILE ? [] : [$field];
+    }
+
+    $files = [];
+
+    foreach (array_keys($field["error"]) as $i) {
+        if ($field["error"][$i] === UPLOAD_ERR_NO_FILE) {
+            continue;
+        }
+
+        $files[] = [
+            "name"     => $field["name"][$i] ?? "",
+            "type"     => $field["type"][$i] ?? "",
+            "tmp_name" => $field["tmp_name"][$i] ?? "",
+            "error"    => $field["error"][$i],
+            "size"     => $field["size"][$i] ?? 0,
+        ];
+    }
+
+    return $files;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Helper: Upload Images
+|--------------------------------------------------------------------------
+|
+| Every file is checked before any is saved, so a bad third image does not
+| leave the first two behind on disk with no post pointing at them.
+|
+*/
+
+function uploadContentImages(array $files, $uploadDir)
+{
+    $extensions = array_map("checkContentImage", $files);
+
+    $saved = [];
+
+    foreach ($files as $i => $file) {
+        $filename = bin2hex(random_bytes(16)) . "." . $extensions[$i];
+
+        if (!move_uploaded_file($file["tmp_name"], $uploadDir . $filename)) {
+            array_map("deleteContentImage", $saved);
+            response(false, "Could not save image.", [], 500);
+        }
+
+        $saved[] = "uploads/content/" . $filename;
+    }
+
+    return $saved;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Helper: Check one image, returning the extension to save it under
 |--------------------------------------------------------------------------
 */
 
-function uploadContentImage($file, $uploadDir)
+function checkContentImage($file)
 {
-    if (!isset($file) || !is_array($file)) {
-        return null;
-    }
-
     $error = $file["error"] ?? UPLOAD_ERR_NO_FILE;
 
     if ($error !== UPLOAD_ERR_OK) {
@@ -271,21 +343,7 @@ function uploadContentImage($file, $uploadDir)
         response(false, "Only JPG, PNG, WEBP and GIF images are allowed.", [], 400);
     }
 
-    /*
-    | Generate safe random filename
-    */
-    $filename =
-        bin2hex(random_bytes(16))
-        . "."
-        . $allowed[$mime];
-
-    $destination = $uploadDir . $filename;
-
-    if (!move_uploaded_file($file["tmp_name"], $destination)) {
-        response(false, "Could not save image.", [], 500);
-    }
-
-    return "uploads/content/" . $filename;
+    return $allowed[$mime];
 }
 
 /*
@@ -363,14 +421,18 @@ if ($_SERVER["REQUEST_METHOD"] === "GET") {
 
             unset($content["created_by_name"]);
 
+            $content["images"] = contentImages($content);
+
             response(
                 true,
                 "Content loaded.",
                 [
-                    "content"    => $content,
-                    "admin_id"   => (int) $admin["id"],
-                    "admin_role" => $admin["role"],
-                    "is_owner"   => canManageContent($admin, $content["created_by_id"])
+                    "content"     => $content,
+                    "admin_id"    => (int) $admin["id"],
+                    "admin_role"  => $admin["role"],
+                    "can_edit"    => canEditContent($admin, $content["created_by_id"]),
+                    "can_delete"  => canDeleteContent($admin, $content["created_by_id"]),
+                    "can_publish" => canPublishContent($admin)
                 ]
             );
         }
@@ -398,6 +460,7 @@ if ($_SERVER["REQUEST_METHOD"] === "GET") {
                 c.category,
                 c.orientation,
                 c.media_path,
+                c.media_paths,
                 c.post_date,
                 c.post_time,
                 c.publish_now,
@@ -434,17 +497,28 @@ if ($_SERVER["REQUEST_METHOD"] === "GET") {
 
         $contents = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+        /* Each row says what this admin may do with it, so the grid shows
+           Edit and Delete from the same rules the writes below enforce. */
+        foreach ($contents as &$row) {
+            $row["images"] = contentImages($row);
+            unset($row["media_paths"]);
+
+            $row["can_edit"] = canEditContent($admin, $row["created_by_id"]);
+            $row["can_delete"] = canDeleteContent($admin, $row["created_by_id"]);
+        }
+        unset($row);
+
         response(
             true,
             "Content loaded.",
             [
                 "content" => $contents,
 
-                /* Who is asking. The page can then show Edit/Delete only on
-                   the rows this admin created - or on everything, when the
-                   role is `owner` or `account_manager`. */
+                /* Who is asking. Only the owner and account managers get the
+                   Create button. */
                 "admin_id"   => (int) $admin["id"],
-                "admin_role" => $admin["role"]
+                "admin_role" => $admin["role"],
+                "can_create" => canCreateContent($admin)
             ]
         );
 
@@ -483,7 +557,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         response(
             false,
             "Upload is too large for the server (post_max_size is "
-                . ini_get("post_max_size") . "). Use a smaller image.",
+                . ini_get("post_max_size") . "). Use fewer or smaller images.",
             [],
             413
         );
@@ -518,41 +592,91 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $status = trim($_POST["status"] ?? "draft");
 
     /*
-    | Only the account manager and the owner decide when a post goes out.
-    | Anyone else's post is saved as a draft for them to send, whatever the
-    | request asked for - the form already sends "draft" for those roles,
-    | this is what makes that a rule rather than a courtesy.
+    |--------------------------------------------------------------------------
+    | Who may write this
+    |--------------------------------------------------------------------------
+    |
+    | Creating is for the owner and the account managers. Editing is open to
+    | the roles that fill posts in (canEditContent). The UI hides what a role
+    | cannot do; this is what stops a hand-made request getting through.
+    |
     */
-    if (!canPublishContent($admin)) {
-        $status = "draft";
-        $publishNow = 0;
+
+    $existing = null;
+
+    if ($id <= 0) {
+
+        if (!canCreateContent($admin)) {
+            response(
+                false,
+                "Only the owner or an account manager can create content.",
+                [],
+                403
+            );
+        }
+
+    } else {
+
+        try {
+
+            $stmt = $pdo->prepare("
+                SELECT *
+                FROM content
+                WHERE id = ?
+                LIMIT 1
+            ");
+
+            $stmt->execute([$id]);
+
+            $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        } catch (Throwable $e) {
+
+            response(false, "Could not find content.", [], 500);
+        }
+
+        if (!$existing) {
+            response(false, "Content not found.", [], 404);
+        }
+
+        if (!canEditContent($admin, $existing["created_by"])) {
+            response(
+                false,
+                "You can only edit content you created.",
+                [],
+                403
+            );
+        }
     }
 
-    $removeMedia =
-        isset($_POST["remove_media"])
-        && $_POST["remove_media"] == "1";
+    /*
+    | Only the account manager and the owner decide when a post goes out.
+    | Anyone else filling a post in leaves its schedule exactly as it was,
+    | whatever the request asked for - otherwise adding a caption to a
+    | scheduled post would quietly pull it back to draft. A post written by
+    | such a role before this rule is still a draft and stays one.
+    */
+    $setsSchedule = canPublishContent($admin);
+
+    if (!$setsSchedule) {
+        $status = $existing["status"] ?? "draft";
+        $publishNow = (int) ($existing["publish_now"] ?? 0);
+        $postDate = (string) ($existing["post_date"] ?? "");
+        $postTime = (string) ($existing["post_time"] ?? "");
+    }
 
     /*
     |--------------------------------------------------------------------------
     | Validation
     |--------------------------------------------------------------------------
+    |
+    | A post starts life as a task, so the title is the only thing it must
+    | have. Client, type, caption and images are filled in later.
+    |
     */
 
     if (!$title) {
         response(false, "Campaign title is required.", [], 400);
-    }
-
-    /*
-    | Every post belongs to one client. There used to be an "All clients"
-    | option, which is why older rows can still have an empty client - they
-    | keep working, but nothing new is saved that way.
-    */
-    if (!$client) {
-        response(false, "A client is required.", [], 400);
-    }
-
-    if (!$contentType) {
-        response(false, "Content type is required.", [], 400);
     }
 
     if (!in_array(
@@ -587,7 +711,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     |--------------------------------------------------------------------------
     */
 
-    if ($publishNow) {
+    if (!$setsSchedule) {
+
+        // The stored schedule, untouched - see $setsSchedule above.
+
+    } elseif ($publishNow) {
 
         $postDate = null;
         $postTime = null;
@@ -621,6 +749,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
 
     /*
+    | A post with no client is shown to every client (api/user-content.php
+    | keeps that for the rows saved before a client was compulsory). A draft
+    | can wait for one; nothing goes out without one.
+    */
+    if ($status !== "draft" && $client === "") {
+        response(false, "Pick a client before scheduling or publishing.", [], 400);
+    }
+
+    /*
     |--------------------------------------------------------------------------
     | Caption validation
     |--------------------------------------------------------------------------
@@ -648,23 +785,53 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     /*
     |--------------------------------------------------------------------------
+    | Images
+    |--------------------------------------------------------------------------
+    |
+    | Up to CONTENT_MAX_IMAGES per post. The form sends the images it keeps as
+    | keep_media[] (in order) and the new ones as media[]; the kept ones come
+    | first. keep_media_sent marks that the list was sent at all, so keeping
+    | none - an empty list, which PHP drops - is not read as "keep them all".
+    |
+    | A kept path is only honoured when the post already has it: the paths
+    | end up in an href and an unlink, so nothing the request makes up gets in.
+    |
+    */
+
+    $hadImages = $existing ? contentImages($existing) : [];
+
+    if (($_POST["keep_media_sent"] ?? "") === "1") {
+        $keep = array_map("strval", (array) ($_POST["keep_media"] ?? []));
+        $keptImages = array_values(array_intersect(array_unique($keep), $hadImages));
+    } else {
+        $keptImages = $hadImages;
+    }
+
+    $uploads = contentUploads();
+
+    if (count($keptImages) + count($uploads) > CONTENT_MAX_IMAGES) {
+        response(
+            false,
+            "A post can have up to " . CONTENT_MAX_IMAGES . " images.",
+            [],
+            400
+        );
+    }
+
+    $newImages = uploadContentImages($uploads, $uploadDir);
+
+    $images = array_merge($keptImages, $newImages);
+
+    $mediaPath = $images[0] ?? null;
+    $mediaPaths = $images ? json_encode($images, JSON_UNESCAPED_SLASHES) : null;
+
+    /*
+    |--------------------------------------------------------------------------
     | CREATE
     |--------------------------------------------------------------------------
     */
 
     if ($id <= 0) {
-
-        $mediaPath = null;
-
-        /*
-        | Upload new image
-        */
-        if (isset($_FILES["media"])) {
-            $mediaPath = uploadContentImage(
-                $_FILES["media"],
-                $uploadDir
-            );
-        }
 
         try {
 
@@ -680,6 +847,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     category,
                     orientation,
                     media_path,
+                    media_paths,
                     post_date,
                     post_time,
                     publish_now,
@@ -687,7 +855,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     created_by
                 )
                 VALUES (
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
                 )
             ");
 
@@ -702,6 +870,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 $category ?: null,
                 $orientation,
                 $mediaPath,
+                $mediaPaths,
                 $postDate ?: null,
                 $postTime ?: null,
                 $publishNow,
@@ -742,11 +911,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         } catch (Throwable $e) {
 
             /*
-            | Delete uploaded file if DB insert failed
+            | Delete the uploaded files if the DB insert failed
             */
-            if ($mediaPath) {
-                deleteContentImage($mediaPath);
-            }
+            array_map("deleteContentImage", $newImages);
 
             response(
                 false,
@@ -761,87 +928,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     |--------------------------------------------------------------------------
     | UPDATE
     |--------------------------------------------------------------------------
+    |
+    | The row was loaded and the edit allowed at the top of this block.
+    |
     */
-
-    try {
-
-        $stmt = $pdo->prepare("
-            SELECT *
-            FROM content
-            WHERE id = ?
-            LIMIT 1
-        ");
-
-        $stmt->execute([$id]);
-
-        $existing = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!$existing) {
-            response(false, "Content not found.", [], 404);
-        }
-
-        /*
-        |----------------------------------------------------------------------
-        | Ownership
-        |----------------------------------------------------------------------
-        |
-        | The author, the owner or an account manager. super_admin and seo_admin
-        | are read-only on someone else's post. The UI hides Edit for them;
-        | this is what stops a hand-made request getting through anyway.
-        |
-        */
-        if (!canManageContent($admin, $existing["created_by"])) {
-            response(
-                false,
-                "You can only edit content you created.",
-                [],
-                403
-            );
-        }
-
-    } catch (Throwable $e) {
-
-        response(
-            false,
-            "Could not find content.",
-            [],
-            500
-        );
-    }
-
-    /*
-    | Keep old image by default
-    */
-    $mediaPath = $existing["media_path"];
-
-    /*
-    | Remove image
-    */
-    if ($removeMedia) {
-
-        if ($mediaPath) {
-            deleteContentImage($mediaPath);
-        }
-
-        $mediaPath = null;
-    }
-
-    /*
-    | Replace image
-    */
-    if (isset($_FILES["media"])) {
-
-        $newMediaPath = uploadContentImage(
-            $_FILES["media"],
-            $uploadDir
-        );
-
-        if ($mediaPath) {
-            deleteContentImage($mediaPath);
-        }
-
-        $mediaPath = $newMediaPath;
-    }
 
     try {
 
@@ -858,6 +948,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 category = ?,
                 orientation = ?,
                 media_path = ?,
+                media_paths = ?,
                 post_date = ?,
                 post_time = ?,
                 publish_now = ?,
@@ -878,6 +969,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $category ?: null,
             $orientation,
             $mediaPath,
+            $mediaPaths,
             $postDate ?: null,
             $postTime ?: null,
             $publishNow,
@@ -899,6 +991,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             );
         }
 
+        /*
+        | The images the post let go of, removed only now the row no longer
+        | points at them - a failed update leaves the post as it was.
+        */
+        array_map("deleteContentImage", array_diff($hadImages, $images));
+
         response(
             true,
             "Content updated successfully.",
@@ -908,6 +1006,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         );
 
     } catch (Throwable $e) {
+
+        array_map("deleteContentImage", $newImages);
 
         response(
             false,
@@ -950,7 +1050,7 @@ if ($_SERVER["REQUEST_METHOD"] === "DELETE") {
     try {
 
         $stmt = $pdo->prepare("
-            SELECT media_path, created_by
+            SELECT media_path, media_paths, created_by
             FROM content
             WHERE id = ?
             LIMIT 1
@@ -965,9 +1065,10 @@ if ($_SERVER["REQUEST_METHOD"] === "DELETE") {
         }
 
         /*
-        | Same rule as the update: the author, the owner or an account manager.
+        | The owner, an account manager or the post's author. The roles that
+        | fill posts in can edit any of them but delete none they did not write.
         */
-        if (!canManageContent($admin, $content["created_by"])) {
+        if (!canDeleteContent($admin, $content["created_by"])) {
             response(
                 false,
                 "You can only delete content you created.",
@@ -987,13 +1088,9 @@ if ($_SERVER["REQUEST_METHOD"] === "DELETE") {
         $stmt->execute([$id]);
 
         /*
-        | Delete image
+        | Delete its images
         */
-        if (!empty($content["media_path"])) {
-            deleteContentImage(
-                $content["media_path"]
-            );
-        }
+        array_map("deleteContentImage", contentImages($content));
 
         response(
             true,

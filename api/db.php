@@ -707,8 +707,16 @@ function normaliseWebUrl($value)
  * no language column - the toolbar on admin-content-form.html sets it.
  */
 const CONTENT_EXTRA_COLUMNS = [
-    "link"     => "VARCHAR(500) NULL",
+    "link"        => "VARCHAR(500) NULL",
+
+    /* Every image on the post, in order, as a JSON array of web paths. The
+       first one is also kept in media_path, which is what the thumbnails, the
+       v1 API and older code read - see contentImages(). */
+    "media_paths" => "TEXT NULL",
 ];
+
+/** Most images one post can carry. api/admin-content.php enforces it. */
+const CONTENT_MAX_IMAGES = 5;
 
 /**
  * Columns added to `surveys` after the table first shipped. Same lazy approach
@@ -828,6 +836,21 @@ function contentStatusSql(string $alias = "c"): string
                  THEN 'published'
                  ELSE {$alias}.status
             END";
+}
+
+/**
+ * The post's images, first one first. Rows written before a post could carry
+ * more than one have only media_path, so that is the fallback.
+ */
+function contentImages(array $row): array
+{
+    $list = json_decode((string) ($row["media_paths"] ?? ""), true);
+
+    if (is_array($list)) {
+        return array_values(array_filter($list, "is_string"));
+    }
+
+    return !empty($row["media_path"]) ? [(string) $row["media_path"]] : [];
 }
 
 /**
