@@ -109,3 +109,13 @@ CREATE TABLE content (
   created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- sql/content_assignees.sql
+CREATE TABLE content_assignees (
+  id         INT AUTO_INCREMENT PRIMARY KEY,
+  content_id INT       NOT NULL,
+  admin_id   INT       NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_assignee (content_id, admin_id),
+  KEY idx_admin (admin_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

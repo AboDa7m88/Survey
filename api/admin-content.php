@@ -140,18 +140,17 @@ ensureNotificationsTable($pdo);
 | Helpers: who may do what with a post
 |--------------------------------------------------------------------------
 |
-| A post works like a task. The roles that run the posting calendar -
-| `owner` and `account_manager` - create it, often with nothing but a title,
-| and they alone schedule, publish and delete. super_admin and seo_admin are
-| the ones who fill it in: they see the whole library and can edit any post,
-| but cannot create one, move its schedule or delete it.
+| A post works like a task. The owner, the account managers and the super
+| admins create it, often with nothing but a title, and pick the teammates -
+| Super Admins and Admins - who work on it with them (content_assignees).
 |
-| Posts written before this rule keep working for their author, who can
-| still edit and delete what they wrote.
+| The owner and the account managers run the posting calendar: they see every
+| post, and they alone schedule and publish. Anyone else sees the posts they
+| created and the ones they are assigned to, and can fill those in. The
+| author, the owner and the account managers change who is on a post and
+| delete it; an assignee does neither.
 |
 */
-
-const CONTENT_EDITOR_ROLES = ["owner", "account_manager", "super_admin", "seo_admin"];
 
 function canPublishContent($admin)
 {
@@ -160,17 +159,42 @@ function canPublishContent($admin)
 
 function canCreateContent($admin)
 {
-    return canPublishContent($admin);
+    return in_array($admin["role"] ?? "", ["owner", "account_manager", "super_admin"], true);
 }
 
 function canViewAllContent($admin)
 {
-    return in_array($admin["role"] ?? "", CONTENT_EDITOR_ROLES, true);
+    return contentSeesAll((string) ($admin["role"] ?? ""));
 }
 
-function canEditContent($admin, $creatorId)
+function isContentAssignee(PDO $pdo, $contentId, $adminId)
 {
-    if (canViewAllContent($admin)) {
+    try {
+        $stmt = $pdo->prepare("
+            SELECT 1 FROM content_assignees
+            WHERE content_id = ? AND admin_id = ?
+            LIMIT 1
+        ");
+        $stmt->execute([(int) $contentId, (int) $adminId]);
+
+        return (bool) $stmt->fetchColumn();
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+function canEditContent($admin, $creatorId, $assigned = false)
+{
+    if (canViewAllContent($admin) || $assigned) {
+        return true;
+    }
+
+    return (int) $creatorId === (int) $admin["id"];
+}
+
+function canAssignContent($admin, $creatorId)
+{
+    if (canPublishContent($admin)) {
         return true;
     }
 
@@ -179,11 +203,126 @@ function canEditContent($admin, $creatorId)
 
 function canDeleteContent($admin, $creatorId)
 {
-    if (canPublishContent($admin)) {
-        return true;
+    return canAssignContent($admin, $creatorId);
+}
+
+/*
+|--------------------------------------------------------------------------
+| Helper: the teammates sent with a save
+|--------------------------------------------------------------------------
+|
+| Sent either as repeated member_ids[] fields or as one comma-separated
+| string, the way api/projects.php reads its team. Only active Super Admins
+| and Admins survive, and never the person saving - they are on the post
+| already as its author.
+|
+*/
+
+function requestedAssigneeIds(PDO $pdo, $actorId)
+{
+    $ids = $_POST["member_ids"] ?? [];
+
+    if (!is_array($ids)) {
+        $ids = array_filter(explode(",", (string) $ids), "strlen");
     }
 
-    return (int) $creatorId === (int) $admin["id"];
+    $ids = array_values(array_unique(array_filter(
+        array_map("intval", $ids),
+        function ($value) use ($actorId) {
+            return $value > 0 && $value !== (int) $actorId;
+        }
+    )));
+
+    if (!$ids) {
+        return [];
+    }
+
+    $placeholders = implode(",", array_fill(0, count($ids), "?"));
+    $roles = implode(",", array_fill(0, count(CONTENT_ASSIGNEE_ROLES), "?"));
+
+    $stmt = $pdo->prepare("
+        SELECT id FROM admins
+        WHERE id IN ($placeholders) AND active = 1 AND role IN ($roles)
+    ");
+    $stmt->execute(array_merge($ids, CONTENT_ASSIGNEE_ROLES));
+
+    return array_map("intval", $stmt->fetchAll(PDO::FETCH_COLUMN));
+}
+
+/**
+ * Puts exactly $after on the post, then tells each teammate who was not on it
+ * before. Run after the post itself is saved; a failure here leaves the post
+ * saved and the team as it was, which the next save can put right.
+ */
+function saveContentAssignees(PDO $pdo, $contentId, array $before, array $after, $title, $actorId)
+{
+    $added = array_values(array_diff($after, $before));
+    $removed = array_values(array_diff($before, $after));
+
+    if (!$added && !$removed) {
+        return;
+    }
+
+    try {
+        $pdo->beginTransaction();
+
+        if ($removed) {
+            $placeholders = implode(",", array_fill(0, count($removed), "?"));
+
+            $stmt = $pdo->prepare("
+                DELETE FROM content_assignees
+                WHERE content_id = ? AND admin_id IN ($placeholders)
+            ");
+            $stmt->execute(array_merge([(int) $contentId], $removed));
+        }
+
+        $stmt = $pdo->prepare("
+            INSERT IGNORE INTO content_assignees (content_id, admin_id) VALUES (?, ?)
+        ");
+
+        foreach ($added as $adminId) {
+            $stmt->execute([(int) $contentId, (int) $adminId]);
+        }
+
+        $pdo->commit();
+
+    } catch (Throwable $e) {
+
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+
+        return;
+    }
+
+    // Outside the transaction, per rule 2 in notify.php. Only the people new
+    // to the post hear about it - the ones already on it were told before.
+    foreach ($added as $adminId) {
+        notify(
+            $pdo,
+            "admin",
+            (int) $adminId,
+            NOTIFY_CONTENT_ASSIGNED,
+            "You were assigned a content task",
+            (string) $title,
+            "admin-content.html?id=" . (int) $contentId,
+            "admin",
+            (int) $actorId
+        );
+    }
+}
+
+/** The admin ids on a post now. */
+function currentAssigneeIds(PDO $pdo, $contentId)
+{
+    try {
+        $stmt = $pdo->prepare("SELECT admin_id FROM content_assignees WHERE content_id = ?");
+        $stmt->execute([(int) $contentId]);
+
+        return array_map("intval", $stmt->fetchAll(PDO::FETCH_COLUMN));
+    } catch (Throwable $e) {
+        return [];
+    }
 }
 
 /*
@@ -361,6 +500,26 @@ if ($_SERVER["REQUEST_METHOD"] === "GET") {
     try {
 
         /*
+        | The teammates a post can be assigned to, for the form's picker.
+        */
+        if (!empty($_GET["candidates"])) {
+
+            $roles = implode(",", array_fill(0, count(CONTENT_ASSIGNEE_ROLES), "?"));
+
+            $stmt = $pdo->prepare("
+                SELECT id, name, email, role
+                FROM admins
+                WHERE active = 1 AND role IN ($roles)
+                ORDER BY name ASC
+            ");
+            $stmt->execute(CONTENT_ASSIGNEE_ROLES);
+
+            response(true, "Teammates loaded.", [
+                "admins" => $stmt->fetchAll(PDO::FETCH_ASSOC)
+            ]);
+        }
+
+        /*
         | Single content
         */
         if (isset($_GET["id"]) && $_GET["id"] !== "") {
@@ -397,7 +556,7 @@ if ($_SERVER["REQUEST_METHOD"] === "GET") {
             /*
             | Keep the raw creator id before the name overwrites it. The pages
             | use it to decide whether this admin owns the post - only the
-            | author, the owner or an account manager gets Edit and Delete.
+            | author, the owner or an account manager gets Delete.
             */
             $content["created_by_id"] =
                 (int) $content["created_by"];
@@ -408,7 +567,10 @@ if ($_SERVER["REQUEST_METHOD"] === "GET") {
             | that never appeared in their grid. "Not found" rather than a 403,
             | so the response does not confirm the post exists.
             */
+            $assigned = isContentAssignee($pdo, $id, $admin["id"]);
+
             if (!canViewAllContent($admin)
+                && !$assigned
                 && $content["created_by_id"] !== (int) $admin["id"]) {
                 response(false, "Content not found.", [], 404);
             }
@@ -423,6 +585,8 @@ if ($_SERVER["REQUEST_METHOD"] === "GET") {
 
             $content["images"] = contentImages($content);
 
+            $content["assignees"] = contentAssignees($pdo, [$id])[$id] ?? [];
+
             response(
                 true,
                 "Content loaded.",
@@ -430,8 +594,9 @@ if ($_SERVER["REQUEST_METHOD"] === "GET") {
                     "content"     => $content,
                     "admin_id"    => (int) $admin["id"],
                     "admin_role"  => $admin["role"],
-                    "can_edit"    => canEditContent($admin, $content["created_by_id"]),
+                    "can_edit"    => canEditContent($admin, $content["created_by_id"], $assigned),
                     "can_delete"  => canDeleteContent($admin, $content["created_by_id"]),
+                    "can_assign"  => canAssignContent($admin, $content["created_by_id"]),
                     "can_publish" => canPublishContent($admin)
                 ]
             );
@@ -439,13 +604,16 @@ if ($_SERVER["REQUEST_METHOD"] === "GET") {
 
         /*
         | The library, narrowed to what this admin may see. Owner and account
-        | manager get everything; everyone else gets their own rows only, so
-        | the filter goes in the query rather than being applied after the
-        | fetch - content nobody may read should never leave the database.
+        | manager get everything; everyone else gets the posts they created
+        | or are assigned to, so the filter goes in the query rather than
+        | being applied after the fetch - content nobody may read should
+        | never leave the database.
         */
         $seesAll = canViewAllContent($admin);
 
-        $scope = $seesAll ? "" : "WHERE c.created_by = ?";
+        [$visibleSql, $visibleParams] = contentVisibleSql("c", (int) $admin["id"]);
+
+        $scope = $seesAll ? "" : "WHERE $visibleSql";
 
         $stmt = $pdo->prepare("
             SELECT
@@ -492,10 +660,12 @@ if ($_SERVER["REQUEST_METHOD"] === "GET") {
             ORDER BY c.created_at DESC
         ");
 
-        // The first ? is the status CASE in the SELECT; the scope's comes after.
-        $stmt->execute($seesAll ? [contentNow()] : [contentNow(), $admin["id"]]);
+        // The first ? is the status CASE in the SELECT; the scope's come after.
+        $stmt->execute($seesAll ? [contentNow()] : array_merge([contentNow()], $visibleParams));
 
         $contents = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $assignees = contentAssignees($pdo, array_column($contents, "id"));
 
         /* Each row says what this admin may do with it, so the grid shows
            Edit and Delete from the same rules the writes below enforce. */
@@ -503,7 +673,15 @@ if ($_SERVER["REQUEST_METHOD"] === "GET") {
             $row["images"] = contentImages($row);
             unset($row["media_paths"]);
 
-            $row["can_edit"] = canEditContent($admin, $row["created_by_id"]);
+            $row["assignees"] = $assignees[(int) $row["id"]] ?? [];
+
+            $assigned = in_array(
+                (int) $admin["id"],
+                array_column($row["assignees"], "id"),
+                true
+            );
+
+            $row["can_edit"] = canEditContent($admin, $row["created_by_id"], $assigned);
             $row["can_delete"] = canDeleteContent($admin, $row["created_by_id"]);
         }
         unset($row);
@@ -514,8 +692,8 @@ if ($_SERVER["REQUEST_METHOD"] === "GET") {
             [
                 "content" => $contents,
 
-                /* Who is asking. Only the owner and account managers get the
-                   Create button. */
+                /* Who is asking. The owner, account managers and super admins
+                   get the Create button. */
                 "admin_id"   => (int) $admin["id"],
                 "admin_role" => $admin["role"],
                 "can_create" => canCreateContent($admin)
@@ -596,9 +774,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     | Who may write this
     |--------------------------------------------------------------------------
     |
-    | Creating is for the owner and the account managers. Editing is open to
-    | the roles that fill posts in (canEditContent). The UI hides what a role
-    | cannot do; this is what stops a hand-made request getting through.
+    | Creating is for the owner, the account managers and the super admins.
+    | Editing is open to whoever may see the post (canEditContent). The UI
+    | hides what a role cannot do; this is what stops a hand-made request
+    | getting through.
     |
     */
 
@@ -609,7 +788,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         if (!canCreateContent($admin)) {
             response(
                 false,
-                "Only the owner or an account manager can create content.",
+                "Only the owner, an account manager or a super admin can create content.",
                 [],
                 403
             );
@@ -639,14 +818,38 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             response(false, "Content not found.", [], 404);
         }
 
-        if (!canEditContent($admin, $existing["created_by"])) {
+        if (!canEditContent(
+            $admin,
+            $existing["created_by"],
+            isContentAssignee($pdo, $id, $admin["id"])
+        )) {
             response(
                 false,
-                "You can only edit content you created.",
+                "You can only edit content you created or are assigned to.",
                 [],
                 403
             );
         }
+    }
+
+    /*
+    | The teammates. member_ids_sent marks that the form sent the list at all,
+    | so ticking nobody - an empty list, which PHP drops - is not read as
+    | "leave it alone". A save from someone who may not change the team (an
+    | assignee filling the post in) leaves it exactly as it was.
+    */
+    $setsTeam =
+        ($_POST["member_ids_sent"] ?? "") === "1"
+        && canAssignContent($admin, $existing["created_by"] ?? $admin["id"]);
+
+    $hadAssignees = $existing ? currentAssigneeIds($pdo, $id) : [];
+
+    try {
+        $assigneeIds = $setsTeam
+            ? requestedAssigneeIds($pdo, $admin["id"])
+            : $hadAssignees;
+    } catch (Throwable $e) {
+        response(false, "Could not check the teammates.", [], 500);
     }
 
     /*
@@ -880,6 +1083,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             $newId = $pdo->lastInsertId();
 
+            saveContentAssignees($pdo, $newId, [], $assigneeIds, $title, $admin["id"]);
+
             // Only a post that is live has anything to announce. A draft or a
             // scheduled post notifies nobody until it actually publishes.
             if ($status === "published") {
@@ -977,6 +1182,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $id
         ]);
 
+        saveContentAssignees($pdo, $id, $hadAssignees, $assigneeIds, $title, $admin["id"]);
+
         // Only on the transition into published. Without this test every later
         // edit of a live post would notify the whole client all over again.
         if ($status === "published" && ($existing["status"] ?? "") !== "published") {
@@ -1065,8 +1272,8 @@ if ($_SERVER["REQUEST_METHOD"] === "DELETE") {
         }
 
         /*
-        | The owner, an account manager or the post's author. The roles that
-        | fill posts in can edit any of them but delete none they did not write.
+        | The owner, an account manager or the post's author. An assignee can
+        | fill the post in but not delete it.
         */
         if (!canDeleteContent($admin, $content["created_by"])) {
             response(
@@ -1083,6 +1290,13 @@ if ($_SERVER["REQUEST_METHOD"] === "DELETE") {
         $stmt = $pdo->prepare("
             DELETE FROM content
             WHERE id = ?
+        ");
+
+        $stmt->execute([$id]);
+
+        $stmt = $pdo->prepare("
+            DELETE FROM content_assignees
+            WHERE content_id = ?
         ");
 
         $stmt->execute([$id]);

@@ -279,13 +279,13 @@ function v1SeesAllForms(array $p)
 }
 
 /*
-| Content: the owner, account managers, super_admin and seo_admin see the
-| whole library; anyone else only their own posts. admin-content.php
-| canViewAllContent().
+| Content: the owner and account managers see the whole library; anyone else
+| the posts they wrote and the ones they are assigned to (db.php
+| contentVisibleSql). admin-content.php canViewAllContent().
 */
 function v1SeesAllContent(array $p)
 {
-    return in_array($p["role"], ["owner", "account_manager", "super_admin", "seo_admin"], true);
+    return contentSeesAll((string) $p["role"]);
 }
 
 /*

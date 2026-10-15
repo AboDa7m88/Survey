@@ -777,6 +777,23 @@ function ensureContentColumns(PDO $pdo)
     } catch (PDOException $e) {
         // Read-only DB user: the callers fall back to the defaults.
     }
+
+    /* The teammates a post is assigned to - see contentVisibleSql() below.
+       sql/content_assignees.sql is the same table to run by hand. */
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS content_assignees (
+              id         INT AUTO_INCREMENT PRIMARY KEY,
+              content_id INT       NOT NULL,
+              admin_id   INT       NOT NULL,
+              created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              UNIQUE KEY uniq_assignee (content_id, admin_id),
+              KEY idx_admin (admin_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+    } catch (PDOException $e) {
+        // Read-only DB user: run sql/content_assignees.sql by hand.
+    }
 }
 
 /*
@@ -851,6 +868,85 @@ function contentImages(array $row): array
     }
 
     return !empty($row["media_path"]) ? [(string) $row["media_path"]] : [];
+}
+
+/*
+|--------------------------------------------------------------------------
+| Who sees which post
+|--------------------------------------------------------------------------
+|
+| A post is a task. The owner and the account managers run the posting
+| calendar and see every post; anyone else sees the posts they created and
+| the ones they were assigned to (content_assignees). api/admin-content.php
+| and the v1 content reads all ask these, so the rule lives in one place.
+|
+*/
+
+/** Roles that see the whole content library. */
+const CONTENT_SEES_ALL_ROLES = ["owner", "account_manager"];
+
+/** Roles a post can be assigned to: Super Admins and Admins. */
+const CONTENT_ASSIGNEE_ROLES = ["super_admin", "seo_admin"];
+
+function contentSeesAll(string $role): bool
+{
+    return in_array($role, CONTENT_SEES_ALL_ROLES, true);
+}
+
+/**
+ * [sql, params] limiting `$alias` to the posts $adminId created or is
+ * assigned to. Assumes ensureContentColumns() has run.
+ */
+function contentVisibleSql(string $alias, int $adminId): array
+{
+    return [
+        "($alias.created_by = ? OR EXISTS (
+            SELECT 1 FROM content_assignees ca
+            WHERE ca.content_id = $alias.id AND ca.admin_id = ?
+        ))",
+        [$adminId, $adminId],
+    ];
+}
+
+/**
+ * The teammates on each of $contentIds: content_id => [{id, name, email, role}].
+ * Posts with nobody assigned are absent.
+ */
+function contentAssignees(PDO $pdo, array $contentIds): array
+{
+    $contentIds = array_values(array_unique(array_filter(array_map("intval", $contentIds))));
+
+    if (!$contentIds) {
+        return [];
+    }
+
+    $placeholders = implode(",", array_fill(0, count($contentIds), "?"));
+
+    try {
+        $stmt = $pdo->prepare("
+            SELECT ca.content_id, a.id, a.name, a.email, a.role
+            FROM content_assignees ca
+            JOIN admins a ON a.id = ca.admin_id
+            WHERE ca.content_id IN ($placeholders)
+            ORDER BY a.name ASC
+        ");
+        $stmt->execute($contentIds);
+    } catch (PDOException $e) {
+        return [];
+    }
+
+    $byContent = [];
+
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $byContent[(int) $row["content_id"]][] = [
+            "id"    => (int) $row["id"],
+            "name"  => (string) $row["name"],
+            "email" => (string) $row["email"],
+            "role"  => (string) $row["role"],
+        ];
+    }
+
+    return $byContent;
 }
 
 /**

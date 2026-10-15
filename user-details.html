@@ -297,22 +297,26 @@ td a{color:var(--nav-active);font-weight:700}
 
 .calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);border-top:1px solid var(--line);border-left:1px solid var(--line);margin:22px 28px 28px;border-radius:12px;overflow:hidden}
 .day-header{background:#f8fafc;padding:12px;font-size:12px;font-weight:700;color:#64748b;border-right:1px solid var(--line);border-bottom:1px solid var(--line);text-align:center}
-.day-cell{min-height:104px;padding:8px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:#fff;font-size:12px;font-weight:600;color:#64748b;display:flex;flex-direction:column;gap:4px;cursor:pointer}
+.day-cell{min-width:0;min-height:104px;padding:8px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:#fff;font-size:12px;font-weight:600;color:#64748b;display:flex;flex-direction:column;gap:4px;cursor:pointer}
 .day-cell.other-month{background:#fdfdfd;color:#cbd5e1;cursor:default}
 .day-cell.today-cell{background:#f0f9ff}
 /* The day the schedule panel below is describing. */
 .day-cell.selected-cell{box-shadow:inset 0 0 0 2px var(--nav-active)}
 .day-cell.today-cell > span{background:#0284c7;color:#fff;padding:2px 6px;border-radius:12px;width:max-content}
-.event-card{padding:6px;border-radius:6px;font-size:10.5px;font-weight:500;line-height:1.3}
+/* At most two lines - the title, then the time - each cut with an ellipsis,
+   so a long title never stretches the cell. The full text is the tooltip. */
+.event-card{min-width:0;overflow:hidden;padding:6px;border-radius:6px;font-size:10.5px;font-weight:500;line-height:1.3}
+.event-card .ev-line{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* A day holds three cards; the rest are behind this, and in the schedule below. */
+.more-events{font-size:10.5px;font-weight:700;color:var(--muted);padding:0 2px}
+.more-events:hover{color:var(--text)}
 .event-card.approved{background:#e8faef;border:1px solid #b8e7c8;color:#17803d}
 .event-card.pending{background:#fef3c7;border:1px solid #fde68a;color:#b45309}
 .event-card.rejected{background:#fef2f2;border:1px solid #fecaca;color:#dc2626}
-.badge.rejected{background:#ffe8e8;color:#c9000b}
 /* Content that went live that day (same as dashboard.html). A link to the post,
    in its own colour so it never reads as a meeting - on a phone it is a purple dot. */
 .event-card.content{display:block;background:#f0ebff;border:1px solid #ddd2ff;color:#5b3cc4;text-decoration:none}
 .event-card.content:hover{border-color:#b9a6ff}
-.badge.content{background:#f0ebff;color:#5b3cc4}
 .schedule-link{color:inherit;text-decoration:none}
 .schedule-link:hover{text-decoration:underline}
 
@@ -397,6 +401,11 @@ td a{color:var(--nav-active);font-weight:700}
   }
 
   .day-cell .event-card * {
+    display: none;
+  }
+
+  /* Three dots are the cap here too; the schedule list has the rest. */
+  .day-cell .more-events {
     display: none;
   }
 
@@ -618,6 +627,9 @@ const MONTHS = ["January","February","March","April","May","June",
 const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun",
                       "Jul","Aug","Sep","Oct","Nov","Dec"];
 
+/* Cards drawn in one day's cell; the rest read "+N more". */
+const MAX_DAY_CARDS = 3;
+
 let appointments = [];
 let contentItems = [];
 let currentDate = new Date();
@@ -645,12 +657,6 @@ function prettyTime(value){
 function prettyDate(value){
   const date = parseDateStr(value);
   return `${MONTHS_SHORT[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
-}
-
-function statusLabel(status){
-  if(status === "approved") return "Confirmed";
-  if(status === "rejected") return "Declined";
-  return "Pending";
 }
 
 /** "YYYY-MM-DD HH:MM:SS" the post went live: its scheduled moment, or when it
@@ -721,28 +727,49 @@ function renderCalendar(){
       + (dateStr === todayStr ? " today-cell" : "")
       + (dateStr === selectedDate ? " selected-cell" : "");
 
-    cell.innerHTML = `<span>${day.getDate()}</span>`;
-
-    appointments
+    // Meetings and posts in one time-ordered list, of which the day shows the
+    // first MAX_DAY_CARDS; the schedule panel below lists them all.
+    const meetingCards = appointments
       .filter(a => a.date === dateStr)
-      .forEach(a => {
-        cell.innerHTML += `
-          <div class="event-card ${esc(a.status || "pending")}">
-            ● <b>${esc(a.topic || a.title || "Meeting")}</b><br>
-            <small>${esc(prettyTime(a.time))}</small>
-          </div>`;
+      .map(a => {
+        const title = a.topic || a.title || "Meeting";
+        const time = prettyTime(a.time);
+
+        return {
+          time: String(a.time || ""),
+          html: `
+            <div class="event-card ${esc(a.status || "pending")}" title="${esc(title + (time ? " · " + time : ""))}">
+              <span class="ev-line">● <b>${esc(title)}</b></span>
+              <small class="ev-line">${esc(time)}</small>
+            </div>`
+        };
       });
 
     // A post opens itself; stopPropagation keeps the click from also
     // selecting the day, which would repaint the grid under the link.
-    contentOn(dateStr).forEach(item => {
-      cell.innerHTML += `
-        <a class="event-card content" href="${contentHref(item)}"
-           onclick="event.stopPropagation()" title="Open this post">
-          ■ <b dir="auto">${esc(item.title || "Content")}</b><br>
-          <small>${esc(prettyTime(contentLiveAt(item).slice(11)))} · ${esc(contentMeta(item))}</small>
-        </a>`;
+    const postCards = contentOn(dateStr).map(item => {
+      const title = item.title || "Content";
+      const meta = `${prettyTime(contentLiveAt(item).slice(11))} · ${contentMeta(item)}`;
+
+      return {
+        time: contentLiveAt(item).slice(11),
+        html: `
+          <a class="event-card content" href="${contentHref(item)}"
+             onclick="event.stopPropagation()" title="${esc(title + " · " + meta)}">
+            <span class="ev-line">■ <b dir="auto">${esc(title)}</b></span>
+            <small class="ev-line">${esc(meta)}</small>
+          </a>`
+      };
     });
+
+    const cards = meetingCards.concat(postCards)
+      .sort((a,b) => a.time.localeCompare(b.time));
+
+    cell.innerHTML = `<span>${day.getDate()}</span>`
+      + cards.slice(0, MAX_DAY_CARDS).map(card => card.html).join("")
+      + (cards.length > MAX_DAY_CARDS
+          ? `<div class="more-events">+${cards.length - MAX_DAY_CARDS} more</div>`
+          : "");
 
     cell.onclick = () => {
       selectedDate = dateStr;
@@ -811,7 +838,6 @@ function meetingRow(row){
       </div>
 
       <span class="schedule-time">${esc(prettyTime(row.time))}</span>
-      <span class="badge ${esc(row.status || "pending")}">${statusLabel(row.status)}</span>
     </div>`;
 }
 
@@ -829,7 +855,6 @@ function contentRow(item){
       </div>
 
       <span class="schedule-time">${esc(prettyTime(liveAt.slice(11)))}</span>
-      <span class="badge content">Content</span>
     </div>`;
 }
 
@@ -1662,12 +1687,12 @@ function render(data){
 
   const content = tablePanel(
     "Content visible", "Published posts this user can see — public ones plus anything targeted at their client.",
-    ["Title", "Type", "Client"],
+    ["Title", "Type", "Created at"],
     (data.content || []).map(c => `
       <tr>
         <td>${esc(c.title || "Untitled")}</td>
         <td>${esc(c.platform || "")}${c.type_label ? " · " + esc(c.type_label) : ""}</td>
-        <td>${c.client ? esc(c.client) : `<span class="muted">All clients</span>`}</td>
+        <td>${formatDate(c.created_at)}</td>
       </tr>`),
     "No published content reaches this user yet."
   );
@@ -1691,7 +1716,8 @@ function render(data){
     return;
   }
 
-  paint(header + details + teamPanel() + surveys + responses + appointments + files + content);
+  // The calendar sits right under the Team, the people who run it.
+  paint(header + details + teamPanel() + appointments + surveys + responses + files + content);
 
   initCalendar(data.appointments || [], data.content || []);
 }

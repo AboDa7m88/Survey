@@ -201,7 +201,11 @@ if (hasScope($p, "content:read")) {
         $overview["recent_content"] = [];
     } else {
         $now = contentNow();
-        $own = v1SeesAllContent($p) ? "" : " AND c.created_by = " . (int) $p["id"];
+        // contentVisibleSql() with the id inlined - it is an int, and these
+        // queries are built by string like the forms one above.
+        $own = v1SeesAllContent($p) ? "" : " AND (c.created_by = " . (int) $p["id"]
+            . " OR EXISTS (SELECT 1 FROM content_assignees ca WHERE ca.content_id = c.id AND ca.admin_id = "
+            . (int) $p["id"] . "))";
         $shape = function ($r) {
             return [
                 "id" => (int) $r["id"],
