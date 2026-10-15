@@ -510,6 +510,123 @@
         margin-top: 7px;
       }
 
+      /* ── Teammates: project-form.html's team-members dropdown ──────────────────
+   A trigger styled like the other selects with a panel of checkboxes under
+   it; the checkboxes are the state of record, read by saveContent(). The
+   Details panel lets the open list hang past its edge, so it rounds its own
+   head instead of clipping it. */
+      #panelDetails {
+        overflow: visible;
+      }
+      #panelDetails > .panel-head {
+        border-radius: 18px 18px 0 0;
+      }
+      #panelDetails.collapsed > .panel-head {
+        border-radius: 18px;
+      }
+      .field-row[hidden] {
+        display: none;
+      }
+      .multi {
+        position: relative;
+      }
+      .multi-trigger {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border: 1px solid #dfe3ea;
+        background: #f8fafc;
+        border-radius: 12px;
+        padding: 12px 14px;
+        font: inherit;
+        font-size: 14px;
+        color: var(--text);
+        text-align: left;
+        cursor: pointer;
+      }
+      .multi-trigger:hover {
+        background: #f2f5f9;
+      }
+      .multi.open .multi-trigger {
+        border-color: var(--nav-active);
+        box-shadow: 0 0 0 3px rgba(27, 30, 58, 0.1);
+      }
+      .multi-value {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .multi-value.placeholder {
+        color: #98a2b3;
+      }
+      .multi-chev {
+        width: 12px;
+        height: 12px;
+        flex: none;
+        color: var(--muted);
+        transition: transform 0.18s ease;
+      }
+      .multi.open .multi-chev {
+        transform: rotate(180deg);
+      }
+      .multi-panel {
+        display: none;
+        position: absolute;
+        z-index: 60;
+        top: calc(100% + 6px);
+        left: 0;
+        right: 0;
+        background: #fff;
+        border: 1px solid #dfe3ea;
+        border-radius: 12px;
+        box-shadow: 0 16px 40px rgba(16, 24, 40, 0.14);
+        padding: 6px;
+        max-height: 260px;
+        overflow-y: auto;
+      }
+      .multi.open .multi-panel {
+        display: block;
+      }
+      .multi-panel label {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 0;
+        padding: 9px 10px;
+        border-radius: 9px;
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0;
+        text-transform: none;
+        color: var(--text);
+        cursor: pointer;
+      }
+      .multi-panel label:hover {
+        background: #eef1f6;
+      }
+      .multi-panel input {
+        width: 16px;
+        height: 16px;
+        flex: none;
+        accent-color: var(--nav-active);
+      }
+      .multi-panel .role {
+        margin-left: auto;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        color: #98a2b3;
+      }
+      .multi-panel .none {
+        padding: 14px 10px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+
       /* ── Content type chips ── */
       .chips {
         display: grid;
@@ -1522,6 +1639,50 @@
                   </select>
                 </div>
 
+                <!-- Shown to whoever may change the team: anyone creating a
+                     post, and on an existing one its author, the owner and the
+                     account managers (can_assign). -->
+                <div class="field-row" id="teammatesRow" hidden>
+                  <label id="memberLabel">Teammates</label>
+                  <div class="multi" id="memberSelect">
+                    <button
+                      class="multi-trigger"
+                      type="button"
+                      id="memberTrigger"
+                      aria-haspopup="listbox"
+                      aria-expanded="false"
+                      aria-labelledby="memberLabel"
+                    >
+                      <span class="multi-value placeholder" id="memberSummary"
+                        >Select teammates...</span
+                      >
+                      <svg
+                        class="multi-chev"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg>
+                    </button>
+                    <div
+                      class="multi-panel"
+                      id="memberList"
+                      role="listbox"
+                      aria-multiselectable="true"
+                    >
+                      <div class="none">Loading teammates...</div>
+                    </div>
+                  </div>
+                  <p class="hint">
+                    Everyone ticked here can open this post and fill it in, and
+                    gets a notification.
+                  </p>
+                </div>
+
                 <div class="field-row">
                   <label for="link">Link</label>
                   <input
@@ -1847,10 +2008,14 @@
 
       const editId = new URLSearchParams(location.search).get("id");
 
-      /* Only the owner and the account managers create posts; the other roles
-   open one they made to fill it in. api/admin-content.php refuses the create
-   too - this only saves writing a whole post for nothing. */
-      if (!editId && !["owner", "account_manager"].includes(adminUser.role)) {
+      /* The owner, the account managers and the super admins create posts; an
+   Admin opens one they are on to fill it in. api/admin-content.php refuses the
+   create too - this only saves writing a whole post for nothing. */
+      const canCreate = ["owner", "account_manager", "super_admin"].includes(
+        adminUser.role,
+      );
+
+      if (!editId && !canCreate) {
         window.location.replace("admin-content.html");
       }
 
@@ -2535,6 +2700,14 @@
         form.append("publish_now", publishNow ? "1" : "0");
         form.append("status", status);
 
+        // Only when the field is offered: a save without the list leaves the
+        // post's team as it was. member_ids_sent says the list is complete even
+        // when nobody is ticked.
+        if (!document.getElementById("teammatesRow").hidden) {
+          form.append("member_ids_sent", "1");
+          selectedTeammateIds().forEach((id) => form.append("member_ids[]", id));
+        }
+
         let uploads;
 
         try {
@@ -2647,6 +2820,9 @@
           // dropdown can name a client no user carries any more - selectClient()
           // waits and re-adds the value rather than silently dropping it.
           await selectClient(item.client || "");
+
+          showTeammates(Boolean(data.can_assign));
+          await selectTeammates(item.assignees || []);
 
           /*
     |--------------------------------------------------------------------------
@@ -2795,6 +2971,144 @@
         select.value = value;
       }
 
+      /* ── Teammates ───────────────────────────────────────────────────────────────
+   The Super Admins and Admins who work on the post with its author. Whoever
+   creates a post picks them; on an existing post only its author, the owner
+   and the account managers may change them (can_assign) - for anyone else the
+   field stays hidden and the save sends no list, so api/admin-content.php
+   leaves the team as it was. Each person newly ticked gets a notification. */
+
+      const ROLE_LABELS = { super_admin: "Super Admin", seo_admin: "Admin" };
+
+      const teammatesReady = loadTeammates();
+
+      function showTeammates(on) {
+        document.getElementById("teammatesRow").hidden = !on;
+      }
+
+      function teammateOption(person) {
+        return (
+          '<label><input type="checkbox" name="member" value="' +
+          Number(person.id) +
+          '"><span>' +
+          esc(person.name || person.email || "Unnamed") +
+          '</span><span class="role">' +
+          esc(ROLE_LABELS[person.role] || person.role || "") +
+          "</span></label>"
+        );
+      }
+
+      async function loadTeammates() {
+        const list = document.getElementById("memberList");
+
+        try {
+          const res = await fetch("api/admin-content.php?candidates=1", {
+            headers: { Authorization: "Bearer " + adminToken },
+          });
+
+          const data = await res.json();
+          if (!data.success) throw new Error(data.message);
+
+          // The author is on the post already.
+          const people = (data.admins || []).filter(
+            (person) => String(person.id) !== String(adminUser.id),
+          );
+
+          list.innerHTML = people.length
+            ? people.map(teammateOption).join("")
+            : '<div class="none">No Super Admins or Admins to add yet.</div>';
+        } catch (err) {
+          console.error("Could not load teammates:", err);
+          list.innerHTML = '<div class="none">Could not load teammates.</div>';
+        }
+
+        wireMemberSelect();
+      }
+
+      function memberBoxes() {
+        return Array.from(
+          document.querySelectorAll('#memberList input[name="member"]'),
+        );
+      }
+
+      function selectedTeammateIds() {
+        return memberBoxes()
+          .filter((box) => box.checked)
+          .map((box) => box.value);
+      }
+
+      /** Ticks the given people - {id, name, role} rows or bare ids. A teammate
+          no longer offered (deactivated since) is added back rather than
+          silently dropped on the next save. */
+      async function selectTeammates(people) {
+        await teammatesReady;
+
+        const list = document.getElementById("memberList");
+        const ids = (people || []).map((p) =>
+          String(typeof p === "object" ? p.id : p),
+        );
+
+        (people || []).forEach((person) => {
+          if (typeof person !== "object") return;
+          if (memberBoxes().some((box) => box.value === String(person.id))) return;
+
+          list.querySelector(".none")?.remove();
+          list.insertAdjacentHTML("beforeend", teammateOption(person));
+        });
+
+        memberBoxes().forEach((box) => {
+          box.checked = ids.includes(box.value);
+        });
+
+        updateMemberSummary();
+      }
+
+      function updateMemberSummary() {
+        const summary = document.getElementById("memberSummary");
+        const picked = memberBoxes()
+          .filter((box) => box.checked)
+          .map((box) => box.closest("label").querySelector("span").textContent);
+
+        summary.classList.toggle("placeholder", !picked.length);
+
+        // Two names fit on the trigger; past that a count reads better than an
+        // ellipsis eating the third one.
+        summary.textContent = !picked.length
+          ? "Select teammates..."
+          : picked.length <= 2
+            ? picked.join(", ")
+            : picked.length + " teammates selected";
+      }
+
+      function wireMemberSelect() {
+        const box = document.getElementById("memberSelect");
+        const trigger = document.getElementById("memberTrigger");
+
+        trigger.addEventListener("click", function () {
+          const open = box.classList.toggle("open");
+          trigger.setAttribute("aria-expanded", String(open));
+        });
+
+        box.addEventListener("change", updateMemberSummary);
+
+        // Ticking a name should not close the panel - picking three people would
+        // otherwise mean opening it three times.
+        document.addEventListener("click", function (event) {
+          if (!box.contains(event.target)) close();
+        });
+
+        document.addEventListener("keydown", function (event) {
+          if (event.key === "Escape") close();
+        });
+
+        function close() {
+          box.classList.remove("open");
+          trigger.setAttribute("aria-expanded", "false");
+        }
+
+        updateMemberSummary();
+      }
+
       /* ── Unsaved-work recovery ──────────────────────────────────────────────────
    Same shape as the survey draft in admin.html: a per-admin localStorage key,
    written on every input, restored on load, cleared once the post is saved.
@@ -2828,6 +3142,7 @@
           postDate: document.getElementById("postDate").value,
           postTime: document.getElementById("postTime").value,
           publishNow: document.getElementById("publishNow").checked,
+          memberIds: selectedTeammateIds(),
         };
       }
 
@@ -2952,6 +3267,7 @@
         syncPublishNow();
 
         await selectClient(draft.client || "");
+        await selectTeammates(Array.isArray(draft.memberIds) ? draft.memberIds : []);
 
         // Last word on whether the notice is honest: read the form back. If nothing
         // the draft carried actually landed in a field - a client that no longer
@@ -3031,6 +3347,10 @@
 
       document.getElementById("panelScheduling").hidden = !canPublish;
       syncPublishNow();
+
+      // A new post's author picks its team; an existing post waits for the
+      // server's can_assign in prepareEditMode().
+      showTeammates(!editId && canCreate);
 
       renderTypes();
       updateCounter();

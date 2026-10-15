@@ -141,7 +141,7 @@ body{background:#f6f7fb;color:var(--text);padding:0}
 .detail-thumb.active{border-color:var(--nav-active);opacity:1}
 .detail-thumb:focus-visible{outline:2px solid var(--nav-active);outline-offset:2px}
 
-/* ── Client, Created by, Timing and the link share one line under the copy ── */
+/* ── Client, Created by, Assigned to, Timing and the link share one line under the copy ── */
 .detail-footer{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:flex-start;gap:22px 40px}
 .detail-footer .field{min-width:0}
 /* An email is longer than the other footer values and has no spaces to break on. */
@@ -398,6 +398,10 @@ function closeAccount(){ document.getElementById("acctModal").classList.remove("
               <p id="detailCreatedBy">—</p>
             </div>
             <div class="field">
+              <h5>Assigned to</h5>
+              <p id="detailAssignees">—</p>
+            </div>
+            <div class="field">
               <h5>Scheduled</h5>
               <p id="detailScheduled">Not scheduled</p>
             </div>
@@ -641,7 +645,7 @@ async function loadContent(){
     currentAdminId = data.admin_id != null ? String(data.admin_id) : null;
     currentAdminRole = data.admin_role || null;
 
-    // Only the owner and the account managers create posts.
+    // The owner, the account managers and the super admins create posts.
     document.getElementById("createBtn").hidden = !data.can_create;
 
     renderFilters();
@@ -823,8 +827,8 @@ function renderPager(total, totalPages, start, shown){
 
 /* What this admin may do with a post comes with the row - canEditContent() and
    canDeleteContent() in api/admin-content.php. The owner and the account
-   managers get both; super_admin and seo_admin fill posts in, so they get Edit
-   but no Delete on a post someone else created. */
+   managers get both; a teammate assigned to a post fills it in, so they get
+   Edit but no Delete on a post someone else created. */
 function cardActions(item){
   if(!item.can_edit && !item.can_delete) return "";
 
@@ -942,6 +946,8 @@ function selectContent(id){
   // fallback for rows whose admin account no longer exists.
   document.getElementById("detailCreatedBy").innerText =
     item.created_by_email || item.created_by || "—";
+  document.getElementById("detailAssignees").innerText =
+    (item.assignees || []).map(person => person.name || person.email).join(", ") || "—";
   document.getElementById("detailScheduled").innerText = formatTiming(item);
   document.getElementById("detailCreated").innerText = formatStamp(item.created_at);
   document.getElementById("detailUpdated").innerText = formatStamp(item.updated_at);

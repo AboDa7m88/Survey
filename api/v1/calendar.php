@@ -130,7 +130,7 @@ if (hasScope($p, "content:read")) {
     $liveAt = contentLiveAtSql("c");
 
     $contentParts = [
-        v1SeesAllContent($p) ? ["", []] : ["c.created_by = ?", [$p["id"]]],
+        v1SeesAllContent($p) ? ["", []] : contentVisibleSql("c", (int) $p["id"]),
         ["$liveAt BETWEEN ? AND ?", [$from . " 00:00:00", $to . " 23:59:59"]],
     ];
     if ($client !== null) {

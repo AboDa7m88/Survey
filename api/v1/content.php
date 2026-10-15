@@ -7,9 +7,9 @@
 |   GET content.php?id=N                                      get_content
 |   GET content.php?types=1                                   list_content_types
 |
-| Scope content:read. Same rule as admin-content.php: the owner, account
-| managers, super_admin and seo_admin see the whole library, anyone else
-| only the posts they wrote.
+| Scope content:read. Same rule as admin-content.php: the owner and account
+| managers see the whole library, anyone else the posts they wrote and the
+| ones they are assigned to (db.php contentVisibleSql).
 |
 | A scheduled post goes live by itself once its date and time pass - nothing
 | moves it, the reads ask (db.php contentIsLiveSql). So `status` here is the
@@ -39,7 +39,7 @@ if (!empty($_GET["types"])) {
 ensureContentColumns($pdo);
 
 $now = contentNow();
-$own = v1SeesAllContent($p) ? ["", []] : ["c.created_by = ?", [$p["id"]]];
+$own = v1SeesAllContent($p) ? ["", []] : contentVisibleSql("c", (int) $p["id"]);
 $liveAt = contentLiveAtSql("c");
 
 // Binds one ? (contentNow()) for the status column.

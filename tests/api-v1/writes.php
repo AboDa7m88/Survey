@@ -123,7 +123,7 @@ check("page: the owner creates an inquiry", ($r["success"] ?? false) && ($r["nam
 check("page: only the owner creates inquiries", ($r["message"] ?? "") === "Only the owner can create inquiries", json_encode($r));
 
 [$status, $r] = post("api/admin-content.php", $seo, ["title" => "Page post", "client" => "Acme Ltd", "status" => "draft"], [], true);
-check("page: only the owner and account managers create content", $status === 403
+check("page: an Admin can't create content", $status === 403
     && !one($pdo, "SELECT id FROM content WHERE title = 'Page post'"), "HTTP $status " . json_encode($r));
 
 [, $r] = post("api/admin-content.php", $am, ["title" => "Page post", "link" => "acme.example", "status" => "draft"], [], true);
@@ -136,7 +136,36 @@ check("page: a title is all a new post needs, and links get https",
 check("page: nothing goes live without a client", $status === 400 && !one($pdo, "SELECT id FROM content WHERE title = 'Page post 2'"),
     "HTTP $status " . json_encode($r));
 
-// 302 is the super admin's scheduled post; the seo admin fills it in.
+// A super admin creates too, and picks the teammates: only active Super Admins
+// and Admins get on, and only they hear about it. Nothing a super admin saves
+// is scheduled or published.
+[, $r] = post("api/admin-content.php", $sa, ["title" => "Team post", "client" => "Acme Ltd", "publish_now" => "1", "status" => "published",
+    "member_ids_sent" => "1", "member_ids" => [5, 6, 1, 3, 2]], [], true);
+$teamPost = one($pdo, "SELECT id, status FROM content WHERE title = 'Team post'");
+$teamOf = function ($id) use ($pdo) {
+    $stmt = $pdo->prepare("SELECT admin_id FROM content_assignees WHERE content_id = ? ORDER BY admin_id");
+    $stmt->execute([$id]);
+    return array_map("intval", $stmt->fetchAll(PDO::FETCH_COLUMN));
+};
+check("page: a super admin creates a draft with teammates", ($r["success"] ?? false) && $teamPost && $teamPost["status"] === "draft"
+    && $teamOf($teamPost["id"]) === [5], json_encode([$r, $teamPost]));
+check("page: the teammate is told, nobody else", notes($pdo, "admin", 5, "content_assigned") === 1
+    && notes($pdo, "admin", 2, "content_assigned") === 0 && notes($pdo, "admin", 3, "content_assigned") === 0);
+
+// The assignee fills it in but can't change who is on it.
+[, $r] = post("api/admin-content.php", $seo, ["id" => (int) $teamPost["id"], "title" => "Team post", "client" => "Acme Ltd",
+    "member_ids_sent" => "1"], [], true);
+check("page: an assignee edits but keeps the team", ($r["success"] ?? false) && $teamOf($teamPost["id"]) === [5], json_encode($r));
+
+// The owner re-saving the same team tells nobody twice.
+[, $r] = post("api/admin-content.php", $owner, ["id" => (int) $teamPost["id"], "title" => "Team post", "client" => "Acme Ltd",
+    "member_ids_sent" => "1", "member_ids" => [5]], [], true);
+check("page: an unchanged team is not told again", ($r["success"] ?? false) && notes($pdo, "admin", 5, "content_assigned") === 1, json_encode($r));
+
+[$status, $r] = post("api/admin-content.php", $seo, ["id" => 301, "title" => "Beta launch", "client" => "Beta Co"], [], true);
+check("page: an Admin can't edit a post they are not on", $status === 403, "HTTP $status " . json_encode($r));
+
+// 302 is the super admin's scheduled post; the seo admin, assigned to it, fills it in.
 [, $r] = post("api/admin-content.php", $seo, ["id" => 302, "title" => "Acme reel", "client" => "Acme Ltd", "caption" => "<p>Filled in</p>",
     "status" => "draft", "publish_now" => "1"], [], true);
 $post = one($pdo, "SELECT status, post_date, publish_now, caption FROM content WHERE id = 302");
@@ -211,8 +240,11 @@ refusedChange("changes: a super admin keeps no notes", $sa, "save_my_client_note
 check("changes: the inquiry is created closed", one($pdo, "SELECT status FROM inquiries WHERE title = 'AI inquiry'")["status"] === "inactive", json_encode($done));
 refusedChange("changes: only the owner drafts inquiries", $am, "create_inquiry_draft", ["title" => "x", "fields" => [["label" => "a"]]], 403);
 
-refusedChange("changes: only the owner and account managers draft content", $seo, "create_content_draft",
+refusedChange("changes: an Admin can't draft content", $seo, "create_content_draft",
     ["client" => 10, "type" => "videos", "title" => "x"], 403);
+change("changes: a super admin drafts content", $sa, "create_content_draft",
+    ["client" => 10, "type" => "photos", "title" => "SA draft"]);
+check("changes: the super admin's post is a draft", one($pdo, "SELECT status FROM content WHERE title = 'SA draft'")["status"] === "draft");
 [, $done] = change("changes: a content draft", $am, "create_content_draft",
     ["client" => 10, "type" => "videos", "title" => "AI teaser", "caption" => "Line one\n\nLine <two>", "date" => $tomorrow, "time" => "10:15", "link" => "acme.example/x"]);
 $aiPost = one($pdo, "SELECT * FROM content WHERE title = 'AI teaser'");

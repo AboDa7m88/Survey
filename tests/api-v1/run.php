@@ -157,6 +157,12 @@ seed($pdo, "content", [
      "status" => "published", "publish_now" => 1, "created_by" => 3],
 ]);
 
+// Posts are tasks: beyond their own, Sam is on Amy's 303 and Sean on Sam's 302.
+seed($pdo, "content_assignees", [
+    ["content_id" => 303, "admin_id" => 2],
+    ["content_id" => 302, "admin_id" => 5],
+]);
+
 seed($pdo, "appointments", [
     ["id" => 400, "user_id" => 10, "title" => "Kickoff", "topic" => "Kickoff", "date" => day("+2"), "time" => "10:00:00",
      "status" => "pending", "requested_by" => "user", "notes" => "Please call me"],
@@ -368,7 +374,7 @@ $o = $ov["data"];
 check("seo overview: no calendar section", !isset($o["upcoming_meetings"])
     && in_array("calendar:read", array_column($o["not_included"], "needs_scope"), true), json_encode($o["not_included"]));
 check("seo overview: only own forms", $o["open_forms"] === [], json_encode($o["open_forms"]));
-check("seo overview: the client's whole content", array_column($o["upcoming_content"], "id") === [302, 300] && array_column($o["recent_content"], "id") === [303],
+check("seo overview: own and assigned content only", array_column($o["upcoming_content"], "id") === [302, 300] && $o["recent_content"] === [],
     json_encode([$o["upcoming_content"], $o["recent_content"]]));
 
 [, $t] = get("clients.php?id=10&part=team", $am);
@@ -439,8 +445,9 @@ check("lead: labelled answers in form order", array_column($l["data"]["untrusted
 
 sees("owner sees all content", "content.php", $owner, [300, 301, 302, 303]);
 sees("account manager sees all content", "content.php", $am2, [300, 301, 302, 303]);
-sees("super admin sees all content", "content.php", $sa, [300, 301, 302, 303]);
-sees("seo admin sees all content", "content.php", $seo, [300, 301, 302, 303]);
+sees("super admin sees own and assigned content", "content.php", $sa, [302, 303]);
+sees("seo admin sees own and assigned content", "content.php", $seo, [300, 302]);
+refused("a post neither written by nor assigned to them is a 404", "content.php?id=301", $sa, 404);
 sees("a scheduled post whose time passed reads as published", "content.php?status=published", $owner, [301, 303]);
 sees("filter by client", "content.php?client=10", $owner, [300, 302, 303]);
 refused("a post that doesn't exist is a 404", "content.php?id=399", $sa, 404);
