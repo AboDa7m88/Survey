@@ -1,7 +1,7 @@
 // The staff write tools. Every change goes in two steps, through
 // api/v1/changes.php:
 //
-//   1. a "prepare" tool - create_form_draft, review_form, ... - checks the
+//   1. a "prepare" tool - create_form_draft, update_form, review_form, ... - checks the
 //      change as the person and returns a plain summary plus a single-use
 //      confirmation_token. Nothing changes yet, so these are read-only.
 //   2. confirm_change(confirmation_token, summary) makes exactly the change
@@ -40,6 +40,35 @@ const TWO_STEP =
   " Step 1 of 2: nothing changes yet. Show the person the summary this returns, " +
   "exactly, and call confirm_change only after they say yes.";
 
+// Edits take only the fields to change, and the summary lists each change.
+const EDIT = " Give only the fields to change.";
+
+const formQuestions = z
+  .array(
+    z.object({
+      text: z.string().min(1).max(1000),
+      type: z
+        .enum(["input", "textarea", "checkbox", "file"])
+        .optional()
+        .describe("input: one line (default); textarea: a paragraph; checkbox: pick from options; file: an upload"),
+      options: z.array(z.string().min(1).max(100)).max(20).optional().describe("Checkbox questions only - at least two"),
+      max_file_size_mb: z.number().int().min(1).max(50).optional().describe("File questions only"),
+    })
+  )
+  .min(1)
+  .max(50);
+
+const inquiryFields = z
+  .array(
+    z.object({
+      label: z.string().min(1).max(200),
+      type: z.enum(["input", "textarea"]).optional().describe("input: up to 120 characters (default); textarea: up to 800"),
+      required: z.boolean().optional().describe("Default true"),
+    })
+  )
+  .min(1)
+  .max(30);
+
 export const WRITE_TOOLS = [
   {
     name: "save_my_client_note",
@@ -63,20 +92,23 @@ export const WRITE_TOOLS = [
       client: clientId,
       title: z.string().min(1).max(255),
       description: z.string().max(5000).optional().describe("Shown to the client above the questions"),
-      questions: z
-        .array(
-          z.object({
-            text: z.string().min(1).max(1000),
-            type: z
-              .enum(["input", "textarea", "checkbox", "file"])
-              .optional()
-              .describe("input: one line (default); textarea: a paragraph; checkbox: pick from options; file: an upload"),
-            options: z.array(z.string().min(1).max(100)).max(20).optional().describe("Checkbox questions only - at least two"),
-            max_file_size_mb: z.number().int().min(1).max(50).optional().describe("File questions only"),
-          })
-        )
-        .min(1)
-        .max(50),
+      questions: formQuestions,
+    },
+  },
+  {
+    name: "update_form",
+    scope: "forms:write",
+    title: "Change a form",
+    description:
+      "Changes a form that its client hasn't answered yet (get_form shows it as it is). Questions, " +
+      "if given, replace the whole list. Any change sends the form back to the review queue - a " +
+      "form already released is taken back from the client until a reviewer approves it again." +
+      EDIT + TWO_STEP,
+    input: {
+      id: recordId("The form's id - from list_forms"),
+      title: z.string().min(1).max(255).optional(),
+      description: z.string().max(5000).optional().describe("Replaces the whole text"),
+      questions: formQuestions.optional().describe("The full new list of questions"),
     },
   },
   {
@@ -102,16 +134,26 @@ export const WRITE_TOOLS = [
     input: {
       title: z.string().min(1).max(200),
       intro: z.string().max(2000).optional().describe("Shown above the questions"),
-      fields: z
-        .array(
-          z.object({
-            label: z.string().min(1).max(200),
-            type: z.enum(["input", "textarea"]).optional().describe("input: up to 120 characters (default); textarea: up to 800"),
-            required: z.boolean().optional().describe("Default true"),
-          })
-        )
-        .min(1)
-        .max(30),
+      fields: inquiryFields,
+    },
+  },
+  {
+    name: "update_inquiry",
+    scope: "inquiries:write",
+    title: "Change a consultation inquiry",
+    description:
+      "Changes a consultation inquiry (get_inquiry_form shows it as it is). Fields, if given, " +
+      "replace the whole list. Once anyone has answered it, its title, intro and questions are " +
+      "locked; its reference can still change and it can still be closed. A new title changes " +
+      "its public link. It can be closed here but only opened on the portal's Inquiries page." +
+      EDIT + TWO_STEP,
+    input: {
+      id: recordId("The inquiry's id - from list_inquiries"),
+      title: z.string().min(1).max(200).optional(),
+      intro: z.string().max(2000).optional().describe("Replaces the whole text"),
+      fields: inquiryFields.optional().describe("The full new list of questions"),
+      reference: z.string().max(100).optional().describe("The office's own reference; \"\" clears it"),
+      close: z.literal(true).optional().describe("true closes it to new answers"),
     },
   },
   {
@@ -129,6 +171,25 @@ export const WRITE_TOOLS = [
       caption: z.string().max(10000).optional(),
       date: date("The day it is planned for").optional(),
       time: time("The time it is planned for (needs a date)").optional(),
+      link: z.string().max(500).optional().describe("An http(s) link shown with the post"),
+    },
+  },
+  {
+    name: "update_content_draft",
+    scope: "content:write",
+    title: "Change a draft post",
+    description:
+      "Changes a draft post (get_content shows it as it is). Only drafts: a scheduled or " +
+      "published post is edited in the portal, and this never schedules or publishes. The " +
+      "caption is plain text and replaces the whole caption; \"\" clears date, time or link. " +
+      "Images are changed in the portal." + EDIT + TWO_STEP,
+    input: {
+      id: recordId("The post's id - from list_content"),
+      type: z.enum(CONTENT_TYPE_IDS).optional().describe("From list_content_types"),
+      title: z.string().min(1).max(255).optional(),
+      caption: z.string().max(10000).optional(),
+      date: z.union([date("The day it is planned for"), z.literal("")]).optional(),
+      time: z.union([time("The time it is planned for (needs a date)"), z.literal("")]).optional(),
       link: z.string().max(500).optional().describe("An http(s) link shown with the post"),
     },
   },

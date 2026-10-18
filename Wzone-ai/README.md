@@ -100,9 +100,12 @@ Each person gets only the tools their connection's scopes allow, so a client nev
 |---|---|---|
 | `clients:write` | `save_my_client_note` | replaces your own private note about a client |
 | `forms:write` | `create_form_draft` | creates a form for your client. It **always** goes into the review queue, even when a reviewer asks for it |
+| `forms:write` | `update_form` | changes the given fields of a form its client hasn't answered yet. It goes **back into the review queue**, so a released form is taken back from the client until a reviewer approves it again |
 | `forms:review` | `review_form` | approves a waiting form (it reaches the client) or returns it to its author with a comment |
 | `inquiries:write` | `create_inquiry_draft` | creates a consultation inquiry, **closed** until someone opens it in the portal |
+| `inquiries:write` | `update_inquiry` | changes the given fields of an inquiry, or closes it. Once anyone has answered, its title, intro and questions are locked. A new title moves its public link. It is **never opened** from here |
 | `content:write` | `create_content_draft` | saves a **draft** post. Nothing here publishes |
+| `content:write` | `update_content_draft` | changes the given fields of a **draft** post. Scheduled and published posts are edited in the portal |
 | `calendar:write` | `propose_meeting` | asks a client for a meeting: every account at their company that you can reach, in the portal and by email, as the calendar page does |
 | `calendar:write` | `respond_to_meeting` | accepts or declines a client's pending request |
 | `projects:write` | `post_project_update` | adds an update to a project, published (the client is told once it's live) or as a draft |
@@ -124,14 +127,15 @@ Elicitation would be the protocol's way to ask, but this server is stateless, so
 
 | Shared code | Used by the page | And by |
 |---|---|---|
-| [`api/survey-writes.php`](../api/survey-writes.php) | `admin-surveys.php`, `admin-survey-review.php` | `create_form_draft`, `review_form` |
+| [`api/survey-writes.php`](../api/survey-writes.php) | `admin-surveys.php`, `admin-survey-review.php` | `create_form_draft`, `update_form`, `review_form` |
 | [`api/meeting-writes.php`](../api/meeting-writes.php) | `calendar.php` | `propose_meeting`, `respond_to_meeting` |
 | [`api/task-writes.php`](../api/task-writes.php) | `project-tasks.php` | `post_project_update`, `update_task` |
-| [`api/inquiry-templates.php`](../api/inquiry-templates.php) | `admin-inquiries.php` | `create_inquiry_draft` |
+| [`api/inquiry-templates.php`](../api/inquiry-templates.php) | `admin-inquiries.php` | `create_inquiry_draft`, `update_inquiry` |
+| [`api/content-writes.php`](../api/content-writes.php) | `admin-content.php` | `update_content_draft` (who may edit a post) |
 
 **Attribution.** `mcp_confirmations` keeps every prepared change: who, through which connection (`grant_id`), what, and its result with the ids it created. Each call is also in `mcp_audit_log`.
 
-**Never exposed:** deleting anything, publishing content, sending announcements, and account, role or permission changes. Those stay in the portal.
+**Never exposed:** deleting anything, publishing content, opening an inquiry, sending announcements, and account, role or permission changes. Those stay in the portal.
 
 ### Clients
 

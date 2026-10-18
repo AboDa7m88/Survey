@@ -2,11 +2,11 @@
 
 /*
 |--------------------------------------------------------------------------
-| Inquiries: the template side - slugs, questions, creating one
+| Inquiries: the template side - slugs, questions, creating and editing one
 |--------------------------------------------------------------------------
 |
-| Moved out of admin-inquiries.php so the AI-facing api/v1 can create an
-| inquiry draft through the same code as inquiry-form.html: the same slug
+| Moved out of admin-inquiries.php so the AI-facing api/v1 can create and
+| edit an inquiry through the same code as inquiry-form.html: the same slug
 | rule, the same question types and the same storage.
 */
 
@@ -209,4 +209,80 @@ function createInquiry(PDO $pdo, array $actor, $title, $introText, array $fields
     }
 
     return ["id" => $inquiryId, "slug" => $slug];
+}
+
+/* Status, account manager and reference - the parts of an inquiry that stay
+   editable once it has answers, saved without touching its questions. */
+function saveInquirySettings(PDO $pdo, $inquiryId, $status, $managerId, $reference)
+{
+    $pdo->prepare("
+        UPDATE inquiries
+        SET status = ?, account_manager_admin_id = ?, reference = ?
+        WHERE id = ?
+    ")->execute([normaliseStatus($status), $managerId, normaliseReference($reference), (int) $inquiryId]);
+}
+
+/**
+ * Saves an inquiry and its questions. Once any link has been answered,
+ * rewriting the fields would delete the rows those answers point at, so
+ * then only status, the account manager and the reference are saved -
+ * neither touches anything historical, and a live inquiry can still be
+ * closed or handed over. A title change moves the name in every link
+ * handed out from now on.
+ *
+ * Returns ["slug" => string, "locked" => bool]. Throws PortalWriteError.
+ */
+function updateInquiry(PDO $pdo, $inquiryId, $title, $introText, array $fields, $status, $managerId, $reference)
+{
+    $inquiryId = (int) $inquiryId;
+    $title = trim((string) $title);
+    $introText = trim((string) $introText);
+
+    if (!$inquiryId) {
+        throw new PortalWriteError("Inquiry id is required");
+    }
+
+    if (!$title || !count($fields)) {
+        throw new PortalWriteError("A title and at least one field are required");
+    }
+
+    $checkStmt = $pdo->prepare("SELECT id, title, slug FROM inquiries WHERE id = ? LIMIT 1");
+    $checkStmt->execute([$inquiryId]);
+    $existing = $checkStmt->fetch();
+
+    if (!$existing) {
+        throw new PortalWriteError("Inquiry not found", 404);
+    }
+
+    if (inquiryHasAnswers($pdo, $inquiryId)) {
+        saveInquirySettings($pdo, $inquiryId, $status, $managerId, $reference);
+
+        return ["slug" => (string) $existing["slug"], "locked" => true];
+    }
+
+    $pdo->beginTransaction();
+
+    try {
+        $slug = ($existing["title"] === $title && !empty($existing["slug"]))
+            ? $existing["slug"]
+            : slugifyInquiryTitle($pdo, $title, $inquiryId);
+
+        $pdo->prepare("
+            UPDATE inquiries
+            SET title = ?, intro_text = ?, slug = ?, status = ?,
+                account_manager_admin_id = ?, reference = ?
+            WHERE id = ?
+        ")->execute([$title, $introText, $slug, normaliseStatus($status), $managerId, normaliseReference($reference), $inquiryId]);
+
+        $pdo->prepare("DELETE FROM inquiry_fields WHERE inquiry_id = ?")->execute([$inquiryId]);
+
+        writeFields($pdo, $inquiryId, $fields);
+
+        $pdo->commit();
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        throw new PortalWriteError("Failed to save inquiry", 500);
+    }
+
+    return ["slug" => $slug, "locked" => false];
 }

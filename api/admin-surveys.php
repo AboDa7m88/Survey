@@ -230,98 +230,31 @@ if ($method === "POST" || $method === "PUT") {
         exit;
     }
 
-    if (!$title || !$assignedUserId || !count($questions)) {
-        echo json_encode([
-            "success" => false,
-            "message" => "Survey title, user and questions are required"
-        ]);
-        exit;
-    }
-
-    // A scoped role can only edit surveys for a user actually in their own
-    // pool - never one they can't otherwise see or manage.
-    if (!isUserInScope($pdo, $currentAdmin["role"], $currentAdmin["id"], $assignedUserId)) {
-        echo json_encode([
-            "success" => false,
-            "message" => "That user is not in your assigned list"
-        ]);
-        exit;
-    }
-
-    $pdo->beginTransaction();
-
+    /*
+    | Editing is updateSurveyForm() in survey-writes.php, shared with api/v1
+    | the same way: any edit re-opens the review gate unless a reviewer made
+    | it, and the reviewers hear about it the way they hear about a new form.
+    */
     try {
-
-        if (!$surveyId) {
-            throw new Exception("Survey ID is required");
-        }
-
-        $checkStmt = $pdo->prepare("
-            SELECT id, status, created_by_admin_id
-            FROM surveys
-            WHERE id = ?
-            LIMIT 1
-        ");
-        $checkStmt->execute([$surveyId]);
-        $survey = $checkStmt->fetch();
-
-        if (!$survey || !canSeeSurvey($isReviewer, $currentAdmin["id"], $survey)) {
-            throw new Exception("Survey not found");
-        }
-
-        // Editable any time before the user has actually completed it -
-        // covers surveys still awaiting review, already approved but not
-        // yet filled out, and ones the account manager sent back.
-        if (!in_array($survey["status"], ["pending_review", "pending", "rejected"], true)) {
-            throw new Exception("Only surveys that are pending review, pending, or rejected can be edited");
-        }
-
-        // Any edit re-opens the review gate: content changed, so it goes
-        // back to the account manager before it can reach the user again.
-        // Unless the editor is a reviewer, in which case the check has
-        // just happened by definition.
-        $updateStmt = $pdo->prepare("
-            UPDATE surveys
-            SET title = ?, description = ?, assigned_user_id = ?, status = ?,
-                reviewed_by_admin_id = ?, review_note = NULL, reviewed_at = ?
-            WHERE id = ?
-        ");
-        $updateStmt->execute([
+        updateSurveyForm(
+            $pdo,
+            $currentAdmin,
+            $surveyId,
             $title,
             $description,
             $assignedUserId,
-            $isReviewer ? "pending" : "pending_review",
-            $isReviewer ? $currentAdmin["id"] : null,
-            $isReviewer ? date("Y-m-d H:i:s") : null,
-            $surveyId
-        ]);
-
-        $deleteStmt = $pdo->prepare("
-            DELETE FROM survey_questions
-            WHERE survey_id = ?
-        ");
-        $deleteStmt->execute([$surveyId]);
-
-        writeSurveyQuestions($pdo, $surveyId, $questions);
-
-        $pdo->commit();
-
-    } catch (Exception $e) {
-
-        $pdo->rollBack();
-
+            is_array($questions) ? $questions : [],
+            function ($survey) use ($isReviewer, $currentAdmin) {
+                return canSeeSurvey($isReviewer, $currentAdmin["id"], $survey);
+            }
+        );
+    } catch (PortalWriteError $e) {
         echo json_encode([
             "success" => false,
-            "message" => $e->getMessage() ?: "Failed to save survey"
+            "message" => $e->getMessage()
         ]);
         exit;
     }
-
-    // After the commit, never inside it - see the rules at the top of
-    // notify.php. Both branches leave the form awaiting sign-off unless a
-    // reviewer edited it, so the reviewers hear about an edit the same way
-    // they hear about a new one.
-    announceSurveyForm($pdo, $currentAdmin, $surveyId, $title, $assignedUserId, $isReviewer, false);
 
     echo json_encode([
         "success" => true,
