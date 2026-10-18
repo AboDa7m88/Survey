@@ -198,6 +198,7 @@ src/confirmation.js signed, expiring confirmation tokens + idempotency keys
 src/submitLimiter.js per-caller submission cap
 src/wzoneClient.js  the only code that talks to PHP: timeout, 60s cache, X-MCP-Key
 src/logger.js       one JSON line per event, written to stdout
+src/icons.js        the connector icon: the portal's Settings logo, as /favicon.ico, /icon.png and the `icons` sent at initialize
 test/               vitest suite, with PHP mocked at the fetch layer
 test/fixtures/      real api/v1 replies, captured by tests/api-v1/run.php (see Testing)
 ```

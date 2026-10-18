@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 
+import { serverIcons } from "./icons.js";
 import { logger } from "./logger.js";
 import { canSubmitUpstream, lookupInquiry, publicFormUrl, submitToWzone } from "./wzoneClient.js";
 import { canonicalAnswers, idempotencyKey, issueToken, verifyToken } from "./confirmation.js";
@@ -176,6 +177,7 @@ export function buildServer({ requestId, clientIp } = {}) {
   const server = new McpServer({
     name: "consultation-inquiries",
     version: "1.2.0",
+    ...serverIcons(),
   });
 
   // ── Read ──────────────────────────────────────────────────────────────

@@ -116,6 +116,65 @@ label{
   margin-bottom:9px;
 }
 
+/* Checklist options as a scannable grid; the "None of these…" opt-out takes a
+   row of its own so it reads apart from the real choices. */
+.check-count{
+  margin-bottom:10px;
+  font-size:11px;
+  font-weight:800;
+  color:#98a2b3;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+}
+
+.check-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(240px, 1fr));
+  gap:8px;
+}
+
+.check-option{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  margin:0;
+  padding:10px 12px;
+  font-size:13.5px;
+  font-weight:400;
+  line-height:1.4;
+  color:#344054;
+  background:#f8fafc;
+  border:1px solid #eaecf0;
+  border-radius:10px;
+  cursor:pointer;
+  transition:border-color .15s ease, background-color .15s ease;
+}
+
+.check-option:hover{ border-color:#b9bfd0; }
+
+.check-option:has(input:checked){
+  border-color:#1b1e3a;
+  background:#f1f2f8;
+  color:#1b1e3a;
+  font-weight:700;
+}
+
+.check-option.is-none{
+  grid-column:1 / -1;
+  border-style:dashed;
+  color:#667085;
+}
+
+.check-option input{
+  flex:none;
+  width:16px;
+  height:16px;
+  margin:1px 0 0;
+  padding:0;
+  accent-color:#1b1e3a;
+  cursor:pointer;
+}
+
 .required{
   color:#c9000b;
 }
@@ -424,18 +483,30 @@ let isRecording = false;
 let currentButton = null;
 const STORAGE_KEY = "survey_answers_" + surveyId;
 
+/* A checklist puts several boxes under one question id, so each box is keyed
+   by its item too - keyed by the id alone, every box overwrote the last and
+   only one tick came back. A file can't be put back into a file input
+   (setting its value throws), so file questions aren't saved at all. */
+function draftKey(field){
+  return field.type === "checkbox"
+    ? field.dataset.questionId + "|" + field.dataset.itemLabel
+    : field.dataset.questionId;
+}
+
+function draftFields(){
+  return document.querySelectorAll(
+    "#questionsWrap input:not([type='file']), #questionsWrap textarea"
+  );
+}
+
 function saveToLocalStorage(){
   const data = {};
 
-  document
-    .querySelectorAll("#questionsWrap input, #questionsWrap textarea")
-    .forEach(field => {
-      if(field.type === "checkbox"){
-        data[field.dataset.questionId] = field.checked ? "checked" : "unchecked";
-      } else {
-        data[field.dataset.questionId] = field.value;
-      }
-    });
+  draftFields().forEach(field => {
+    data[draftKey(field)] = field.type === "checkbox"
+      ? (field.checked ? "checked" : "unchecked")
+      : field.value;
+  });
 
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
@@ -447,15 +518,14 @@ function loadFromLocalStorage(){
 
   const data = JSON.parse(saved);
 
-  Object.keys(data).forEach(key => {
-    const field = document.querySelector(`[data-question-id="${key}"]`);
+  draftFields().forEach(field => {
+    const value = data[draftKey(field)];
+    if(value === undefined) return;
 
-    if(field){
-      if(field.type === "checkbox"){
-        field.checked = data[key] === "checked";
-      } else {
-        field.value = data[key];
-      }
+    if(field.type === "checkbox"){
+      field.checked = value === "checked";
+    } else {
+      field.value = value;
     }
   });
 }
@@ -657,9 +727,10 @@ function renderQuestions(){
     }else if(isCheckbox){
       if(chips && chips.length > 0){
         inputHTML = `
-          <div class="checklist-options-group" style="display:flex; flex-direction:column; gap:10px;">
+          <div class="check-count">${chips.length} ${chips.length === 1 ? "option" : "options"}</div>
+          <div class="check-grid">
             ${chips.map(item => `
-              <label style="display:flex; align-items:center; gap:12px; cursor:pointer; font-weight:600; font-size:14px; background:#f8fafc; border:1px solid #dfe3ea; padding:10px 14px; border-radius:10px; transition:all 0.15s ease;">
+              <label class="check-option${/^\s*none of/i.test(item) ? " is-none" : ""}">
                 <input
                   type="checkbox"
                   class="survey-checkbox-input"
@@ -667,7 +738,6 @@ function renderQuestions(){
                   data-question-label="${esc(q.question_text)}"
                   data-item-label="${esc(item)}"
                   data-required="${required ? "1" : "0"}"
-                  style="width:20px; height:20px; cursor:pointer; accent-color:#1b1e3a; margin:0;"
                 >
                 <span dir="auto">${esc(item)}</span>
               </label>
