@@ -109,20 +109,6 @@ h1{
   transform:rotate(-90deg);
 }
 
-.type-tag{
-  font-size:11px;
-  font-weight:800;
-  padding:4px 10px;
-  border-radius:12px;
-  margin-right:10px;
-  display:inline-block;
-}
-
-.type-tag.badge-input{ background:#e7f0ff; color:#1e5bb8; }
-.type-tag.badge-textarea{ background:#f0ebff; color:#5b3cc4; }
-.type-tag.badge-file{ background:#fef3c7; color:#92400e; }
-.type-tag.badge-checkbox, .type-tag.badge-checklist{ background:#e8faef; color:#166534; }
-
 label{
   display:block;
   font-size:14px;
@@ -592,14 +578,10 @@ function renderQuestions(){
         answerHTML = `<div class="answer-box" dir="auto">${esc(answerText)}</div>`;
       }
 
-      const typeBadge = isChecklist ? "Checklist" : (q.question_type === "file" ? "File Upload" : (q.question_type === "textarea" ? "Paragraph" : "Input"));
-      const typeClass = isChecklist ? "badge-checklist" : (q.question_type === "file" ? "badge-file" : (q.question_type === "textarea" ? "badge-textarea" : "badge-input"));
-
       return `
         <div class="collapsible-question-card">
           <div class="collapsible-question-header" onclick="this.parentElement.classList.toggle('collapsed')">
-            <div style="display:flex; align-items:center; flex:1; gap:6px;">
-              <span class="type-tag ${typeClass}">${typeBadge}</span>
+            <div style="flex:1;">
               <span dir="auto">${esc(q.question_text)}</span>
             </div>
             <span class="collapsible-toggle-icon">▼</span>
@@ -741,14 +723,10 @@ function renderQuestions(){
       `;
     }
 
-    const typeBadge = isCheckbox ? "Checklist" : (q.question_type === "file" ? "File Upload" : (q.question_type === "textarea" ? "Paragraph" : "Input"));
-    const typeClass = isCheckbox ? "badge-checkbox" : (q.question_type === "file" ? "badge-file" : (q.question_type === "textarea" ? "badge-textarea" : "badge-input"));
-
     return `
       <div class="collapsible-question-card">
         <div class="collapsible-question-header" onclick="this.parentElement.classList.toggle('collapsed')">
-          <div style="display:flex; align-items:center; flex:1; gap:6px;">
-            <span class="type-tag ${typeClass}">${typeBadge}</span>
+          <div style="flex:1;">
             <span><span dir="auto">${esc(q.question_text)}</span> ${required ? `<span class="required" style="color:#c9000b">*</span>` : ""}</span>
           </div>
           <span class="collapsible-toggle-icon">▼</span>
