@@ -40,7 +40,23 @@ select{
 
 /* The questions are shown to confirm this is the right form, not to edit -
    editing belongs in the builder. */
-.q{border:1px solid #dfe3ea;border-radius:14px;padding:14px 16px;margin-bottom:10px}
+.q{border:1px solid #dfe3ea;border-radius:14px;margin-bottom:10px;overflow:hidden}
+
+/* Collapsible like the cards in survey.html: the header toggles the options
+   away so a long form can be skimmed question by question. */
+.q .rq-head{display:flex;align-items:center;gap:14px;width:100%;padding:14px 16px;
+  background:#f8fafc;border:none;text-align:left;font:inherit;color:inherit}
+.q button.rq-head{cursor:pointer}
+.q button.rq-head:hover{background:#f1f5f9}
+.q button.rq-head:focus-visible{outline:2px solid var(--nav-active);outline-offset:-2px}
+.q .rq-title{flex:1;min-width:0}
+.q .rq-title > span{display:block}
+.q .rq-toggle{flex:none;font-size:12px;color:var(--muted);transition:transform .2s ease}
+.q.collapsed .rq-toggle{transform:rotate(-90deg)}
+.q .rq-body{padding:14px 16px;border-top:1px solid #eef1f5}
+.q.collapsed .rq-body{display:none}
+.q .rq-body > :first-child{margin-top:0}
+
 .q .q-index{font-size:11px;color:#98a2b3;font-weight:800;margin-bottom:4px}
 .q .q-text{font-size:14px;font-weight:700;line-height:1.5}
 .q .q-chips{margin-top:8px;font-size:12px;color:var(--muted)}
@@ -291,19 +307,42 @@ function renderQuestions(){
   box.innerHTML = sourceQuestions.map((q, index) => {
     const chips = chipsToArray(q.chips);
 
-    return `
-      <div class="q">
-        <div class="q-index">Question ${index + 1}</div>
-        <div class="q-text" dir="auto">${esc(q.question_text)}</div>
-        ${chips.length ? optionsHTML(chips, q.question_type === "checkbox" || q.question_type === "checklist") : ``}
-        ${
-          q.question_type === "file" && q.max_file_size_mb
-          ? `<div class="q-chips">Max file size: ${esc(q.max_file_size_mb)} MB</div>`
-          : ``
-        }
-      </div>
-    `;
+    const body =
+      (chips.length ? optionsHTML(chips, q.question_type === "checkbox" || q.question_type === "checklist") : ``) +
+      (q.question_type === "file" && q.max_file_size_mb
+        ? `<div class="q-chips">Max file size: ${esc(q.max_file_size_mb)} MB</div>`
+        : ``);
+
+    return questionCardHTML(index, q.question_text, body);
   }).join("");
+}
+
+/* A question with nothing beneath it has nothing to collapse, so its header is
+   plain text rather than a toggle. */
+function questionCardHTML(index, questionText, body){
+  const title = `
+    <span class="rq-title">
+      <span class="q-index">Question ${index + 1}</span>
+      <span class="q-text" dir="auto">${esc(questionText)}</span>
+    </span>
+  `;
+
+  if(!body) return `<div class="q"><div class="rq-head">${title}</div></div>`;
+
+  return `
+    <div class="q">
+      <button
+        type="button"
+        class="rq-head"
+        aria-expanded="true"
+        onclick="const card = this.parentElement; this.setAttribute('aria-expanded', !card.classList.toggle('collapsed'));"
+      >
+        ${title}
+        <span class="rq-toggle" aria-hidden="true">▼</span>
+      </button>
+      <div class="rq-body">${body}</div>
+    </div>
+  `;
 }
 
 async function sendCopy(){

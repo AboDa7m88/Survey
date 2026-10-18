@@ -395,7 +395,23 @@ body{padding:0}
 .review-description{font-size:14px;line-height:1.6;color:#475467;margin:-6px 0 22px;white-space:pre-wrap}
 .review-description[hidden]{display:none}
 
-.review-question{border:1px solid #dfe3ea;border-radius:14px;padding:16px 18px;margin-bottom:12px}
+/* Collapsible like the cards in survey.html: the header toggles the options
+   away so a long form can be skimmed question by question. */
+.review-question{border:1px solid #dfe3ea;border-radius:14px;margin-bottom:12px;overflow:hidden}
+.review-question .rq-head{
+  display:flex;align-items:center;gap:14px;width:100%;padding:14px 18px;
+  background:#f8fafc;border:none;text-align:left;font:inherit;color:inherit;
+}
+.review-question button.rq-head{cursor:pointer}
+.review-question button.rq-head:hover{background:#f1f5f9}
+.review-question button.rq-head:focus-visible{outline:2px solid #1b1e3a;outline-offset:-2px}
+.review-question .rq-title{flex:1;min-width:0}
+.review-question .rq-title > span{display:block}
+.review-question .rq-toggle{flex:none;font-size:12px;color:#667085;transition:transform .2s ease}
+.review-question.collapsed .rq-toggle{transform:rotate(-90deg)}
+.review-question .rq-body{padding:16px 18px;border-top:1px solid #eef1f5}
+.review-question.collapsed .rq-body{display:none}
+.review-question .rq-body > :first-child{margin-top:0}
 .review-question .q-index{font-size:11px;color:#98a2b3;font-weight:800;margin-bottom:4px}
 .review-question .q-text{font-size:14px;font-weight:700;line-height:1.5}
 .review-question .q-chips{margin-top:8px;font-size:12px;color:#667085}
@@ -1380,18 +1396,13 @@ async function openReview(surveyId){
       let chipsArr = [];
       try{ chipsArr = q.chips ? JSON.parse(q.chips) : []; }catch(e){ chipsArr = []; }
 
-      return `
-        <div class="review-question">
-          <div class="q-index">Question ${index + 1}</div>
-          <div class="q-text" dir="auto">${esc(q.question_text)}</div>
-          ${chipsArr.length ? optionsHTML(chipsArr, q.question_type === "checkbox" || q.question_type === "checklist") : ``}
-          ${
-            q.question_type === "file" && q.max_file_size_mb
-            ? `<div class="q-chips">Max file size: ${esc(q.max_file_size_mb)} MB</div>`
-            : ``
-          }
-        </div>
-      `;
+      const body =
+        (chipsArr.length ? optionsHTML(chipsArr, q.question_type === "checkbox" || q.question_type === "checklist") : ``) +
+        (q.question_type === "file" && q.max_file_size_mb
+          ? `<div class="q-chips">Max file size: ${esc(q.max_file_size_mb)} MB</div>`
+          : ``);
+
+      return questionCardHTML(index, q.question_text, body);
     }).join("") || `<p class="status-text">No questions on this form.</p>`;
 
     // Approve/Reject only make sense on a form still waiting for an answer,
@@ -1419,6 +1430,34 @@ async function openReview(surveyId){
     statusEl.innerText = "";
     alert("Connection error.");
   }
+}
+
+/* A question with nothing beneath it has nothing to collapse, so its header is
+   plain text rather than a toggle. */
+function questionCardHTML(index, questionText, body){
+  const title = `
+    <span class="rq-title">
+      <span class="q-index">Question ${index + 1}</span>
+      <span class="q-text" dir="auto">${esc(questionText)}</span>
+    </span>
+  `;
+
+  if(!body) return `<div class="review-question"><div class="rq-head">${title}</div></div>`;
+
+  return `
+    <div class="review-question">
+      <button
+        type="button"
+        class="rq-head"
+        aria-expanded="true"
+        onclick="const card = this.parentElement; this.setAttribute('aria-expanded', !card.classList.toggle('collapsed'));"
+      >
+        ${title}
+        <span class="rq-toggle" aria-hidden="true">▼</span>
+      </button>
+      <div class="rq-body">${body}</div>
+    </div>
+  `;
 }
 
 /* A checklist's items get an empty tick box; a text question's quick keywords
