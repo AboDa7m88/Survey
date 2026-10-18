@@ -397,12 +397,29 @@ body{padding:0}
 
 .review-question{border:1px solid #dfe3ea;border-radius:14px;padding:16px 18px;margin-bottom:12px}
 .review-question .q-index{font-size:11px;color:#98a2b3;font-weight:800;margin-bottom:4px}
-.review-question .q-text{font-size:14px;font-weight:700;margin-bottom:6px}
-.review-question .q-type{
-  display:inline-block;font-size:11px;padding:3px 10px;border-radius:10px;
-  background:#eef0f6;color:#1b1e3a;font-weight:800;text-transform:capitalize;
-}
+.review-question .q-text{font-size:14px;font-weight:700;line-height:1.5}
 .review-question .q-chips{margin-top:8px;font-size:12px;color:#667085}
+
+/* Options as a scannable grid; a checklist's "None of these…" opt-out takes a
+   row of its own so it reads apart from the real choices. */
+.review-question .q-options-count{
+  margin:14px 0 8px;font-size:11px;color:#98a2b3;font-weight:800;
+  text-transform:uppercase;letter-spacing:.04em;
+}
+.review-question .q-options{
+  list-style:none;display:grid;gap:8px;
+  grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+}
+.review-question .q-options li{
+  display:flex;align-items:flex-start;gap:10px;font-size:13px;line-height:1.4;
+  color:#344054;background:#f8fafc;border:1px solid #eaecf0;border-radius:10px;
+  padding:8px 12px;
+}
+.review-question .q-options li.is-check::before{
+  content:"";flex:none;width:14px;height:14px;margin-top:1px;
+  border:1.5px solid #cbd2dc;border-radius:4px;background:#fff;
+}
+.review-question .q-options li.is-none{grid-column:1/-1;border-style:dashed;color:#667085}
 
 .reject-note-field{margin-top:18px}
 .reject-note-field label{display:block;font-size:13px;font-weight:800;margin-bottom:8px}
@@ -1367,8 +1384,7 @@ async function openReview(surveyId){
         <div class="review-question">
           <div class="q-index">Question ${index + 1}</div>
           <div class="q-text" dir="auto">${esc(q.question_text)}</div>
-          <span class="q-type">${esc(questionTypeLabel(q.question_type))}</span>
-          ${chipsArr.length ? `<div class="q-chips">Options: <span dir="auto">${esc(chipsArr.join(", "))}</span></div>` : ``}
+          ${chipsArr.length ? optionsHTML(chipsArr, q.question_type === "checkbox" || q.question_type === "checklist") : ``}
           ${
             q.question_type === "file" && q.max_file_size_mb
             ? `<div class="q-chips">Max file size: ${esc(q.max_file_size_mb)} MB</div>`
@@ -1405,14 +1421,18 @@ async function openReview(surveyId){
   }
 }
 
-/* The builder calls the free-text types "Text" and "Paragraph"; the DB stores
-   "input" and "textarea". */
-function questionTypeLabel(type){
-  if(type === "input") return "Text";
-  if(type === "textarea") return "Paragraph";
-  if(type === "file") return "File Upload";
-  if(type === "checkbox" || type === "checklist") return "Checklist";
-  return type;
+/* A checklist's items get an empty tick box; a text question's quick keywords
+   don't, since nothing gets ticked. */
+function optionsHTML(items, isChecklist){
+  const noun = isChecklist ? "option" : "quick keyword";
+  return `
+    <div class="q-options-count">${items.length} ${noun}${items.length === 1 ? "" : "s"}</div>
+    <ul class="q-options">
+      ${items.map(item => `
+        <li class="${isChecklist ? "is-check" : ""}${/^\s*none of/i.test(item) ? " is-none" : ""}" dir="auto">${esc(item)}</li>
+      `).join("")}
+    </ul>
+  `;
 }
 
 function closeReview(){
