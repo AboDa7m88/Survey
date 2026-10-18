@@ -483,18 +483,30 @@ let isRecording = false;
 let currentButton = null;
 const STORAGE_KEY = "survey_answers_" + surveyId;
 
+/* A checklist puts several boxes under one question id, so each box is keyed
+   by its item too - keyed by the id alone, every box overwrote the last and
+   only one tick came back. A file can't be put back into a file input
+   (setting its value throws), so file questions aren't saved at all. */
+function draftKey(field){
+  return field.type === "checkbox"
+    ? field.dataset.questionId + "|" + field.dataset.itemLabel
+    : field.dataset.questionId;
+}
+
+function draftFields(){
+  return document.querySelectorAll(
+    "#questionsWrap input:not([type='file']), #questionsWrap textarea"
+  );
+}
+
 function saveToLocalStorage(){
   const data = {};
 
-  document
-    .querySelectorAll("#questionsWrap input, #questionsWrap textarea")
-    .forEach(field => {
-      if(field.type === "checkbox"){
-        data[field.dataset.questionId] = field.checked ? "checked" : "unchecked";
-      } else {
-        data[field.dataset.questionId] = field.value;
-      }
-    });
+  draftFields().forEach(field => {
+    data[draftKey(field)] = field.type === "checkbox"
+      ? (field.checked ? "checked" : "unchecked")
+      : field.value;
+  });
 
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
@@ -506,15 +518,14 @@ function loadFromLocalStorage(){
 
   const data = JSON.parse(saved);
 
-  Object.keys(data).forEach(key => {
-    const field = document.querySelector(`[data-question-id="${key}"]`);
+  draftFields().forEach(field => {
+    const value = data[draftKey(field)];
+    if(value === undefined) return;
 
-    if(field){
-      if(field.type === "checkbox"){
-        field.checked = data[key] === "checked";
-      } else {
-        field.value = data[key];
-      }
+    if(field.type === "checkbox"){
+      field.checked = value === "checked";
+    } else {
+      field.value = value;
     }
   });
 }
