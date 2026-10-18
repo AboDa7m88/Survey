@@ -121,6 +121,17 @@ check("page: a script link is refused", $status === 400, "HTTP $status " . json_
 check("page: the owner creates an inquiry", ($r["success"] ?? false) && ($r["name"] ?? "") === "page-inquiry", json_encode($r));
 [, $r] = post("api/admin-inquiries.php", $am, ["title" => "Not mine", "fields" => [["label" => "Name"]]]);
 check("page: only the owner creates inquiries", ($r["message"] ?? "") === "Only the owner can create inquiries", json_encode($r));
+$pageInquiry = (int) one($pdo, "SELECT id FROM inquiries WHERE title = 'Page inquiry'")["id"];
+$r = put("api/admin-inquiries.php", $owner, ["id" => $pageInquiry, "title" => "Page inquiry v2", "status" => "inactive",
+    "fields" => [["label" => "Name", "type" => "input", "required" => true], ["label" => "Budget", "type" => "textarea"]]]);
+check("page: the owner edits an inquiry, and its name follows the title", ($r["success"] ?? false) && ($r["name"] ?? "") === "page-inquiry-v2"
+    && (int) one($pdo, "SELECT COUNT(*) AS n FROM inquiry_fields WHERE inquiry_id = ?", [$pageInquiry])["n"] === 2
+    && one($pdo, "SELECT status FROM inquiries WHERE id = ?", [$pageInquiry])["status"] === "inactive", json_encode($r));
+$r = put("api/admin-inquiries.php", $owner, ["id" => 700, "title" => "Rewritten", "status" => "active", "accountManagerId" => 3,
+    "reference" => "PAGE-1", "fields" => [["label" => "Only this"]]]);
+check("page: an answered inquiry keeps its questions", ($r["locked"] ?? false) === true
+    && one($pdo, "SELECT title, reference FROM inquiries WHERE id = 700") == ["title" => "Free consult", "reference" => "PAGE-1"]
+    && (int) one($pdo, "SELECT COUNT(*) AS n FROM inquiry_fields WHERE inquiry_id = 700")["n"] === 2, json_encode($r));
 
 [$status, $r] = post("api/admin-content.php", $seo, ["title" => "Page post", "client" => "Acme Ltd", "status" => "draft"], [], true);
 check("page: an Admin can't create content", $status === 403
@@ -253,6 +264,57 @@ check("changes: the post is a draft, by its author, as the page saves it", $aiPo
     && $aiPost["post_time"] === "10:15:00" && $aiPost["link"] === "https://acme.example/x", json_encode($aiPost));
 refusedChange("changes: content needs a company", $owner, "create_content_draft", ["client" => 12, "type" => "videos", "title" => "x"], 422);
 refusedChange("changes: content types are the portal's", $owner, "create_content_draft", ["client" => 10, "type" => "tiktok", "title" => "x"], 422);
+
+// Edits: forms, inquiries, content.
+refusedChange("changes: a completed form can't be changed", $am, "update_form", ["id" => 102, "title" => "Too late"], 409);
+refusedChange("changes: only forms you can see", $seo, "update_form", ["id" => 101, "title" => "Not mine"], 404);
+refusedChange("changes: a form for a client no longer yours", $sa, "update_form", ["id" => 103, "title" => "Old Beta form v2"], 403);
+refusedChange("changes: nothing to change on a form", $am, "update_form", ["id" => 100, "title" => "Brand questionnaire"], 422);
+refusedChange("changes: edited questions are checked too", $am, "update_form",
+    ["id" => 100, "questions" => [["text" => "Pick", "type" => "checkbox", "options" => ["One"]]]], 422);
+$reviewersTold = notes($pdo, "admin", 1, "form_awaiting_review");
+[$prep] = change("changes: edit a released form", $am, "update_form", ["id" => 100, "title" => "Brand questionnaire v2",
+    "questions" => [["text" => "Your brand in a line?"], ["text" => "Tone", "type" => "checkbox", "options" => ["Playful", "Formal"]]]]);
+check("changes: the summary says the client loses it until review", strpos($prep["data"]["summary"] ?? "", "taken back from the client") !== false
+    && strpos($prep["data"]["summary"], "title \"Brand questionnaire\" → \"Brand questionnaire v2\"") !== false, $prep["data"]["summary"] ?? "");
+$f100 = one($pdo, "SELECT title, status, reviewed_by_admin_id FROM surveys WHERE id = 100");
+check("changes: an edited form goes back to review, even a reviewer's edit", $f100 == ["title" => "Brand questionnaire v2", "status" => "pending_review", "reviewed_by_admin_id" => null]
+    && notes($pdo, "admin", 1, "form_awaiting_review") === $reviewersTold + 1, json_encode($f100));
+$q100 = $pdo->query("SELECT question_text, chips FROM survey_questions WHERE survey_id = 100 ORDER BY sort_order")->fetchAll();
+check("changes: the form's questions replaced", count($q100) === 2 && $q100[1]["chips"] === '["Playful","Formal"]', json_encode($q100));
+change("changes: edit only a form's description", $am, "update_form", ["id" => 100, "description" => "Short and sweet"]);
+check("changes: its questions left alone", one($pdo, "SELECT description FROM surveys WHERE id = 100")["description"] === "Short and sweet"
+    && (int) one($pdo, "SELECT COUNT(*) AS n FROM survey_questions WHERE survey_id = 100")["n"] === 2);
+
+$aiInquiry = (int) one($pdo, "SELECT id FROM inquiries WHERE title = 'AI inquiry'")["id"];
+refusedChange("changes: only the owner edits inquiries", $am, "update_inquiry", ["id" => $aiInquiry, "title" => "x"], 403);
+refusedChange("changes: an answered inquiry's questions are locked", $owner, "update_inquiry", ["id" => 700, "title" => "New title"], 409);
+refusedChange("changes: an inquiry is never opened from here", $owner, "update_inquiry", ["id" => 700, "close" => false], 422);
+refusedChange("changes: nothing to change on an inquiry", $owner, "update_inquiry", ["id" => 700, "title" => "Free consult", "reference" => "PAGE-1"], 422);
+[$prep] = change("changes: close an answered inquiry", $owner, "update_inquiry", ["id" => 700, "close" => true, "reference" => "Q4"]);
+check("changes: closed, referenced, questions untouched", one($pdo, "SELECT status, reference, account_manager_admin_id FROM inquiries WHERE id = 700")
+    == ["status" => "inactive", "reference" => "Q4", "account_manager_admin_id" => 3]
+    && (int) one($pdo, "SELECT COUNT(*) AS n FROM inquiry_fields WHERE inquiry_id = 700")["n"] === 2
+    && strpos($prep["data"]["summary"] ?? "", "nobody can answer it") !== false, $prep["data"]["summary"] ?? "");
+[$prep, $done] = change("changes: rename an inquiry and replace its questions", $owner, "update_inquiry", ["id" => $aiInquiry, "title" => "AI inquiry renamed",
+    "fields" => [["label" => "Name"], ["label" => "Company"], ["label" => "Needs", "type" => "textarea"]]]);
+check("changes: the summary warns the link moves", strpos($prep["data"]["summary"] ?? "", "inquiry.html?name=ai-inquiry-renamed") !== false
+    && strpos($prep["data"]["summary"], "stop working") !== false, $prep["data"]["summary"] ?? "");
+check("changes: renamed, still closed, three questions", ($done["data"]["result"]["name"] ?? "") === "ai-inquiry-renamed"
+    && one($pdo, "SELECT slug, status FROM inquiries WHERE id = ?", [$aiInquiry]) == ["slug" => "ai-inquiry-renamed", "status" => "inactive"]
+    && (int) one($pdo, "SELECT COUNT(*) AS n FROM inquiry_fields WHERE inquiry_id = ?", [$aiInquiry])["n"] === 3, json_encode($done));
+
+refusedChange("changes: a past scheduled post is live, not a draft", $owner, "update_content_draft", ["id" => 301, "title" => "x"], 409);
+refusedChange("changes: a scheduled post isn't a draft", $sa, "update_content_draft", ["id" => 302, "title" => "x"], 409);
+refusedChange("changes: only posts you can edit", $sa, "update_content_draft", ["id" => 300, "title" => "x"], 404);
+refusedChange("changes: a time needs a date when editing too", $owner, "update_content_draft", ["id" => 300, "date" => ""], 422);
+refusedChange("changes: nothing to change on a post", $am, "update_content_draft", ["id" => (int) $aiPost["id"], "title" => "AI teaser"], 422);
+[$prep] = change("changes: edit a draft post", $am, "update_content_draft", ["id" => (int) $aiPost["id"], "type" => "photos",
+    "caption" => "New caption", "time" => "", "link" => ""]);
+$edited = one($pdo, "SELECT title, status, content_type, type_label, caption, post_date, post_time, link FROM content WHERE id = ?", [$aiPost["id"]]);
+check("changes: only the given fields changed, and it is still a draft", $edited == ["title" => "AI teaser", "status" => "draft",
+    "content_type" => "photos", "type_label" => "Photos", "caption" => "<p>New caption</p>", "post_date" => $tomorrow, "post_time" => null, "link" => null]
+    && strpos($prep["data"]["summary"] ?? "", "It stays a draft") !== false, json_encode($edited));
 
 // Meetings.
 refusedChange("changes: no calendar for an seo admin", $seo, "propose_meeting", ["client" => 10, "date" => $tomorrow, "time" => "10:00", "topic" => "x"], 403);

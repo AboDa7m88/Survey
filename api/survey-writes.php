@@ -2,10 +2,10 @@
 
 /*
 |--------------------------------------------------------------------------
-| Forms (surveys): creating one, and the review decision
+| Forms (surveys): creating one, editing one, and the review decision
 |--------------------------------------------------------------------------
 |
-| Shared by the browser endpoints - admin-surveys.php (create) and
+| Shared by the browser endpoints - admin-surveys.php (create, edit) and
 | admin-survey-review.php (approve / return) - and by the AI-facing api/v1,
 | so a form an assistant drafts goes through exactly the gate, the
 | notifications and the emails a form built on the page does. Change the
@@ -213,6 +213,105 @@ function createSurveyForm(PDO $pdo, array $actor, $title, $description, $userId,
 
     // After the commit, never inside it - see the rules at the top of notify.php.
     announceSurveyForm($pdo, $actor, $surveyId, $title, $userId, $released, true);
+
+    return ["id" => $surveyId, "status" => $released ? "pending" : "pending_review"];
+}
+
+/** The statuses a form can still be edited in: anything before the client answered it. */
+const SURVEY_EDITABLE_STATUSES = ["pending_review", "pending", "rejected"];
+
+/**
+ * Rewrites a form - title, description, client and every question. Any
+ * edit re-opens the review gate: the content changed, so it goes back to a
+ * reviewer before it can reach the client again. Unless a reviewer made the
+ * edit, in which case the check has just happened by definition - and,
+ * like createSurveyForm(), unless $forceReview, which api/v1 sets.
+ *
+ * $canSee($survey) says whether $actor may open this form at all; a form
+ * they can't is "not found", never "forbidden".
+ *
+ * Returns ["id" => int, "status" => "pending_review" | "pending"].
+ */
+function updateSurveyForm(PDO $pdo, array $actor, $surveyId, $title, $description, $userId, array $questions, callable $canSee, $forceReview = false)
+{
+    $surveyId = (int) $surveyId;
+    $title = trim((string) $title);
+    $description = trim((string) $description);
+    $userId = (int) $userId;
+
+    if (!$title || !$userId || !count($questions)) {
+        throw new PortalWriteError("Survey title, user and questions are required");
+    }
+
+    // A scoped role can only edit surveys for a user actually in their own
+    // pool - never one they can't otherwise see or manage.
+    if (!isUserInScope($pdo, $actor["role"], $actor["id"], $userId)) {
+        throw new PortalWriteError("That user is not in your assigned list", 403);
+    }
+
+    if (!$surveyId) {
+        throw new PortalWriteError("Survey ID is required");
+    }
+
+    $released = isSurveyReviewer($actor) && !$forceReview;
+
+    $pdo->beginTransaction();
+
+    try {
+        $checkStmt = $pdo->prepare("
+            SELECT id, status, created_by_admin_id
+            FROM surveys
+            WHERE id = ?
+            LIMIT 1
+            FOR UPDATE
+        ");
+        $checkStmt->execute([$surveyId]);
+        $survey = $checkStmt->fetch();
+
+        if (!$survey || !$canSee($survey)) {
+            throw new PortalWriteError("Survey not found", 404);
+        }
+
+        // Editable any time before the user has actually completed it -
+        // covers surveys still awaiting review, already approved but not
+        // yet filled out, and ones the account manager sent back.
+        if (!in_array($survey["status"], SURVEY_EDITABLE_STATUSES, true)) {
+            throw new PortalWriteError("Only surveys that are pending review, pending, or rejected can be edited", 409);
+        }
+
+        $updateStmt = $pdo->prepare("
+            UPDATE surveys
+            SET title = ?, description = ?, assigned_user_id = ?, status = ?,
+                reviewed_by_admin_id = ?, review_note = NULL, reviewed_at = ?
+            WHERE id = ?
+        ");
+        $updateStmt->execute([
+            $title,
+            $description,
+            $userId,
+            $released ? "pending" : "pending_review",
+            $released ? $actor["id"] : null,
+            $released ? date("Y-m-d H:i:s") : null,
+            $surveyId
+        ]);
+
+        $pdo->prepare("DELETE FROM survey_questions WHERE survey_id = ?")->execute([$surveyId]);
+
+        writeSurveyQuestions($pdo, $surveyId, $questions);
+
+        $pdo->commit();
+    } catch (PortalWriteError $e) {
+        $pdo->rollBack();
+        throw $e;
+    } catch (Throwable $e) {
+        $pdo->rollBack();
+        throw new PortalWriteError("Failed to save survey", 500);
+    }
+
+    // After the commit, never inside it - see the rules at the top of
+    // notify.php. The reviewers hear about an edit the same way they hear
+    // about a new form, unless a reviewer's edit released it.
+    announceSurveyForm($pdo, $actor, $surveyId, $title, $userId, $released, false);
 
     return ["id" => $surveyId, "status" => $released ? "pending" : "pending_review"];
 }

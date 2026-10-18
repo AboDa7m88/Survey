@@ -22,12 +22,17 @@
 |
 | The writes themselves are the browser endpoints' own shared functions
 | (survey-writes.php, meeting-writes.php, task-writes.php,
-| inquiry-templates.php, setClientNote() in db.php), so what an assistant
+| inquiry-templates.php, content-writes.php, setClientNote() in db.php), so
+| what an assistant
 | does lands exactly as the same thing done on the page: same review gate,
 | same notifications, same emails.
 |
-| Deliberately missing: anything that deletes, publishes content, sends an
-| announcement, or changes accounts or permissions. Those stay in the portal.
+| Edits (update_form, update_inquiry, update_content_draft, update_task) take
+| only the fields to change, and list each change in the summary.
+|
+| Deliberately missing: anything that deletes, publishes content, opens an
+| inquiry, sends an announcement, or changes accounts or permissions. Those
+| stay in the portal.
 |
 | Each handler is for staff, or - with "kind" => "user" - for a client acting
 | on their own account (the self:* scopes). changes.php never lets one reach
@@ -39,6 +44,7 @@ require_once __DIR__ . "/../meeting-writes.php";
 require_once __DIR__ . "/../task-writes.php";
 require_once __DIR__ . "/../inquiry-templates.php";
 require_once __DIR__ . "/../survey-submit.php";
+require_once __DIR__ . "/../content-writes.php";
 
 const V1_CONFIRM_TTL = 900; // 15 minutes to say yes
 
@@ -353,6 +359,186 @@ function clientFormAnswers(PDO $pdo, array $form, array $given)
     return $answers;
 }
 
+/** Records a change for an edit's summary, when the value actually changes. */
+function noteChange(array &$changes, $field, $from, $to)
+{
+    if ((string) $from !== (string) $to) {
+        $changes[] = ["field" => $field, "from" => $from, "to" => $to];
+    }
+}
+
+/** 'title "Old" → "New"; date (empty) → "2026-10-05"' - an edit's changes, for its summary. */
+function describeChanges(array $changes)
+{
+    return implode("; ", array_map(function ($c) {
+        return "{$c["field"]} " . ($c["from"] === null || $c["from"] === "" ? "(empty)" : quoteFor($c["from"], 60))
+            . " → " . ($c["to"] === null || $c["to"] === "" ? "(empty)" : quoteFor($c["to"], 60));
+    }, $changes));
+}
+
+/** A form's questions as given - [{text, type, options, max_file_size_mb}], checked the way the builder checks them. */
+function formQuestionsArg(array $a)
+{
+    $questions = [];
+    foreach (argList($a, "questions", 1, 50) as $i => $q) {
+        $n = $i + 1;
+        if (!is_array($q)) {
+            throw new PortalWriteError("questions[$n] must be an object.");
+        }
+        $type = argEnum($q, "type", SURVEY_QUESTION_TYPES, "input");
+        $options = [];
+        if (isset($q["options"])) {
+            foreach (argList($q, "options", 0, 20) as $o) {
+                if (!is_string($o) || trim($o) === "" || mb_strlen($o) > 100) {
+                    throw new PortalWriteError("questions[$n].options must be short, non-empty texts.");
+                }
+                $options[] = trim($o);
+            }
+        }
+        if ($type === "checkbox" && count($options) < 2) {
+            throw new PortalWriteError("questions[$n] is a checkbox question: give it at least two options.");
+        }
+        if ($type !== "checkbox" && $options) {
+            throw new PortalWriteError("questions[$n]: only checkbox questions take options.");
+        }
+        $maxMb = null;
+        if (isset($q["max_file_size_mb"])) {
+            if ($type !== "file" || !is_int($q["max_file_size_mb"]) || $q["max_file_size_mb"] < 1 || $q["max_file_size_mb"] > 50) {
+                throw new PortalWriteError("questions[$n].max_file_size_mb is for file questions, 1 to 50.");
+            }
+            $maxMb = $q["max_file_size_mb"];
+        }
+        $questions[] = [
+            "text" => argText($q, "text", 1000),
+            "type" => $type,
+            "options" => $options,
+            "max_file_size_mb" => $maxMb,
+        ];
+    }
+    return $questions;
+}
+
+/** Those questions as writeSurveyQuestions() takes them. */
+function surveyQuestionRows(array $questions)
+{
+    return array_map(function ($q) {
+        return ["text" => $q["text"], "type" => $q["type"], "chips" => $q["options"], "maxFileSizeMb" => $q["max_file_size_mb"]];
+    }, $questions);
+}
+
+/** An inquiry's questions as given - [{label, type, required}]. */
+function inquiryFieldsArg(array $a)
+{
+    $fields = [];
+    foreach (argList($a, "fields", 1, 30) as $i => $f) {
+        if (!is_array($f)) {
+            throw new PortalWriteError("fields[" . ($i + 1) . "] must be an object.");
+        }
+        $fields[] = [
+            "label" => argText($f, "label", 200),
+            "type" => argEnum($f, "type", INQUIRY_FIELD_TYPES, "input"),
+            "required" => argBool($f, "required", true),
+        ];
+    }
+    return $fields;
+}
+
+/** The content types by the ids list_content_types gives them: ["videos" => "Videos", ...]. */
+function contentTypesById()
+{
+    $types = [];
+    foreach (CONTENT_TYPE_TITLES as $label) {
+        $types[trim(preg_replace("/[^a-z0-9]+/", "_", strtolower($label)), "_")] = $label;
+    }
+    return $types;
+}
+
+/** A form this admin may see, with its client, as update_form edits it. */
+function loadEditableForm(PDO $pdo, array $p, $id)
+{
+    $stmt = $pdo->prepare("
+        SELECT s.id, s.title, s.description, s.status, s.assigned_user_id, s.created_by_admin_id,
+               u.name, u.company_name
+        FROM surveys s
+        JOIN users u ON u.id = s.assigned_user_id
+        WHERE s.id = ? LIMIT 1
+    ");
+    $stmt->execute([$id]);
+    $form = $stmt->fetch();
+    if (!$form || (!v1SeesAllForms($p) && (int) $form["created_by_admin_id"] !== (int) $p["id"])) {
+        throw new PortalWriteError("No form with that id among the forms you can see.", 404);
+    }
+    if (!in_array($form["status"], SURVEY_EDITABLE_STATUSES, true)) {
+        throw new PortalWriteError("That form can't be changed any more (it is {$form["status"]}).", 409);
+    }
+    if (!isUserInScope($pdo, $p["role"], $p["id"], $form["assigned_user_id"])) {
+        throw new PortalWriteError("That form's client is no longer one of yours.", 403);
+    }
+
+    $q = $pdo->prepare("
+        SELECT question_text, question_type, chips, max_file_size_mb
+        FROM survey_questions WHERE survey_id = ?
+        ORDER BY sort_order ASC, id ASC
+    ");
+    $q->execute([$id]);
+    $form["questions"] = array_map(function ($r) {
+        $options = json_decode((string) ($r["chips"] ?? ""), true);
+        return [
+            "text" => (string) $r["question_text"],
+            "type" => (string) $r["question_type"],
+            "options" => is_array($options) ? array_values(array_map("strval", $options)) : [],
+            "max_file_size_mb" => $r["max_file_size_mb"] === null ? null : (int) $r["max_file_size_mb"],
+        ];
+    }, $q->fetchAll());
+    return $form;
+}
+
+/** An inquiry with its questions, and whether answers have locked them. */
+function loadEditableInquiry(PDO $pdo, $id)
+{
+    ensureInquiryTables($pdo);
+    $stmt = $pdo->prepare("
+        SELECT id, title, intro_text, slug, status, account_manager_admin_id, reference
+        FROM inquiries WHERE id = ? LIMIT 1
+    ");
+    $stmt->execute([$id]);
+    $inquiry = $stmt->fetch();
+    if (!$inquiry) {
+        throw new PortalWriteError("No inquiry with that id.", 404);
+    }
+    $f = $pdo->prepare("
+        SELECT field_label, field_type, required
+        FROM inquiry_fields WHERE inquiry_id = ?
+        ORDER BY sort_order ASC, id ASC
+    ");
+    $f->execute([$id]);
+    $inquiry["fields"] = array_map(function ($r) {
+        return ["label" => (string) $r["field_label"], "type" => (string) $r["field_type"], "required" => (int) $r["required"] === 1];
+    }, $f->fetchAll());
+    $inquiry["locked"] = inquiryHasAnswers($pdo, $id);
+    return $inquiry;
+}
+
+/** A draft post this admin may edit (admin-content.php canEditContent()). */
+function loadEditableDraft(PDO $pdo, array $p, $id)
+{
+    ensureContentColumns($pdo);
+    $stmt = $pdo->prepare("SELECT c.*, " . contentStatusSql("c") . " AS live_status FROM content c WHERE c.id = ? LIMIT 1");
+    $stmt->execute([contentNow(), $id]);
+    $post = $stmt->fetch();
+    if (!$post || !canEditContent($p, $post["created_by"], isContentAssignee($pdo, $id, $p["id"]))) {
+        throw new PortalWriteError("No content with that id among the posts you can edit.", 404);
+    }
+    if ($post["live_status"] !== "draft") {
+        throw new PortalWriteError(
+            "That post is {$post["live_status"]}, and only drafts can be changed from here. Edit it in the portal: "
+            . APP_URL . "/admin-content-form.html?id=" . (int) $id,
+            409
+        );
+    }
+    return $post;
+}
+
 /*
 |--------------------------------------------------------------------------
 | The handlers
@@ -400,42 +586,7 @@ function v1WriteHandlers()
                 $clientId = argInt($a, "client");
                 $title = argText($a, "title", 255);
                 $description = argText($a, "description", 5000, false);
-                $questions = [];
-                foreach (argList($a, "questions", 1, 50) as $i => $q) {
-                    $n = $i + 1;
-                    if (!is_array($q)) {
-                        throw new PortalWriteError("questions[$n] must be an object.");
-                    }
-                    $type = argEnum($q, "type", SURVEY_QUESTION_TYPES, "input");
-                    $options = [];
-                    if (isset($q["options"])) {
-                        foreach (argList($q, "options", 0, 20) as $o) {
-                            if (!is_string($o) || trim($o) === "" || mb_strlen($o) > 100) {
-                                throw new PortalWriteError("questions[$n].options must be short, non-empty texts.");
-                            }
-                            $options[] = trim($o);
-                        }
-                    }
-                    if ($type === "checkbox" && count($options) < 2) {
-                        throw new PortalWriteError("questions[$n] is a checkbox question: give it at least two options.");
-                    }
-                    if ($type !== "checkbox" && $options) {
-                        throw new PortalWriteError("questions[$n]: only checkbox questions take options.");
-                    }
-                    $maxMb = null;
-                    if (isset($q["max_file_size_mb"])) {
-                        if ($type !== "file" || !is_int($q["max_file_size_mb"]) || $q["max_file_size_mb"] < 1 || $q["max_file_size_mb"] > 50) {
-                            throw new PortalWriteError("questions[$n].max_file_size_mb is for file questions, 1 to 50.");
-                        }
-                        $maxMb = $q["max_file_size_mb"];
-                    }
-                    $questions[] = [
-                        "text" => argText($q, "text", 1000),
-                        "type" => $type,
-                        "options" => $options,
-                        "max_file_size_mb" => $maxMb,
-                    ];
-                }
+                $questions = formQuestionsArg($a);
                 $client = v1VisibleClient($pdo, $p, $clientId);
                 return [
                     "args" => ["client" => $clientId, "title" => $title, "description" => $description, "questions" => $questions],
@@ -453,10 +604,75 @@ function v1WriteHandlers()
             "apply" => function (PDO $pdo, array $p, array $a) {
                 ensureSurveyColumns($pdo);
                 ensureNotificationsTable($pdo);
-                $created = createSurveyForm($pdo, $p, $a["title"], $a["description"], $a["client"], array_map(function ($q) {
-                    return ["text" => $q["text"], "type" => $q["type"], "chips" => $q["options"], "maxFileSizeMb" => $q["max_file_size_mb"]];
-                }, $a["questions"]), true);
+                $created = createSurveyForm($pdo, $p, $a["title"], $a["description"], $a["client"], surveyQuestionRows($a["questions"]), true);
                 return ["form_id" => $created["id"], "status" => $created["status"]];
+            },
+        ],
+
+        "update_form" => [
+            "scope" => "forms:write",
+            "prepare" => function (PDO $pdo, array $p, array $a) {
+                $id = argInt($a, "id");
+                $form = loadEditableForm($pdo, $p, $id);
+                $args = ["id" => $id];
+                $changes = [];
+                if (array_key_exists("title", $a)) {
+                    $args["title"] = argText($a, "title", 255);
+                    noteChange($changes, "title", $form["title"], $args["title"]);
+                }
+                if (array_key_exists("description", $a)) {
+                    $args["description"] = argText($a, "description", 5000, false);
+                    noteChange($changes, "description", v1PlainText($form["description"] ?? ""), $args["description"]);
+                }
+                $newQuestions = false;
+                if (array_key_exists("questions", $a)) {
+                    $args["questions"] = formQuestionsArg($a);
+                    $newQuestions = $args["questions"] !== $form["questions"];
+                }
+                if (!$changes && !$newQuestions) {
+                    throw new PortalWriteError("Nothing to change - every value given is what the form already has.");
+                }
+                $parts = $changes ? [describeChanges($changes)] : [];
+                if ($newQuestions) {
+                    $parts[] = "its questions replaced with " . count($args["questions"])
+                        . (count($args["questions"]) === 1 ? " question" : " questions");
+                }
+                return [
+                    "args" => $args,
+                    "summary" => "Change the form " . quoteFor($form["title"]) . " for " . clientLabelFor($form) . ": "
+                        . implode("; ", $parts) . ". "
+                        . ($form["status"] === "pending"
+                            ? "It is taken back from the client and goes into the review queue: they see it again only after a reviewer approves it."
+                            : ($form["status"] === "rejected"
+                                ? "It goes back into the review queue: the client sees it only after a reviewer approves it."
+                                : "It stays in the review queue: the client sees it only after a reviewer approves it.")),
+                    "preview" => [
+                        "form" => ["id" => (int) $form["id"], "title" => (string) $form["title"]],
+                        "client" => v1ClientRef($form["assigned_user_id"], $form["name"], $form["company_name"]),
+                        "status_now" => (string) $form["status"],
+                        "status_after" => "pending_review",
+                        "untrusted_content" => ["changes" => $changes, "questions" => $newQuestions ? $args["questions"] : null],
+                    ],
+                ];
+            },
+            "apply" => function (PDO $pdo, array $p, array $a) {
+                ensureSurveyColumns($pdo);
+                ensureNotificationsTable($pdo);
+                $form = loadEditableForm($pdo, $p, $a["id"]);
+                $updated = updateSurveyForm(
+                    $pdo,
+                    $p,
+                    $a["id"],
+                    $a["title"] ?? $form["title"],
+                    array_key_exists("description", $a) ? $a["description"] : (string) $form["description"],
+                    $form["assigned_user_id"],
+                    surveyQuestionRows($a["questions"] ?? $form["questions"]),
+                    function ($survey) use ($p) {
+                        return v1SeesAllForms($p) || (int) $survey["created_by_admin_id"] === (int) $p["id"];
+                    },
+                    true
+                );
+                return ["form_id" => $updated["id"], "status" => $updated["status"]];
             },
         ],
 
@@ -510,17 +726,7 @@ function v1WriteHandlers()
             "prepare" => function (PDO $pdo, array $p, array $a) {
                 $title = argText($a, "title", 200);
                 $intro = argText($a, "intro", 2000, false);
-                $fields = [];
-                foreach (argList($a, "fields", 1, 30) as $i => $f) {
-                    if (!is_array($f)) {
-                        throw new PortalWriteError("fields[" . ($i + 1) . "] must be an object.");
-                    }
-                    $fields[] = [
-                        "label" => argText($f, "label", 200),
-                        "type" => argEnum($f, "type", INQUIRY_FIELD_TYPES, "input"),
-                        "required" => argBool($f, "required", true),
-                    ];
-                }
+                $fields = inquiryFieldsArg($a);
                 return [
                     "args" => ["title" => $title, "intro" => $intro, "fields" => $fields],
                     "summary" => "Create the consultation inquiry " . quoteFor($title) . " with " . count($fields)
@@ -536,16 +742,113 @@ function v1WriteHandlers()
             },
         ],
 
+        "update_inquiry" => [
+            "scope" => "inquiries:write",
+            "prepare" => function (PDO $pdo, array $p, array $a) {
+                $id = argInt($a, "id");
+                $inquiry = loadEditableInquiry($pdo, $id);
+                $args = ["id" => $id];
+                $changes = [];
+                if (array_key_exists("title", $a)) {
+                    $args["title"] = argText($a, "title", 200);
+                    noteChange($changes, "title", $inquiry["title"], $args["title"]);
+                }
+                if (array_key_exists("intro", $a)) {
+                    $args["intro"] = argText($a, "intro", 2000, false);
+                    noteChange($changes, "intro", v1PlainText($inquiry["intro_text"] ?? ""), $args["intro"]);
+                }
+                $newFields = false;
+                if (array_key_exists("fields", $a)) {
+                    $args["fields"] = inquiryFieldsArg($a);
+                    $newFields = $args["fields"] !== $inquiry["fields"];
+                }
+                $rewrites = $changes || $newFields;
+                if ($rewrites && $inquiry["locked"]) {
+                    throw new PortalWriteError(
+                        "This inquiry already has answers, so its title, intro and questions are locked. "
+                        . "Its reference can still change, and it can still be closed.",
+                        409
+                    );
+                }
+                if (!$rewrites) {
+                    // Nothing in the questions changes, so they are not rewritten.
+                    unset($args["title"], $args["intro"], $args["fields"]);
+                }
+                if (array_key_exists("reference", $a)) {
+                    $args["reference"] = argText($a, "reference", 100, false);
+                    noteChange($changes, "reference", (string) ($inquiry["reference"] ?? ""), $args["reference"]);
+                }
+                $closing = false;
+                if (array_key_exists("close", $a)) {
+                    if (argBool($a, "close", false) !== true) {
+                        throw new PortalWriteError("close can only be true: an inquiry is opened on the portal's Inquiries page.");
+                    }
+                    $args["close"] = true;
+                    $closing = $inquiry["status"] !== "inactive";
+                    noteChange($changes, "status", $inquiry["status"] === "inactive" ? "closed" : "open", "closed");
+                }
+                if (!$changes && !$newFields) {
+                    throw new PortalWriteError("Nothing to change - every value given is what the inquiry already has.");
+                }
+                $parts = $changes ? [describeChanges($changes)] : [];
+                if ($newFields) {
+                    $parts[] = "its questions replaced with " . count($args["fields"])
+                        . (count($args["fields"]) === 1 ? " question" : " questions");
+                }
+                // A new title moves the name in the public link (inquiry.html?name=...).
+                $newName = isset($args["title"]) && $args["title"] !== $inquiry["title"]
+                    ? slugifyInquiryTitle($pdo, $args["title"], $id)
+                    : null;
+                if ($newName === $inquiry["slug"]) {
+                    $newName = null;
+                }
+                return [
+                    "args" => $args,
+                    "summary" => "Change the consultation inquiry " . quoteFor($inquiry["title"]) . ": " . implode("; ", $parts) . "."
+                        . ($newName !== null
+                            ? " Its public link becomes " . APP_URL . "/inquiry.html?name=$newName, so links already handed out stop working."
+                            : "")
+                        . ($closing ? " It is closed: nobody can answer it until it is opened again on the Inquiries page." : ""),
+                    "preview" => [
+                        "inquiry" => ["id" => (int) $inquiry["id"], "title" => (string) $inquiry["title"]],
+                        "name_after" => $newName ?? v1NullableString($inquiry["slug"]),
+                        "status_after" => $closing || $inquiry["status"] === "inactive" ? "inactive" : "active",
+                        "untrusted_content" => ["changes" => $changes, "fields" => $newFields ? $args["fields"] : null],
+                    ],
+                ];
+            },
+            "apply" => function (PDO $pdo, array $p, array $a) {
+                $inquiry = loadEditableInquiry($pdo, $a["id"]);
+                $status = !empty($a["close"]) ? "inactive" : normaliseStatus($inquiry["status"]);
+                $managerId = $inquiry["account_manager_admin_id"] === null ? null : (int) $inquiry["account_manager_admin_id"];
+                $reference = array_key_exists("reference", $a) ? $a["reference"] : $inquiry["reference"];
+                if (isset($a["title"]) || isset($a["intro"]) || isset($a["fields"])) {
+                    $saved = updateInquiry(
+                        $pdo,
+                        $a["id"],
+                        $a["title"] ?? $inquiry["title"],
+                        $a["intro"] ?? (string) $inquiry["intro_text"],
+                        $a["fields"] ?? $inquiry["fields"],
+                        $status,
+                        $managerId,
+                        $reference
+                    );
+                    $name = $saved["slug"];
+                } else {
+                    saveInquirySettings($pdo, $a["id"], $status, $managerId, $reference);
+                    $name = $inquiry["slug"];
+                }
+                return ["inquiry_id" => (int) $a["id"], "name" => v1NullableString($name), "status" => $status];
+            },
+        ],
+
         // ── Content ──────────────────────────────────────────────────────
 
         "create_content_draft" => [
             "scope" => "content:write",
             "prepare" => function (PDO $pdo, array $p, array $a) {
                 $clientId = argInt($a, "client");
-                $types = [];
-                foreach (CONTENT_TYPE_TITLES as $label) {
-                    $types[trim(preg_replace("/[^a-z0-9]+/", "_", strtolower($label)), "_")] = $label;
-                }
+                $types = contentTypesById();
                 $type = argEnum($a, "type", array_keys($types));
                 $title = argText($a, "title", 255);
                 // The page's own limit, counted on the text (admin-content.php).
@@ -589,6 +892,85 @@ function v1WriteHandlers()
                     $a["date"], $a["time"] !== null ? $a["time"] . ":00" : null, $p["id"],
                 ]);
                 return ["content_id" => (int) $pdo->lastInsertId(), "status" => "draft"];
+            },
+        ],
+
+        "update_content_draft" => [
+            "scope" => "content:write",
+            "prepare" => function (PDO $pdo, array $p, array $a) {
+                $id = argInt($a, "id");
+                $post = loadEditableDraft($pdo, $p, $id);
+                $types = contentTypesById();
+                $args = ["id" => $id];
+                $changes = [];
+                if (array_key_exists("title", $a)) {
+                    $args["title"] = argText($a, "title", 255);
+                    noteChange($changes, "title", $post["title"], $args["title"]);
+                }
+                if (array_key_exists("caption", $a)) {
+                    $args["caption"] = argText($a, "caption", 10000, false);
+                    noteChange($changes, "caption", v1PlainText($post["caption"] ?? ""), $args["caption"]);
+                }
+                if (array_key_exists("type", $a)) {
+                    $args["type"] = argEnum($a, "type", array_keys($types));
+                    noteChange($changes, "type", $types[$post["content_type"]] ?? $post["content_type"], $types[$args["type"]]);
+                }
+                if (array_key_exists("date", $a)) {
+                    $args["date"] = argDate($a, "date");
+                    noteChange($changes, "date", $post["post_date"], $args["date"]);
+                }
+                if (array_key_exists("time", $a)) {
+                    $args["time"] = argTime($a, "time");
+                    noteChange($changes, "time", $post["post_time"] === null ? null : substr($post["post_time"], 0, 5), $args["time"]);
+                }
+                if (array_key_exists("link", $a)) {
+                    $args["link"] = normalisePortalLink($a["link"]);
+                    noteChange($changes, "link", $post["link"], $args["link"]);
+                }
+                $date = array_key_exists("date", $args) ? $args["date"] : $post["post_date"];
+                $time = array_key_exists("time", $args) ? $args["time"] : $post["post_time"];
+                if ($time !== null && $time !== "" && ($date === null || $date === "")) {
+                    throw new PortalWriteError("A time needs a date.");
+                }
+                if (!$changes) {
+                    throw new PortalWriteError("Nothing to change - every value given is what the post already has.");
+                }
+                $company = trim((string) ($post["client"] ?? ""));
+                return [
+                    "args" => $args,
+                    "summary" => "Change the draft post " . quoteFor($post["title"]) . ($company !== "" ? " for $company" : "") . ": "
+                        . describeChanges($changes)
+                        . ". It stays a draft: nothing is published until someone schedules it in the portal.",
+                    "preview" => [
+                        "content_id" => $id,
+                        "client" => $company !== "" ? $company : null,
+                        "untrusted_content" => ["changes" => $changes],
+                    ],
+                ];
+            },
+            "apply" => function (PDO $pdo, array $p, array $a) {
+                $post = loadEditableDraft($pdo, $p, $a["id"]);
+                $label = isset($a["type"]) ? contentTypesById()[$a["type"]] : null;
+                // Only the given fields; status, schedule flag, images and
+                // the team stay as they are. Still a draft, or nothing.
+                $pdo->prepare("
+                    UPDATE content
+                    SET title = ?, caption = ?, content_type = ?, type_label = ?, platform = ?, category = ?,
+                        post_date = ?, post_time = ?, link = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ? AND status = 'draft'
+                ")->execute([
+                    $a["title"] ?? $post["title"],
+                    array_key_exists("caption", $a) ? ($a["caption"] !== "" ? textToHtml($a["caption"]) : null) : $post["caption"],
+                    $a["type"] ?? $post["content_type"],
+                    $label ?? $post["type_label"],
+                    $label ?? $post["platform"],
+                    $label ?? $post["category"],
+                    array_key_exists("date", $a) ? $a["date"] : $post["post_date"],
+                    array_key_exists("time", $a) ? ($a["time"] !== null ? $a["time"] . ":00" : null) : $post["post_time"],
+                    array_key_exists("link", $a) ? $a["link"] : $post["link"],
+                    $a["id"],
+                ]);
+                return ["content_id" => (int) $a["id"], "status" => "draft"];
             },
         ],
 
@@ -739,9 +1121,7 @@ function v1WriteHandlers()
                 $args = ["id" => $id];
                 $changes = [];
                 $change = function ($field, $from, $to) use (&$changes) {
-                    if ((string) $from !== (string) $to) {
-                        $changes[] = ["field" => $field, "from" => $from, "to" => $to];
-                    }
+                    noteChange($changes, $field, $from, $to);
                 };
                 if (array_key_exists("title", $a)) {
                     $args["title"] = argText($a, "title", 200);
@@ -779,11 +1159,7 @@ function v1WriteHandlers()
                 return [
                     "args" => $args,
                     "summary" => "Change the update " . quoteFor($task["title"]) . " on " . quoteFor($project["title"]) . ": "
-                        . implode("; ", array_map(function ($c) {
-                            return "{$c["field"]} " . ($c["from"] === null || $c["from"] === "" ? "(empty)" : quoteFor($c["from"], 60))
-                                . " → " . ($c["to"] === null || $c["to"] === "" ? "(empty)" : quoteFor($c["to"], 60));
-                        }, $changes))
-                        . ". " . ($nowDraft ? "It stays a draft only the team sees." : "$client can see it once its date has come."),
+                        . describeChanges($changes) . ". " . ($nowDraft ? "It stays a draft only the team sees." : "$client can see it once its date has come."),
                     "preview" => [
                         "task_id" => $id,
                         "project" => ["id" => (int) $project["id"], "title" => (string) $project["title"]],
