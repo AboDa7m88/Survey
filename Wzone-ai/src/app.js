@@ -10,6 +10,7 @@ import { buildServer } from "./server.js";
 import { buildPortalServer } from "./portal/server.js";
 import { ALL_SCOPES } from "./portal/scopes.js";
 import { createWzoneOAuthProvider, sha256 } from "./oauth/provider.js";
+import { mountIcons } from "./icons.js";
 import { pingUpstream, portalUrl } from "./wzoneClient.js";
 
 function rpcError(res, status, code, message) {
@@ -120,6 +121,8 @@ export function createApp({ mode = process.env.MCP_MODE || "public" } = {}) {
     // a PHP outage never gets this container restarted for nothing.
     res.json({ ok: true });
   });
+
+  mountIcons(app);
 
   app.get("/readyz", async (req, res) => {
     // Readiness: can this server actually do its job right now?

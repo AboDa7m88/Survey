@@ -18,6 +18,7 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
+import { serverIcons } from "../icons.js";
 import { portalCall, UNTRUSTED_NOTE } from "./call.js";
 import { registerPrompts } from "./prompts.js";
 import { registerResources } from "./resources.js";
@@ -43,7 +44,7 @@ const INSTRUCTIONS = [
 
 export function buildPortalServer({ requestId, auth }) {
   const server = new McpServer(
-    { name: "client-portal", version: "0.4.0" },
+    { name: "client-portal", version: "0.4.0", ...serverIcons() },
     { instructions: INSTRUCTIONS }
   );
   const scopes = auth.scopes || [];
