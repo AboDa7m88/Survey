@@ -713,7 +713,16 @@ const CONTENT_EXTRA_COLUMNS = [
        first one is also kept in media_path, which is what the thumbnails, the
        v1 API and older code read - see contentImages(). */
     "media_paths" => "TEXT NULL",
+
+    /* Set on the content form only - low, medium or high - with free-text
+       notes for the team. Neither is shown on the list or the v1 API.
+       sql/content_priority_notes.sql is the manual version. */
+    "priority"    => "VARCHAR(10) NOT NULL DEFAULT 'medium'",
+    "notes"       => "TEXT NULL",
 ];
+
+/** Longest notes one post can carry. api/admin-content.php trims to it. */
+const CONTENT_NOTES_MAX = 5000;
 
 /** Most images one post can carry. api/admin-content.php enforces it. */
 const CONTENT_MAX_IMAGES = 5;
@@ -786,6 +795,8 @@ function ensureContentColumns(PDO $pdo)
               id         INT AUTO_INCREMENT PRIMARY KEY,
               content_id INT       NOT NULL,
               admin_id   INT       NOT NULL,
+              is_done    TINYINT(1) NOT NULL DEFAULT 0,
+              done_at    DATETIME  NULL,
               created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
               UNIQUE KEY uniq_assignee (content_id, admin_id),
               KEY idx_admin (admin_id)
@@ -793,6 +804,26 @@ function ensureContentColumns(PDO $pdo)
         ");
     } catch (PDOException $e) {
         // Read-only DB user: run sql/content_assignees.sql by hand.
+    }
+
+    /* Each teammate ticks their own part of the post done - added after the
+       table first shipped. sql/content_assignees_done.sql is the manual version. */
+    try {
+        $stmt = $pdo->query("
+            SELECT COLUMN_NAME
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'content_assignees'
+        ");
+        $existing = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+        if ($existing && !in_array("is_done", $existing, true)) {
+            $pdo->exec("ALTER TABLE content_assignees ADD COLUMN is_done TINYINT(1) NOT NULL DEFAULT 0 AFTER admin_id");
+        }
+        if ($existing && !in_array("done_at", $existing, true)) {
+            $pdo->exec("ALTER TABLE content_assignees ADD COLUMN done_at DATETIME NULL AFTER is_done");
+        }
+    } catch (PDOException $e) {
+        // Read-only DB user: contentAssignees() reads every box as not done.
     }
 }
 
@@ -909,7 +940,8 @@ function contentVisibleSql(string $alias, int $adminId): array
 }
 
 /**
- * The teammates on each of $contentIds: content_id => [{id, name, email, role}].
+ * The teammates on each of $contentIds:
+ * content_id => [{id, name, email, role, is_done, done_at}].
  * Posts with nobody assigned are absent.
  */
 function contentAssignees(PDO $pdo, array $contentIds): array
@@ -922,27 +954,39 @@ function contentAssignees(PDO $pdo, array $contentIds): array
 
     $placeholders = implode(",", array_fill(0, count($contentIds), "?"));
 
-    try {
+    $select = function (string $doneColumns) use ($pdo, $placeholders, $contentIds) {
         $stmt = $pdo->prepare("
-            SELECT ca.content_id, a.id, a.name, a.email, a.role
+            SELECT ca.content_id, a.id, a.name, a.email, a.role, $doneColumns
             FROM content_assignees ca
             JOIN admins a ON a.id = ca.admin_id
             WHERE ca.content_id IN ($placeholders)
             ORDER BY a.name ASC
         ");
         $stmt->execute($contentIds);
+        return $stmt;
+    };
+
+    try {
+        $stmt = $select("ca.is_done, ca.done_at");
     } catch (PDOException $e) {
-        return [];
+        // A table from before is_done, which a read-only DB user can't add.
+        try {
+            $stmt = $select("0 AS is_done, NULL AS done_at");
+        } catch (PDOException $e) {
+            return [];
+        }
     }
 
     $byContent = [];
 
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         $byContent[(int) $row["content_id"]][] = [
-            "id"    => (int) $row["id"],
-            "name"  => (string) $row["name"],
-            "email" => (string) $row["email"],
-            "role"  => (string) $row["role"],
+            "id"      => (int) $row["id"],
+            "name"    => (string) $row["name"],
+            "email"   => (string) $row["email"],
+            "role"    => (string) $row["role"],
+            "is_done" => (bool) $row["is_done"],
+            "done_at" => $row["done_at"] !== null ? (string) $row["done_at"] : null,
         ];
     }
 
