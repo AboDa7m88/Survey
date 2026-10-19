@@ -676,6 +676,64 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         );
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Tick your own box: action=set_done
+    |--------------------------------------------------------------------------
+    |
+    | Each teammate on a post marks their own part of it done, straight from
+    | the checklist on admin-content-form.html - no Save needed. Only the
+    | caller's own content_assignees row changes, so nobody can tick a box for
+    | someone else, and someone not on the post has no box at all.
+    |
+    */
+    if (($_POST["action"] ?? "") === "set_done") {
+
+        $contentId = (int) ($_POST["content_id"] ?? 0);
+        $done = ($_POST["done"] ?? "") === "1" ? 1 : 0;
+
+        if ($contentId <= 0) {
+            response(false, "Invalid content ID.", [], 400);
+        }
+
+        try {
+            $stmt = $pdo->prepare("SELECT id FROM content WHERE id = ? LIMIT 1");
+            $stmt->execute([$contentId]);
+
+            if (!$stmt->fetch()) {
+                response(false, "Content not found.", [], 404);
+            }
+
+            if (!isContentAssignee($pdo, $contentId, $admin["id"])) {
+                response(
+                    false,
+                    "Only a teammate assigned to this post can tick their box.",
+                    [],
+                    403
+                );
+            }
+
+            $stmt = $pdo->prepare("
+                UPDATE content_assignees
+                SET is_done = ?, done_at = IF(? = 1, NOW(), NULL)
+                WHERE content_id = ? AND admin_id = ?
+            ");
+            $stmt->execute([$done, $done, $contentId, (int) $admin["id"]]);
+
+        } catch (Throwable $e) {
+
+            response(false, "Could not save your checkbox.", [], 500);
+        }
+
+        response(
+            true,
+            $done ? "Marked as done." : "Marked as not done.",
+            [
+                "assignees" => contentAssignees($pdo, [$contentId])[$contentId] ?? []
+            ]
+        );
+    }
+
     $id = isset($_POST["id"])
         ? (int) $_POST["id"]
         : 0;
@@ -703,6 +761,20 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         : 0;
 
     $status = trim($_POST["status"] ?? "draft");
+
+    /*
+    | Priority and notes are set on the content form only. priority_sent marks
+    | that the form sent them, so a save from anywhere else (api/v1, an older
+    | page) leaves the stored values alone - see the update below.
+    */
+    $setsPriority = ($_POST["priority_sent"] ?? "") === "1";
+
+    $priority = strtolower(trim($_POST["priority"] ?? "medium"));
+    if (!in_array($priority, ["low", "medium", "high"], true)) {
+        $priority = "medium";
+    }
+
+    $notes = mb_substr(trim((string) ($_POST["notes"] ?? "")), 0, CONTENT_NOTES_MAX);
 
     /*
     |--------------------------------------------------------------------------
@@ -751,6 +823,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         if (!$existing) {
             response(false, "Content not found.", [], 404);
+        }
+
+        if (!$setsPriority) {
+            $priority = (string) ($existing["priority"] ?? "medium");
+            $notes = (string) ($existing["notes"] ?? "");
         }
 
         if (!canEditContent(
@@ -990,10 +1067,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     post_time,
                     publish_now,
                     status,
+                    priority,
+                    notes,
                     created_by
                 )
                 VALUES (
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
                 )
             ");
 
@@ -1013,6 +1092,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 $postTime ?: null,
                 $publishNow,
                 $status,
+                $priority,
+                $notes !== "" ? $notes : null,
                 $admin["id"]
             ]);
 
@@ -1093,6 +1174,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 post_time = ?,
                 publish_now = ?,
                 status = ?,
+                priority = ?,
+                notes = ?,
                 updated_at = CURRENT_TIMESTAMP
 
             WHERE id = ?
@@ -1114,6 +1197,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $postTime ?: null,
             $publishNow,
             $status,
+            $priority,
+            $notes !== "" ? $notes : null,
             $id
         ]);
 
@@ -1268,4 +1353,4 @@ response(
     "Method not allowed.",
     [],
     405
-);
+);

@@ -87,7 +87,7 @@ CREATE TABLE survey_uploaded_files (
   file_size     INT              NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- sql/content.sql
+-- sql/content.sql (+ content_priority_notes.sql)
 CREATE TABLE content (
   id            INT AUTO_INCREMENT PRIMARY KEY,
   title         VARCHAR(255) NOT NULL,
@@ -105,16 +105,20 @@ CREATE TABLE content (
   post_time     TIME             NULL,
   publish_now   TINYINT(1)   NOT NULL DEFAULT 0,
   status        ENUM('draft','scheduled','published') NOT NULL DEFAULT 'draft',
+  priority      VARCHAR(10)  NOT NULL DEFAULT 'medium',
+  notes         TEXT             NULL,
   created_by    INT              NULL,
   created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- sql/content_assignees.sql
+-- sql/content_assignees.sql (+ content_assignees_done.sql)
 CREATE TABLE content_assignees (
   id         INT AUTO_INCREMENT PRIMARY KEY,
   content_id INT       NOT NULL,
   admin_id   INT       NOT NULL,
+  is_done    TINYINT(1) NOT NULL DEFAULT 0,
+  done_at    DATETIME  NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uniq_assignee (content_id, admin_id),
   KEY idx_admin (admin_id)
