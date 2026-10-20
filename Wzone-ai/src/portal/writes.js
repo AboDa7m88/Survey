@@ -36,6 +36,16 @@ const clientId = recordId("The client's id - from search_clients");
 const date = (what) => z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "must be a date like 2026-10-05").describe(what);
 const time = (what) => z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "must be a 24-hour time like 14:30").describe(what);
 
+// A post's images, by link: the portal downloads them on confirm and checks
+// them as its own upload does (api/content-image-fetch.php).
+const postImages = z
+  .array(z.string().url().startsWith("https://", "must be an https:// link").max(2000))
+  .max(5)
+  .describe(
+    "Up to 5 public https links to JPG, PNG, WEBP or GIF images, 3 MB each, in the order to show them. " +
+      "The portal downloads them when the change is confirmed; a file the person attached to the chat has no link, so it can't be used here."
+  );
+
 const TWO_STEP =
   " Step 1 of 2: nothing changes yet. Show the person the summary this returns, " +
   "exactly, and call confirm_change only after they say yes.";
@@ -163,7 +173,7 @@ export const WRITE_TOOLS = [
     description:
       "Saves a draft post for a client. It is never published from here: someone schedules or " +
       "publishes it in the portal. The caption is plain text; blank lines start new paragraphs. " +
-      "Images are added in the portal." + TWO_STEP,
+      "Images are given as links: the portal downloads them when the change is confirmed." + TWO_STEP,
     input: {
       client: clientId,
       type: z.enum(CONTENT_TYPE_IDS).describe("From list_content_types"),
@@ -172,6 +182,7 @@ export const WRITE_TOOLS = [
       date: date("The day it is planned for").optional(),
       time: time("The time it is planned for (needs a date)").optional(),
       link: z.string().max(500).optional().describe("An http(s) link shown with the post"),
+      images: postImages.optional(),
     },
   },
   {
@@ -182,7 +193,7 @@ export const WRITE_TOOLS = [
       "Changes a draft post (get_content shows it as it is). Only drafts: a scheduled or " +
       "published post is edited in the portal, and this never schedules or publishes. The " +
       "caption is plain text and replaces the whole caption; \"\" clears date, time or link. " +
-      "Images are changed in the portal." + EDIT + TWO_STEP,
+      "images replaces all of the post's images ([] removes them)." + EDIT + TWO_STEP,
     input: {
       id: recordId("The post's id - from list_content"),
       type: z.enum(CONTENT_TYPE_IDS).optional().describe("From list_content_types"),
@@ -191,6 +202,7 @@ export const WRITE_TOOLS = [
       date: z.union([date("The day it is planned for"), z.literal("")]).optional(),
       time: z.union([time("The time it is planned for (needs a date)"), z.literal("")]).optional(),
       link: z.string().max(500).optional().describe("An http(s) link shown with the post"),
+      images: postImages.optional(),
     },
   },
   {

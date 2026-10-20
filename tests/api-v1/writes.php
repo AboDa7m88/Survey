@@ -316,6 +316,26 @@ check("changes: only the given fields changed, and it is still a draft", $edited
     "content_type" => "photos", "type_label" => "Photos", "caption" => "<p>New caption</p>", "post_date" => $tomorrow, "post_time" => null, "link" => null]
     && strpos($prep["data"]["summary"] ?? "", "It stays a draft") !== false, json_encode($edited));
 
+// Images by link: checked on prepare, never fetched from the server's own network.
+$draft = ["client" => 10, "type" => "photos", "title" => "x"];
+refusedChange("changes: image links are https", $owner, "create_content_draft", $draft + ["images" => ["http://example.com/a.png"]], 422);
+refusedChange("changes: no loopback image links", $owner, "create_content_draft", $draft + ["images" => ["https://127.0.0.1/a.png"]], 422);
+refusedChange("changes: no private-network image links", $owner, "create_content_draft", $draft + ["images" => ["https://10.0.0.5/a.png"]], 422);
+refusedChange("changes: no localhost image links", $owner, "create_content_draft", $draft + ["images" => ["https://localhost/a.png"]], 422);
+refusedChange("changes: no image links with a password", $owner, "create_content_draft", $draft + ["images" => ["https://u:p@8.8.8.8/a.png"]], 422);
+refusedChange("changes: images is a list", $owner, "create_content_draft", $draft + ["images" => "https://8.8.8.8/a.png"], 422);
+refusedChange("changes: at most five images", $owner, "create_content_draft", $draft + ["images" => array_map(function ($i) {
+    return "https://8.8.8.8/$i.png";
+}, range(1, 6))], 422);
+[$status, $prep] = prepare($owner, "create_content_draft", $draft + ["images" => ["https://8.8.8.8/a.png", "https://8.8.8.8/b.png"]]);
+check("changes: image links are only checked on prepare", $status === 200
+    && strpos($prep["data"]["summary"] ?? "", "with 2 images") !== false, "HTTP $status " . json_encode($prep));
+refusedChange("changes: update image links are checked", $am, "update_content_draft", ["id" => (int) $aiPost["id"], "images" => ["https://192.168.1.4/a.png"]], 422);
+refusedChange("changes: no images to remove is nothing to change", $am, "update_content_draft", ["id" => (int) $aiPost["id"], "images" => []], 422);
+[$status, $prep] = prepare($am, "update_content_draft", ["id" => (int) $aiPost["id"], "images" => ["https://8.8.8.8/a.png"]]);
+check("changes: adding images is in the summary", $status === 200
+    && strpos($prep["data"]["summary"] ?? "", "1 image downloaded from the links given") !== false, "HTTP $status " . json_encode($prep));
+
 // Meetings.
 refusedChange("changes: no calendar for an seo admin", $seo, "propose_meeting", ["client" => 10, "date" => $tomorrow, "time" => "10:00", "topic" => "x"], 403);
 refusedChange("changes: not in the past", $am, "propose_meeting", ["client" => 10, "date" => day("-1"), "time" => "10:00", "topic" => "x"], 422);

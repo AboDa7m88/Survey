@@ -45,7 +45,7 @@ $liveAt = contentLiveAtSql("c");
 // Binds one ? (contentNow()) for the status column.
 $select = "
     SELECT c.id, c.title, c.client, c.link, c.caption, c.content_type, c.type_label,
-           c.platform, c.category, c.orientation, c.media_path, c.post_date, c.post_time,
+           c.platform, c.category, c.orientation, c.media_path, c.media_paths, c.post_date, c.post_time,
            c.created_at, c.updated_at,
            " . contentStatusSql("c") . " AS status,
            $liveAt AS live_at,
@@ -68,6 +68,7 @@ function contentItem(array $r, $captionMax)
         "status" => (string) $r["status"],
         "live_at" => v1DateTime($r["live_at"]),
         "has_media" => !empty($r["media_path"]),
+        "image_count" => count(contentImages($r)),
         "link" => v1NullableString($r["link"] ?? null),
         "created_by_name" => v1NullableString($r["created_by_name"]),
         "untrusted_content" => ["caption" => v1PlainText($r["caption"] ?? "", $captionMax)],

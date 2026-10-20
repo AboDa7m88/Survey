@@ -207,6 +207,7 @@ export const contentItem = z.object({
     .describe("draft, scheduled or published - as clients see it now; scheduled posts go live on their own"),
   live_at: dateTime.describe("When it went or goes live"),
   has_media: z.boolean(),
+  image_count: z.number().int().optional().describe("How many images the post carries (at most 5)"),
   link: maybe,
   created_by_name: maybe,
   untrusted_content: untrusted({ caption: text }),

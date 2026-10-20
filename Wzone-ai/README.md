@@ -104,8 +104,8 @@ Each person gets only the tools their connection's scopes allow, so a client nev
 | `forms:review` | `review_form` | approves a waiting form (it reaches the client) or returns it to its author with a comment |
 | `inquiries:write` | `create_inquiry_draft` | creates a consultation inquiry, **closed** until someone opens it in the portal |
 | `inquiries:write` | `update_inquiry` | changes the given fields of an inquiry, or closes it. Once anyone has answered, its title, intro and questions are locked. A new title moves its public link. It is **never opened** from here |
-| `content:write` | `create_content_draft` | saves a **draft** post. Nothing here publishes |
-| `content:write` | `update_content_draft` | changes the given fields of a **draft** post. Scheduled and published posts are edited in the portal |
+| `content:write` | `create_content_draft` | saves a **draft** post. Nothing here publishes. Images are given as up to 5 public `https://` links; the portal downloads and checks them on confirm (JPG/PNG/WEBP/GIF, 3 MB each), never from a private address |
+| `content:write` | `update_content_draft` | changes the given fields of a **draft** post; `images` replaces all of its images (`[]` removes them). Scheduled and published posts are edited in the portal |
 | `calendar:write` | `propose_meeting` | asks a client for a meeting: every account at their company that you can reach, in the portal and by email, as the calendar page does |
 | `calendar:write` | `respond_to_meeting` | accepts or declines a client's pending request |
 | `projects:write` | `post_project_update` | adds an update to a project, published (the client is told once it's live) or as a draft |

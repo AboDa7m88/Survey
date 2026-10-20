@@ -901,6 +901,29 @@ function contentImages(array $row): array
     return !empty($row["media_path"]) ? [(string) $row["media_path"]] : [];
 }
 
+/** Largest image a post may carry, uploaded or fetched by URL. */
+const CONTENT_IMAGE_MAX_BYTES = 3 * 1024 * 1024;
+
+/**
+ * The extension to save an image file under, or null when it is not a JPG,
+ * PNG, WEBP or GIF. The type is read from the bytes, never the name. Shared
+ * by the page's upload (admin-content.php) and the v1 fetch by URL
+ * (content-image-fetch.php), so both let in the same files.
+ */
+function contentImageExtension(string $path): ?string
+{
+    $allowed = [
+        "image/jpeg" => "jpg",
+        "image/png"  => "png",
+        "image/webp" => "webp",
+        "image/gif"  => "gif",
+    ];
+
+    $mime = (new finfo(FILEINFO_MIME_TYPE))->file($path);
+
+    return $allowed[$mime] ?? null;
+}
+
 /*
 |--------------------------------------------------------------------------
 | Who sees which post
