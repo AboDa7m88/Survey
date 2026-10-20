@@ -627,6 +627,77 @@
         color: var(--muted);
       }
 
+      /* ── Teammate checklist ──────────────────────────────────────────────────
+   One row per teammate on the post. Each teammate ticks only their own box;
+   everyone else's is shown read-only, so the whole team sees who is done. */
+      .checklist {
+        border: 1px solid #dfe3ea;
+        border-radius: 12px;
+        background: #f8fafc;
+        overflow: hidden;
+      }
+      .checklist label {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 0;
+        padding: 11px 14px;
+        border-top: 1px solid #eef1f5;
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0;
+        text-transform: none;
+        color: var(--text);
+      }
+      .checklist label:first-child {
+        border-top: none;
+      }
+      .checklist label.mine {
+        background: #fff;
+        cursor: pointer;
+      }
+      .checklist input {
+        width: 16px;
+        height: 16px;
+        flex: none;
+        accent-color: #20a95a;
+      }
+      .checklist input:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      .checklist .who {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .checklist .you {
+        font-weight: 700;
+        color: var(--muted);
+      }
+      .checklist .state {
+        flex: none;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        color: #98a2b3;
+      }
+      .checklist .state.done {
+        color: #20a95a;
+      }
+      .checklist .state.error {
+        color: var(--brand);
+      }
+      #notes {
+        min-height: 96px;
+        resize: vertical;
+        font: inherit;
+        font-size: 14px;
+      }
+
       /* ── Content type chips ── */
       .chips {
         display: grid;
@@ -1683,6 +1754,38 @@
                   </p>
                 </div>
 
+                <!-- One box per teammate on the post. Shown whenever the post
+                     has teammates - to them too, even when the picker above is
+                     hidden. See renderChecklist(). -->
+                <div class="field-row" id="checklistRow" hidden>
+                  <label id="checklistLabel">Teammate checklist</label>
+                  <div
+                    class="checklist"
+                    id="teammateChecklist"
+                    role="group"
+                    aria-labelledby="checklistLabel"
+                  ></div>
+                  <p class="hint" id="checklistHint"></p>
+                </div>
+
+                <div class="field-row">
+                  <label for="priority">Priority</label>
+                  <select id="priority">
+                    <option value="low">Low</option>
+                    <option value="medium" selected>Medium</option>
+                    <option value="high">High</option>
+                  </select>
+                </div>
+
+                <div class="field-row">
+                  <label for="notes">Notes</label>
+                  <textarea
+                    id="notes"
+                    maxlength="5000"
+                    placeholder="e.g. Use the July product shots, keep the caption short"
+                  ></textarea>
+                </div>
+
                 <div class="field-row">
                   <label for="link">Link</label>
                   <input
@@ -2699,6 +2802,11 @@
         form.append("post_time", postTime);
         form.append("publish_now", publishNow ? "1" : "0");
         form.append("status", status);
+        // priority_sent tells the API this save carries both fields; a save
+        // from anywhere else leaves them as they are.
+        form.append("priority", document.getElementById("priority").value);
+        form.append("priority_sent", "1");
+        form.append("notes", document.getElementById("notes").value.trim());
 
         // Only when the field is offered: a save without the list leaves the
         // post's team as it was. member_ids_sent says the list is complete even
@@ -2820,6 +2928,19 @@
           // dropdown can name a client no user carries any more - selectClient()
           // waits and re-adds the value rather than silently dropping it.
           await selectClient(item.client || "");
+
+          document.getElementById("priority").value = ["low", "medium", "high"].includes(
+            item.priority,
+          )
+            ? item.priority
+            : "medium";
+
+          document.getElementById("notes").value = item.notes || "";
+
+          // Before selectTeammates(): its updateMemberSummary() renders the
+          // checklist, which needs to know whose box is whose.
+          viewerId = String(data.admin_id);
+          setSavedAssignees(item.assignees || []);
 
           showTeammates(Boolean(data.can_assign));
           await selectTeammates(item.assignees || []);
@@ -2984,6 +3105,7 @@
 
       function showTeammates(on) {
         document.getElementById("teammatesRow").hidden = !on;
+        renderChecklist();
       }
 
       function teammateOption(person) {
@@ -3078,6 +3200,137 @@
           : picked.length <= 2
             ? picked.join(", ")
             : picked.length + " teammates selected";
+
+        renderChecklist();
+      }
+
+      /* ── Teammate checklist ──────────────────────────────────────────────────────
+   One "done" box per teammate. While a post is being created nobody is on it
+   yet, so the rows follow the picker and every box is disabled. On a saved
+   post the rows are the saved team (savedAssignees); only the viewer's own box
+   is live, and ticking it saves at once through action=set_done - no Save
+   needed. Someone ticked in the picker but not saved yet gets a disabled row
+   until the post is saved. */
+
+      // The admin looking at the form, from the API in edit mode.
+      let viewerId = String(adminUser.id || "");
+
+      // id => {id, name, email, role, is_done, done_at} as the server has them.
+      let savedAssignees = new Map();
+
+      function setSavedAssignees(people) {
+        savedAssignees = new Map(
+          (people || []).map((person) => [String(person.id), person]),
+        );
+      }
+
+      /** The rows to show: [{id, name, saved}] - see the note above. */
+      function checklistPeople() {
+        const pickerShown = !document.getElementById("teammatesRow").hidden;
+
+        if (editId && !pickerShown) {
+          return Array.from(savedAssignees.values()).map((person) => ({
+            id: String(person.id),
+            name: person.name || person.email || "Unnamed",
+            saved: person,
+          }));
+        }
+
+        return memberBoxes()
+          .filter((box) => box.checked)
+          .map((box) => ({
+            id: box.value,
+            name: box.closest("label").querySelector("span").textContent,
+            saved: editId ? savedAssignees.get(box.value) || null : null,
+          }));
+      }
+
+      function renderChecklist() {
+        const row = document.getElementById("checklistRow");
+        const list = document.getElementById("teammateChecklist");
+        const hint = document.getElementById("checklistHint");
+        const people = checklistPeople();
+
+        row.hidden = !people.length;
+        if (!people.length) {
+          list.innerHTML = "";
+          return;
+        }
+
+        list.innerHTML = people
+          .map((person) => {
+            const mine = Boolean(person.saved) && person.id === viewerId;
+            const done = Boolean(person.saved && person.saved.is_done);
+
+            return (
+              '<label class="' + (mine ? "mine" : "") + '">' +
+              '<input type="checkbox" data-id="' + esc(person.id) + '"' +
+              (done ? " checked" : "") +
+              (mine ? "" : " disabled") +
+              ' aria-label="' + esc(person.name) + ' done">' +
+              '<span class="who">' + esc(person.name) +
+              (mine ? ' <span class="you">(you)</span>' : "") +
+              "</span>" +
+              '<span class="state' + (done ? " done" : "") + '">' +
+              (done ? "Done" : "Not done") +
+              "</span></label>"
+            );
+          })
+          .join("");
+
+        list.querySelectorAll("label.mine input").forEach((box) => {
+          box.addEventListener("change", () => setDone(box));
+        });
+
+        const unsaved = people.some((person) => !person.saved);
+        const isMine = people.some(
+          (person) => person.saved && person.id === viewerId,
+        );
+
+        hint.textContent = !editId
+          ? "Teammates tick these once the task is saved."
+          : isMine
+            ? "Tick your box when your part is done. It saves straight away."
+            : unsaved
+              ? "Teammates tick these once the task is saved."
+              : "Each teammate ticks their own box.";
+      }
+
+      async function setDone(box) {
+        const state = box.closest("label").querySelector(".state");
+        const done = box.checked;
+
+        box.disabled = true;
+        state.className = "state";
+        state.textContent = "Saving...";
+
+        const form = new FormData();
+        form.append("action", "set_done");
+        form.append("content_id", editId);
+        form.append("done", done ? "1" : "0");
+
+        try {
+          const response = await fetch("api/admin-content.php", {
+            method: "POST",
+            headers: { Authorization: "Bearer " + adminToken },
+            body: form,
+          });
+
+          const data = await response.json();
+          if (!response.ok || !data.success) {
+            throw new Error(data.message || "Could not save your box.");
+          }
+
+          setSavedAssignees(data.assignees || []);
+          renderChecklist();
+        } catch (error) {
+          console.error(error);
+          box.checked = !done;
+          box.disabled = false;
+          state.className = "state error";
+          state.textContent = "Not saved - try again";
+          state.title = error.message || "";
+        }
       }
 
       function wireMemberSelect() {
@@ -3143,6 +3396,8 @@
           postTime: document.getElementById("postTime").value,
           publishNow: document.getElementById("publishNow").checked,
           memberIds: selectedTeammateIds(),
+          priority: document.getElementById("priority").value,
+          notes: document.getElementById("notes").value,
         };
       }
 
@@ -3159,6 +3414,8 @@
         postDate,
         postTime,
         publishNow,
+        priority,
+        notes,
       }) {
         const captionText = new DOMParser().parseFromString(
           captionHtml || "",
@@ -3172,7 +3429,10 @@
           (captionText || "").trim() ||
           postDate ||
           postTime ||
-          publishNow,
+          publishNow ||
+          // Medium is the default, so only a changed priority is work.
+          (priority && priority !== "medium") ||
+          (notes || "").trim(),
         );
       }
 
@@ -3258,6 +3518,13 @@
         selectOrientation(
           draft.orientation === "vertical" ? "vertical" : "horizontal",
         );
+
+        document.getElementById("priority").value = ["low", "medium", "high"].includes(
+          draft.priority,
+        )
+          ? draft.priority
+          : "medium";
+        document.getElementById("notes").value = draft.notes || "";
 
         document.getElementById("postDate").value = draft.postDate || "";
         document.getElementById("postTime").value = draft.postTime || "";

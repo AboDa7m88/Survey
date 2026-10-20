@@ -87,10 +87,13 @@ describe("private server: confirmed changes", () => {
     fakePortal({ scopes: SEO });
     const c = await connect();
     const names = await toolNames(c);
-    for (const n of ["create_form_draft", "create_content_draft", "update_content_draft", "post_project_update", "update_task", "confirm_change", "mark_notifications_read"]) {
+    for (const n of [
+      "create_form_draft", "update_form", "create_content_draft", "update_content_draft",
+      "post_project_update", "update_task", "confirm_change", "mark_notifications_read",
+    ]) {
       expect(names).toContain(n);
     }
-    for (const n of ["review_form", "propose_meeting", "respond_to_meeting", "save_my_client_note", "create_inquiry_draft"]) {
+    for (const n of ["review_form", "propose_meeting", "respond_to_meeting", "save_my_client_note", "create_inquiry_draft", "update_inquiry"]) {
       expect(names).not.toContain(n);
     }
     await c.close();
@@ -159,6 +162,25 @@ describe("private server: confirmed changes", () => {
     await c.close();
   });
 
+  it("offers the inquiry edit only with inquiries:write", async () => {
+    fakePortal({ scopes: [...READS, "inquiries:read", "inquiries:write"] });
+    const c = await connect();
+    const names = await toolNames(c);
+    expect(names).toContain("create_inquiry_draft");
+    expect(names).toContain("update_inquiry");
+    await c.close();
+  });
+
+  it("sends an edit's fields as given, and only those", async () => {
+    const upstream = fakePortal({ scopes: SEO });
+    const c = await connect();
+    const r = await c.callTool({ name: "update_content_draft", arguments: { id: 42, caption: "New words", time: "" } });
+    expect(r.isError).toBeFalsy();
+    expect(r.content[0].text).toMatch(/^NOTHING HAS CHANGED YET/);
+    expect(posts(upstream)[0].body).toEqual({ action: "prepare", tool: "update_content_draft", args: { id: 42, caption: "New words", time: "" } });
+    await c.close();
+  });
+
   it("checks arguments before asking the portal", async () => {
     const upstream = fakePortal({ scopes: SEO });
     const c = await connect();
@@ -170,6 +192,10 @@ describe("private server: confirmed changes", () => {
       ["update_content_draft", { id: 1, date: "tomorrow" }],
       ["create_form_draft", { client: 10, title: "x", questions: [] }],
       ["update_task", { id: 1, date: "tomorrow" }],
+      ["update_form", { id: 1, questions: [] }],
+      ["update_form", { title: "No id" }],
+      ["update_content_draft", { id: 1, type: "tiktok" }],
+      ["update_content_draft", { id: 1, date: "next week" }],
     ];
     for (const [name, args] of bad) {
       const r = await c.callTool({ name, arguments: args });

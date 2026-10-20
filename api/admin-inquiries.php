@@ -198,83 +198,32 @@ if ($method === "PUT") {
     $managerId = resolveManagerId($pdo, $input["accountManagerId"] ?? 0);
     $reference = normaliseReference($input["reference"] ?? "");
 
-    if (!$inquiryId) {
-        echo json_encode(["success" => false, "message" => "Inquiry id is required"]);
+    // updateInquiry() in inquiry-templates.php, shared with api/v1. Once an
+    // inquiry has answers its questions are locked and only status, account
+    // manager and reference are saved.
+    try {
+        $saved = updateInquiry($pdo, $inquiryId, $title, $introText, is_array($fields) ? $fields : [], $status, $managerId, $reference);
+    } catch (PortalWriteError $e) {
+        echo json_encode(["success" => false, "message" => $e->getMessage()]);
         exit;
     }
 
-    if (!$title || !count($fields)) {
-        echo json_encode(["success" => false, "message" => "A title and at least one field are required"]);
-        exit;
-    }
-
-    $checkStmt = $pdo->prepare("SELECT id, title, slug FROM inquiries WHERE id = ? LIMIT 1");
-    $checkStmt->execute([$inquiryId]);
-    $existing = $checkStmt->fetch();
-
-    if (!$existing) {
-        echo json_encode(["success" => false, "message" => "Inquiry not found"]);
-        exit;
-    }
-
-    /* Once any link has been answered, rewriting the fields would delete the
-       rows those answers point at. Status and the account manager stay
-       editable even then, so a live inquiry can still be closed or handed
-       over - neither touches anything historical. */
-    if (inquiryHasAnswers($pdo, $inquiryId)) {
-
-        $stmt = $pdo->prepare("
-            UPDATE inquiries
-            SET status = ?, account_manager_admin_id = ?, reference = ?
-            WHERE id = ?
-        ");
-        $stmt->execute([$status, $managerId, $reference, $inquiryId]);
-
+    if ($saved["locked"]) {
         echo json_encode([
             "success" => true,
             "locked" => true,
-            "name" => $existing["slug"],
+            "name" => $saved["slug"],
             "message" => "Status, account manager and reference saved. The questions are locked - this inquiry already has answers."
         ]);
         exit;
     }
 
-    $pdo->beginTransaction();
-
-    try {
-
-        // A title change moves the name in every link handed out from now on.
-        $slug = ($existing["title"] === $title && !empty($existing["slug"]))
-            ? $existing["slug"]
-            : slugifyInquiryTitle($pdo, $title, $inquiryId);
-
-        $updateStmt = $pdo->prepare("
-            UPDATE inquiries
-            SET title = ?, intro_text = ?, slug = ?, status = ?,
-                account_manager_admin_id = ?, reference = ?
-            WHERE id = ?
-        ");
-        $updateStmt->execute([$title, $introText, $slug, $status, $managerId, $reference, $inquiryId]);
-
-        $deleteFieldsStmt = $pdo->prepare("DELETE FROM inquiry_fields WHERE inquiry_id = ?");
-        $deleteFieldsStmt->execute([$inquiryId]);
-
-        writeFields($pdo, $inquiryId, $fields);
-
-        $pdo->commit();
-
-        echo json_encode([
-            "success" => true,
-            "message" => "Inquiry updated successfully",
-            "name" => $slug
-        ]);
-        exit;
-
-    } catch (Exception $e) {
-        $pdo->rollBack();
-        echo json_encode(["success" => false, "message" => "Failed to save inquiry"]);
-        exit;
-    }
+    echo json_encode([
+        "success" => true,
+        "message" => "Inquiry updated successfully",
+        "name" => $saved["slug"]
+    ]);
+    exit;
 }
 
 if ($method === "DELETE") {

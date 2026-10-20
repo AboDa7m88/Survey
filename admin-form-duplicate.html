@@ -40,12 +40,38 @@ select{
 
 /* The questions are shown to confirm this is the right form, not to edit -
    editing belongs in the builder. */
-.q{border:1px solid #dfe3ea;border-radius:14px;padding:14px 16px;margin-bottom:10px}
+.q{border:1px solid #dfe3ea;border-radius:14px;margin-bottom:10px;overflow:hidden}
+
+/* Collapsible like the cards in survey.html: the header toggles the options
+   away so a long form can be skimmed question by question. */
+.q .rq-head{display:flex;align-items:center;gap:14px;width:100%;padding:14px 16px;
+  background:#f8fafc;border:none;text-align:left;font:inherit;color:inherit}
+.q button.rq-head{cursor:pointer}
+.q button.rq-head:hover{background:#f1f5f9}
+.q button.rq-head:focus-visible{outline:2px solid var(--nav-active);outline-offset:-2px}
+.q .rq-title{flex:1;min-width:0}
+.q .rq-title > span{display:block}
+.q .rq-toggle{flex:none;font-size:12px;color:var(--muted);transition:transform .2s ease}
+.q.collapsed .rq-toggle{transform:rotate(-90deg)}
+.q .rq-body{padding:14px 16px;border-top:1px solid #eef1f5}
+.q.collapsed .rq-body{display:none}
+.q .rq-body > :first-child{margin-top:0}
+
 .q .q-index{font-size:11px;color:#98a2b3;font-weight:800;margin-bottom:4px}
-.q .q-text{font-size:14px;font-weight:700;margin-bottom:6px}
-.q .q-type{display:inline-block;font-size:11px;padding:3px 10px;border-radius:10px;
-  background:#eef0f6;color:var(--nav-active);font-weight:800;text-transform:capitalize}
+.q .q-text{font-size:14px;font-weight:700;line-height:1.5}
 .q .q-chips{margin-top:8px;font-size:12px;color:var(--muted)}
+
+/* Options as a scannable grid; a checklist's "None of these…" opt-out takes a
+   row of its own so it reads apart from the real choices. */
+.q .q-options-count{margin:14px 0 8px;font-size:11px;color:#98a2b3;font-weight:800;
+  text-transform:uppercase;letter-spacing:.04em}
+.q .q-options{list-style:none;display:grid;gap:8px;
+  grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
+.q .q-options li{display:flex;align-items:flex-start;gap:10px;font-size:13px;line-height:1.4;
+  color:#344054;background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:8px 12px}
+.q .q-options li.is-check::before{content:"";flex:none;width:14px;height:14px;margin-top:1px;
+  border:1.5px solid #cbd2dc;border-radius:4px;background:#fff}
+.q .q-options li.is-none{grid-column:1/-1;border-style:dashed;color:var(--muted)}
 
 .note{
   display:flex;gap:10px;background:#fff8ec;border:1px solid #f5e0bd;
@@ -169,25 +195,33 @@ function clientLabel(user){
   return String(user.company_name || "").trim() || user.name || "Unnamed client";
 }
 
-/* The builder calls the free-text types "Text" and "Paragraph"; the database
-   stores "input" and "textarea". */
-function questionTypeLabel(type){
-  if(type === "input") return "Text";
-  if(type === "textarea") return "Paragraph";
-  if(type === "file") return "File Upload";
-  if(type === "checkbox" || type === "checklist") return "Checklist";
-  return type;
+function chipsToArray(chips){
+  try{
+    const parsed = chips ? JSON.parse(chips) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  }catch(error){
+    return [];
+  }
 }
 
 /* Chips come back as a JSON array but are posted as a comma-separated string,
    which is the shape the create endpoint parses. */
 function chipsToText(chips){
-  try{
-    const parsed = chips ? JSON.parse(chips) : [];
-    return Array.isArray(parsed) ? parsed.join(", ") : "";
-  }catch(error){
-    return "";
-  }
+  return chipsToArray(chips).join(", ");
+}
+
+/* A checklist's items get an empty tick box; a text question's quick keywords
+   don't, since nothing gets ticked. */
+function optionsHTML(items, isChecklist){
+  const noun = isChecklist ? "option" : "quick keyword";
+  return `
+    <div class="q-options-count">${items.length} ${noun}${items.length === 1 ? "" : "s"}</div>
+    <ul class="q-options">
+      ${items.map(item => `
+        <li class="${isChecklist ? "is-check" : ""}${/^\s*none of/i.test(item) ? " is-none" : ""}" dir="auto">${esc(item)}</li>
+      `).join("")}
+    </ul>
+  `;
 }
 
 function fail(message){
@@ -271,22 +305,44 @@ function renderQuestions(){
   }
 
   box.innerHTML = sourceQuestions.map((q, index) => {
-    const chips = chipsToText(q.chips);
+    const chips = chipsToArray(q.chips);
 
-    return `
-      <div class="q">
-        <div class="q-index">Question ${index + 1}</div>
-        <div class="q-text">${esc(q.question_text)}</div>
-        <span class="q-type">${esc(questionTypeLabel(q.question_type))}</span>
-        ${chips ? `<div class="q-chips">Options: ${esc(chips)}</div>` : ``}
-        ${
-          q.question_type === "file" && q.max_file_size_mb
-          ? `<div class="q-chips">Max file size: ${esc(q.max_file_size_mb)} MB</div>`
-          : ``
-        }
-      </div>
-    `;
+    const body =
+      (chips.length ? optionsHTML(chips, q.question_type === "checkbox" || q.question_type === "checklist") : ``) +
+      (q.question_type === "file" && q.max_file_size_mb
+        ? `<div class="q-chips">Max file size: ${esc(q.max_file_size_mb)} MB</div>`
+        : ``);
+
+    return questionCardHTML(index, q.question_text, body);
   }).join("");
+}
+
+/* A question with nothing beneath it has nothing to collapse, so its header is
+   plain text rather than a toggle. */
+function questionCardHTML(index, questionText, body){
+  const title = `
+    <span class="rq-title">
+      <span class="q-index">Question ${index + 1}</span>
+      <span class="q-text" dir="auto">${esc(questionText)}</span>
+    </span>
+  `;
+
+  if(!body) return `<div class="q"><div class="rq-head">${title}</div></div>`;
+
+  return `
+    <div class="q">
+      <button
+        type="button"
+        class="rq-head"
+        aria-expanded="true"
+        onclick="const card = this.parentElement; this.setAttribute('aria-expanded', !card.classList.toggle('collapsed'));"
+      >
+        ${title}
+        <span class="rq-toggle" aria-hidden="true">▼</span>
+      </button>
+      <div class="rq-body">${body}</div>
+    </div>
+  `;
 }
 
 async function sendCopy(){

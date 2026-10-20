@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { createApp } from "../src/app.js";
+import { serverIcons } from "../src/icons.js";
 import { jsonResponse, stubUpstream } from "./helpers.js";
 
 let httpServer;
@@ -92,5 +93,21 @@ describe("/mcp", () => {
       const res = await fetch(`${base}/mcp`, { method });
       expect(res.status).toBe(405);
     }
+  });
+});
+
+describe("connector icon", () => {
+  it.each(["/favicon.ico", "/icon.png", "/apple-touch-icon.png"])(
+    "%s redirects to the logo uploaded in the portal's Settings",
+    async (path) => {
+      const res = await fetch(`${base}${path}`, { redirect: "manual" });
+
+      expect(res.status).toBe(302);
+      expect(res.headers.get("location")).toBe(`${process.env.WZONE_BASE_URL}/logo.png`);
+    }
+  );
+
+  it("names the same logo in serverInfo", () => {
+    expect(serverIcons()).toEqual({ icons: [{ src: `${process.env.WZONE_BASE_URL}/logo.png` }] });
   });
 });

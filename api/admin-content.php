@@ -2,6 +2,7 @@
 
 require_once "db.php";
 require_once "notify.php";
+require_once "content-writes.php";
 
 header("Content-Type: application/json; charset=UTF-8");
 
@@ -136,75 +137,9 @@ ensureContentColumns($pdo);
 ensureNotificationsTable($pdo);
 
 /*
-|--------------------------------------------------------------------------
-| Helpers: who may do what with a post
-|--------------------------------------------------------------------------
-|
-| A post works like a task. The owner, the account managers and the super
-| admins create it, often with nothing but a title, and pick the teammates -
-| Super Admins and Admins - who work on it with them (content_assignees).
-|
-| The owner and the account managers run the posting calendar: they see every
-| post, and they alone schedule and publish. Anyone else sees the posts they
-| created and the ones they are assigned to, and can fill those in. The
-| author, the owner and the account managers change who is on a post and
-| delete it; an assignee does neither.
-|
+| Who may do what with a post - canEditContent(), canPublishContent() and the
+| rest - is in content-writes.php, shared with api/v1.
 */
-
-function canPublishContent($admin)
-{
-    return in_array($admin["role"] ?? "", ["owner", "account_manager"], true);
-}
-
-function canCreateContent($admin)
-{
-    return in_array($admin["role"] ?? "", ["owner", "account_manager", "super_admin"], true);
-}
-
-function canViewAllContent($admin)
-{
-    return contentSeesAll((string) ($admin["role"] ?? ""));
-}
-
-function isContentAssignee(PDO $pdo, $contentId, $adminId)
-{
-    try {
-        $stmt = $pdo->prepare("
-            SELECT 1 FROM content_assignees
-            WHERE content_id = ? AND admin_id = ?
-            LIMIT 1
-        ");
-        $stmt->execute([(int) $contentId, (int) $adminId]);
-
-        return (bool) $stmt->fetchColumn();
-    } catch (Throwable $e) {
-        return false;
-    }
-}
-
-function canEditContent($admin, $creatorId, $assigned = false)
-{
-    if (canViewAllContent($admin) || $assigned) {
-        return true;
-    }
-
-    return (int) $creatorId === (int) $admin["id"];
-}
-
-function canAssignContent($admin, $creatorId)
-{
-    if (canPublishContent($admin)) {
-        return true;
-    }
-
-    return (int) $creatorId === (int) $admin["id"];
-}
-
-function canDeleteContent($admin, $creatorId)
-{
-    return canAssignContent($admin, $creatorId);
-}
 
 /*
 |--------------------------------------------------------------------------
@@ -732,6 +667,64 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         );
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Tick your own box: action=set_done
+    |--------------------------------------------------------------------------
+    |
+    | Each teammate on a post marks their own part of it done, straight from
+    | the checklist on admin-content-form.html - no Save needed. Only the
+    | caller's own content_assignees row changes, so nobody can tick a box for
+    | someone else, and someone not on the post has no box at all.
+    |
+    */
+    if (($_POST["action"] ?? "") === "set_done") {
+
+        $contentId = (int) ($_POST["content_id"] ?? 0);
+        $done = ($_POST["done"] ?? "") === "1" ? 1 : 0;
+
+        if ($contentId <= 0) {
+            response(false, "Invalid content ID.", [], 400);
+        }
+
+        try {
+            $stmt = $pdo->prepare("SELECT id FROM content WHERE id = ? LIMIT 1");
+            $stmt->execute([$contentId]);
+
+            if (!$stmt->fetch()) {
+                response(false, "Content not found.", [], 404);
+            }
+
+            if (!isContentAssignee($pdo, $contentId, $admin["id"])) {
+                response(
+                    false,
+                    "Only a teammate assigned to this post can tick their box.",
+                    [],
+                    403
+                );
+            }
+
+            $stmt = $pdo->prepare("
+                UPDATE content_assignees
+                SET is_done = ?, done_at = IF(? = 1, NOW(), NULL)
+                WHERE content_id = ? AND admin_id = ?
+            ");
+            $stmt->execute([$done, $done, $contentId, (int) $admin["id"]]);
+
+        } catch (Throwable $e) {
+
+            response(false, "Could not save your checkbox.", [], 500);
+        }
+
+        response(
+            true,
+            $done ? "Marked as done." : "Marked as not done.",
+            [
+                "assignees" => contentAssignees($pdo, [$contentId])[$contentId] ?? []
+            ]
+        );
+    }
+
     $id = isset($_POST["id"])
         ? (int) $_POST["id"]
         : 0;
@@ -759,6 +752,20 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         : 0;
 
     $status = trim($_POST["status"] ?? "draft");
+
+    /*
+    | Priority and notes are set on the content form only. priority_sent marks
+    | that the form sent them, so a save from anywhere else (api/v1, an older
+    | page) leaves the stored values alone - see the update below.
+    */
+    $setsPriority = ($_POST["priority_sent"] ?? "") === "1";
+
+    $priority = strtolower(trim($_POST["priority"] ?? "medium"));
+    if (!in_array($priority, ["low", "medium", "high"], true)) {
+        $priority = "medium";
+    }
+
+    $notes = mb_substr(trim((string) ($_POST["notes"] ?? "")), 0, CONTENT_NOTES_MAX);
 
     /*
     |--------------------------------------------------------------------------
@@ -807,6 +814,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         if (!$existing) {
             response(false, "Content not found.", [], 404);
+        }
+
+        if (!$setsPriority) {
+            $priority = (string) ($existing["priority"] ?? "medium");
+            $notes = (string) ($existing["notes"] ?? "");
         }
 
         if (!canEditContent(
@@ -1046,10 +1058,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     post_time,
                     publish_now,
                     status,
+                    priority,
+                    notes,
                     created_by
                 )
                 VALUES (
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
                 )
             ");
 
@@ -1069,6 +1083,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 $postTime ?: null,
                 $publishNow,
                 $status,
+                $priority,
+                $notes !== "" ? $notes : null,
                 $admin["id"]
             ]);
 
@@ -1149,6 +1165,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 post_time = ?,
                 publish_now = ?,
                 status = ?,
+                priority = ?,
+                notes = ?,
                 updated_at = CURRENT_TIMESTAMP
 
             WHERE id = ?
@@ -1170,6 +1188,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $postTime ?: null,
             $publishNow,
             $status,
+            $priority,
+            $notes !== "" ? $notes : null,
             $id
         ]);
 

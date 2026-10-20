@@ -227,48 +227,21 @@ body {
   box-shadow: 0 14px 30px rgba(0, 0, 0, 0.04);
   margin-bottom: 34px;
 }
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-.calendar-controls {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.month-title {
-  font-size: 18px;
-  font-weight: 800;
-  color: #101828;
-  min-width: 180px;
-}
+/* ── Calendar and Daily Schedule panels ──
+   The same shell, month bar and grid as the per-client calendar in
+   user-details.html. Only these two panels use it; every other section
+   keeps .card. */
+.panel { background: #ffffff; border-radius: 20px; box-shadow: 0 14px 30px rgba(0, 0, 0, 0.04); overflow: hidden; margin-bottom: 34px; }
+.panel-head { padding: 22px 28px; border-bottom: 1px solid #eef1f5; }
+.panel-head h2 { font-size: 18px; margin-bottom: 4px; color: var(--text); }
+.panel-head p { color: var(--muted); font-size: 13px; }
 
-.nav-arrow {
-  border: 1px solid #eaecf0;
-  background: #ffffff;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-weight: bold;
-  font-size: 16px;
-  user-select: none;
-}
+.cal-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 22px 28px; border-bottom: 1px solid #eef1f5; }
+.cal-controls { display: flex; align-items: center; gap: 12px; }
+.cal-month { font-size: 18px; font-weight: 800; color: var(--text); min-width: 170px; }
+.nav-arrow { border: 1px solid var(--line); background: #ffffff; width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-weight: 700; font-size: 16px; user-select: none; }
 .nav-arrow:hover { background: #f1f5f9; }
-.btn-today {
-  border: 1px solid #eaecf0;
-  background: #ffffff;
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
+.btn-today { border: 1px solid var(--line); background: #ffffff; padding: 8px 16px; border-radius: 8px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
 .btn-today:hover { background: #f1f5f9; }
 
 .btn-primary {
@@ -289,6 +262,7 @@ body {
   grid-template-columns: repeat(7, 1fr);
   border-top: 1px solid #eaecf0;
   border-left: 1px solid #eaecf0;
+  margin: 22px 28px 28px;
   border-radius: 12px;
   overflow: hidden;
 }
@@ -304,7 +278,8 @@ body {
   text-align: center;
 }
 .day-cell {
-  min-height: 110px;
+  min-width: 0;
+  min-height: 104px;
   padding: 8px;
   border-right: 1px solid #eaecf0;
   border-bottom: 1px solid #eaecf0;
@@ -315,8 +290,9 @@ body {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  cursor: pointer;
 }
-.day-cell.other-month { background: #fdfdfd; color: #cbd5e1; }
+.day-cell.other-month { background: #fdfdfd; color: #cbd5e1; cursor: default; }
 .day-cell.today-cell { background: #f0f9ff; }
 
 /* The day the schedule panel below is describing. */
@@ -329,13 +305,23 @@ body {
   width: max-content;
 }
 
+/* At most two lines - the title, then the time - each cut with an ellipsis,
+   so a long title never stretches the cell. The full text is the tooltip. */
 .event-card {
+  min-width: 0;
+  overflow: hidden;
   padding: 6px;
   border-radius: 6px;
   font-size: 10.5px;
   font-weight: 500;
   line-height: 1.3;
 }
+.event-card .ev-line { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* A day holds three cards; the rest are behind this, and in the schedule below. */
+.more-events { font-size: 10.5px; font-weight: 700; color: var(--muted); padding: 0 2px; }
+.more-events:hover { color: var(--text); }
+
 .event-card.approved { background: #e8faef; border: 1px solid #b8e7c8; color: #17803d; }
 .event-card.pending { background: #fef3c7; border: 1px solid #fde68a; color: #b45309; }
 .event-card.rejected { background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; }
@@ -593,7 +579,7 @@ th {
 .section-link:hover { text-decoration: underline; }
 
 /* ── Daily schedule ── */
-.schedule-list { display: flex; flex-direction: column; }
+.schedule-list { display: flex; flex-direction: column; padding: 8px 28px 26px; }
 
 .schedule-row {
   display: flex;
@@ -826,6 +812,14 @@ th {
   width:8px;height:8px;min-width:0;padding:0;border-radius:50%;
   font-size:0;border:2px solid #fff;
 }
+/* ── Calendar panels on a tablet ── */
+@media (max-width: 950px) {
+  .panel { overflow-x: auto; }
+  .panel-head, .cal-head, .schedule-list { padding-left: 18px; padding-right: 18px; }
+  .calendar-grid { margin: 18px; min-width: 620px; }
+  .day-cell { min-height: 88px; }
+}
+
 /* ── Phone layout ─────────────────────────────────────────────────────────
    Phone: the month grid keeps all seven columns - a calendar that scrolls
    sideways stops reading as a month - but a 53px cell has no room for event
@@ -835,18 +829,28 @@ th {
 
 @media (max-width: 768px) {
 
-  /* The month title, its arrows and Today do not fit on one line. */
-  .card-header {
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-
-  .month-title {
+  .cal-month {
     min-width: 0;
   }
 
-  .calendar-controls {
+  .cal-controls {
     gap: 8px;
+  }
+
+  /* Seven 50px columns fit the phone, so the grid stops scrolling sideways. */
+  .calendar-grid {
+    min-width: 0;
+    margin-left: 18px;
+    margin-right: 18px;
+  }
+
+  /* Three dots are the cap here too; the schedule list has the rest. */
+  .calendar-grid:not(.one-day) .day-cell .more-events {
+    display: none;
+  }
+
+  .panel {
+    margin-bottom: 22px;
   }
 
   .day-header {
@@ -1355,23 +1359,27 @@ th {
       </div>
 
       <!-- Calendar grid -->
-      <div class="card">
-        <div class="card-header">
-          <div class="calendar-controls">
-            <span class="month-title" id="calendarMonthTitle">Loading...</span>
-            <button class="nav-arrow" id="prevMonthBtn" aria-label="Previous">&lt;</button>
-            <button class="nav-arrow" id="nextMonthBtn" aria-label="Next">&gt;</button>
-          </div>
-          <button class="btn-today" id="todayBtn">Today</button>
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Calendar</h2>
+          <p>Your meetings and the posts that went live for you. Pick a day to see what is on it.</p>
         </div>
-
+        <div class="cal-head">
+          <div class="cal-controls">
+            <span class="cal-month" id="calendarMonthTitle">Loading...</span>
+            <button class="nav-arrow" type="button" id="prevMonthBtn" aria-label="Previous">&lt;</button>
+            <button class="nav-arrow" type="button" id="nextMonthBtn" aria-label="Next">&gt;</button>
+          </div>
+          <button class="btn-today" type="button" id="todayBtn">Today</button>
+        </div>
         <div class="calendar-grid" id="calendarGrid"></div>
       </div>
 
       <!-- What is on for the selected day -->
-      <div class="card">
-        <div class="section-head">
-          <h3 id="dailyScheduleTitle">Daily Schedule</h3>
+      <div class="panel">
+        <div class="panel-head">
+          <h2 id="dailyScheduleTitle">Daily Schedule</h2>
+          <p>Meetings and posts that went live on the selected day.</p>
         </div>
         <div class="schedule-list" id="dailySchedule"></div>
       </div>
@@ -1492,6 +1500,10 @@ const MONTHS = ["January", "February", "March", "April", "May", "June",
 
 const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
                       "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/* Cards drawn in one day's cell in Month and Week view; the rest read
+   "+N more". Day view has the room, so it shows every card. */
+const MAX_DAY_CARDS = 3;
 
 /* ── Small helpers ─────────────────────────────────────────────────────── */
 
@@ -1791,30 +1803,51 @@ function renderCalendar() {
       + (dateStr === todayStr ? " today-cell" : "")
       + (dateStr === selectedDate && currentView !== "day" ? " selected-cell" : "");
 
-    cell.innerHTML = `<span>${day.getDate()}</span>`;
-
-    calendarEvents.appointments
+    // Meetings and posts in one time-ordered list. A month or week cell shows
+    // the first MAX_DAY_CARDS and Day view shows them all; the schedule panel
+    // below lists every one.
+    const meetingCards = calendarEvents.appointments
       .filter(a => a.date === dateStr)
-      .forEach(a => {
-        cell.innerHTML += `
-          <div class="event-card ${esc(a.status || "pending")}">
-            ● <b>${esc(a.topic || a.title || "Meeting")}</b><br>
-            <small>${esc(prettyTime(a.time))}</small>
-          </div>
-        `;
+      .map(a => {
+        const title = a.topic || a.title || "Meeting";
+        const time = prettyTime(a.time);
+
+        return {
+          time: String(a.time || ""),
+          html: `
+            <div class="event-card ${esc(a.status || "pending")}" title="${esc(title + (time ? " · " + time : ""))}">
+              <span class="ev-line">● <b dir="auto">${esc(title)}</b></span>
+              <small class="ev-line">${esc(time)}</small>
+            </div>`
+        };
       });
 
     // A post opens itself; stopPropagation keeps the click from also
     // selecting the day, which would repaint the grid under the link.
-    contentOn(dateStr).forEach(item => {
-      cell.innerHTML += `
-        <a class="event-card content" href="${contentHref(item)}"
-           onclick="event.stopPropagation()" title="Open this post">
-          ■ <b dir="auto">${esc(item.title || "Content")}</b><br>
-          <small>${esc(prettyTime(contentLiveAt(item).slice(11)))} · ${esc(contentMeta(item))}</small>
-        </a>
-      `;
+    const postCards = contentOn(dateStr).map(item => {
+      const title = item.title || "Content";
+      const meta = `${prettyTime(contentLiveAt(item).slice(11))} · ${contentMeta(item)}`;
+
+      return {
+        time: contentLiveAt(item).slice(11),
+        html: `
+          <a class="event-card content" href="${contentHref(item)}"
+             onclick="event.stopPropagation()" title="${esc(title + " · " + meta)}">
+            <span class="ev-line">■ <b dir="auto">${esc(title)}</b></span>
+            <small class="ev-line">${esc(meta)}</small>
+          </a>`
+      };
     });
+
+    const cards = meetingCards.concat(postCards)
+      .sort((a, b) => a.time.localeCompare(b.time));
+    const cap = oneDay ? cards.length : MAX_DAY_CARDS;
+
+    cell.innerHTML = `<span>${day.getDate()}</span>`
+      + cards.slice(0, cap).map(card => card.html).join("")
+      + (cards.length > cap
+          ? `<div class="more-events">+${cards.length - cap} more</div>`
+          : "");
 
     // Picking a day drives the schedule panel, and the Day/Week views.
     cell.onclick = () => {
