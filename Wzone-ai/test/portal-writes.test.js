@@ -87,7 +87,7 @@ describe("private server: confirmed changes", () => {
     fakePortal({ scopes: SEO });
     const c = await connect();
     const names = await toolNames(c);
-    for (const n of ["create_form_draft", "create_content_draft", "post_project_update", "update_task", "confirm_change", "mark_notifications_read"]) {
+    for (const n of ["create_form_draft", "create_content_draft", "update_content_draft", "post_project_update", "update_task", "confirm_change", "mark_notifications_read"]) {
       expect(names).toContain(n);
     }
     for (const n of ["review_form", "propose_meeting", "respond_to_meeting", "save_my_client_note", "create_inquiry_draft"]) {
@@ -164,6 +164,10 @@ describe("private server: confirmed changes", () => {
     const c = await connect();
     const bad = [
       ["create_content_draft", { client: 10, type: "tiktok", title: "x" }],
+      ["create_content_draft", { client: 10, type: "photos", title: "x", images: ["http://example.com/a.png"] }],
+      ["create_content_draft", { client: 10, type: "photos", title: "x", images: Array.from({ length: 6 }, (_, i) => `https://example.com/${i}.png`) }],
+      ["update_content_draft", { id: 1, images: ["not a link"] }],
+      ["update_content_draft", { id: 1, date: "tomorrow" }],
       ["create_form_draft", { client: 10, title: "x", questions: [] }],
       ["update_task", { id: 1, date: "tomorrow" }],
     ];

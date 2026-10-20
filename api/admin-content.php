@@ -460,29 +460,20 @@ function checkContentImage($file)
     /*
     | Max 3 MB
     */
-    if (($file["size"] ?? 0) > 3 * 1024 * 1024) {
+    if (($file["size"] ?? 0) > CONTENT_IMAGE_MAX_BYTES) {
         response(false, "Image must be 3 MB or smaller.", [], 400);
     }
 
     /*
     | Check MIME type
     */
-    $finfo = new finfo(FILEINFO_MIME_TYPE);
+    $extension = contentImageExtension($file["tmp_name"]);
 
-    $mime = $finfo->file($file["tmp_name"]);
-
-    $allowed = [
-        "image/jpeg" => "jpg",
-        "image/png"  => "png",
-        "image/webp" => "webp",
-        "image/gif"  => "gif"
-    ];
-
-    if (!isset($allowed[$mime])) {
+    if ($extension === null) {
         response(false, "Only JPG, PNG, WEBP and GIF images are allowed.", [], 400);
     }
 
-    return $allowed[$mime];
+    return $extension;
 }
 
 /*

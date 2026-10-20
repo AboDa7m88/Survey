@@ -102,7 +102,8 @@ Each person gets only the tools their connection's scopes allow, so a client nev
 | `forms:write` | `create_form_draft` | creates a form for your client. It **always** goes into the review queue, even when a reviewer asks for it |
 | `forms:review` | `review_form` | approves a waiting form (it reaches the client) or returns it to its author with a comment |
 | `inquiries:write` | `create_inquiry_draft` | creates a consultation inquiry, **closed** until someone opens it in the portal |
-| `content:write` | `create_content_draft` | saves a **draft** post. Nothing here publishes |
+| `content:write` | `create_content_draft` | saves a **draft** post. Nothing here publishes. Images are given as up to 5 public `https://` links; the portal downloads and checks them on confirm (JPG/PNG/WEBP/GIF, 3 MB each), never from a private address |
+| `content:write` | `update_content_draft` | changes the given fields of a **draft** post; `images` replaces all of its images (`[]` removes them) |
 | `calendar:write` | `propose_meeting` | asks a client for a meeting: every account at their company that you can reach, in the portal and by email, as the calendar page does |
 | `calendar:write` | `respond_to_meeting` | accepts or declines a client's pending request |
 | `projects:write` | `post_project_update` | adds an update to a project, published (the client is told once it's live) or as a draft |

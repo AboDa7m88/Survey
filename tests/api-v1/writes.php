@@ -254,6 +254,37 @@ check("changes: the post is a draft, by its author, as the page saves it", $aiPo
 refusedChange("changes: content needs a company", $owner, "create_content_draft", ["client" => 12, "type" => "videos", "title" => "x"], 422);
 refusedChange("changes: content types are the portal's", $owner, "create_content_draft", ["client" => 10, "type" => "tiktok", "title" => "x"], 422);
 
+// Images by link: checked on prepare, never fetched from the server's own network.
+$draft = ["client" => 10, "type" => "photos", "title" => "x"];
+refusedChange("changes: image links are https", $owner, "create_content_draft", $draft + ["images" => ["http://example.com/a.png"]], 422);
+refusedChange("changes: no loopback image links", $owner, "create_content_draft", $draft + ["images" => ["https://127.0.0.1/a.png"]], 422);
+refusedChange("changes: no private-network image links", $owner, "create_content_draft", $draft + ["images" => ["https://10.0.0.5/a.png"]], 422);
+refusedChange("changes: no localhost image links", $owner, "create_content_draft", $draft + ["images" => ["https://localhost/a.png"]], 422);
+refusedChange("changes: no image links with a password", $owner, "create_content_draft", $draft + ["images" => ["https://u:p@8.8.8.8/a.png"]], 422);
+refusedChange("changes: images is a list", $owner, "create_content_draft", $draft + ["images" => "https://8.8.8.8/a.png"], 422);
+refusedChange("changes: at most five images", $owner, "create_content_draft", $draft + ["images" => array_map(function ($i) {
+    return "https://8.8.8.8/$i.png";
+}, range(1, 6))], 422);
+[$status, $prep] = prepare($owner, "create_content_draft", $draft + ["images" => ["https://8.8.8.8/a.png", "https://8.8.8.8/b.png"]]);
+check("changes: image links are only checked on prepare", $status === 200
+    && strpos($prep["data"]["summary"] ?? "", "with 2 images") !== false, "HTTP $status " . json_encode($prep));
+
+// Changing a draft.
+$aiPostId = (int) $aiPost["id"];
+change("changes: a draft's caption and date", $am, "update_content_draft", ["id" => $aiPostId, "caption" => "New words", "date" => "", "time" => ""]);
+$edited = one($pdo, "SELECT * FROM content WHERE id = ?", [$aiPostId]);
+check("changes: the draft changed only where asked", $edited["caption"] === "<p>New words</p>" && $edited["post_date"] === null
+    && $edited["post_time"] === null && $edited["title"] === "AI teaser" && $edited["link"] === "https://acme.example/x", json_encode($edited));
+change("changes: a draft's images cleared", $am, "update_content_draft", ["id" => $aiPostId, "images" => []]);
+check("changes: no images left", one($pdo, "SELECT media_path FROM content WHERE id = ?", [$aiPostId])["media_path"] === null);
+refusedChange("changes: an update needs a field", $am, "update_content_draft", ["id" => $aiPostId], 422);
+refusedChange("changes: a time needs a date on update", $am, "update_content_draft", ["id" => $aiPostId, "time" => "09:00"], 422);
+refusedChange("changes: update image links are checked", $am, "update_content_draft", ["id" => $aiPostId, "images" => ["https://192.168.1.4/a.png"]], 422);
+$pdo->prepare("UPDATE content SET status = 'scheduled' WHERE id = ?")->execute([$aiPostId]);
+refusedChange("changes: only drafts change from here", $am, "update_content_draft", ["id" => $aiPostId, "title" => "y"], 409);
+$pdo->prepare("UPDATE content SET status = 'draft' WHERE id = ?")->execute([$aiPostId]);
+refusedChange("changes: not a post you can't see", $am, "update_content_draft", ["id" => 999999, "title" => "y"], 404);
+
 // Meetings.
 refusedChange("changes: no calendar for an seo admin", $seo, "propose_meeting", ["client" => 10, "date" => $tomorrow, "time" => "10:00", "topic" => "x"], 403);
 refusedChange("changes: not in the past", $am, "propose_meeting", ["client" => 10, "date" => day("-1"), "time" => "10:00", "topic" => "x"], 422);

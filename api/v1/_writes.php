@@ -39,6 +39,7 @@ require_once __DIR__ . "/../meeting-writes.php";
 require_once __DIR__ . "/../task-writes.php";
 require_once __DIR__ . "/../inquiry-templates.php";
 require_once __DIR__ . "/../survey-submit.php";
+require_once __DIR__ . "/../content-image-fetch.php";
 
 const V1_CONFIRM_TTL = 900; // 15 minutes to say yes
 
@@ -173,6 +174,72 @@ function argList(array $a, $key, $min, $max)
         throw new PortalWriteError("$key must have between $min and $max entries.");
     }
     return $value;
+}
+
+/**
+ * A post's image links: up to CONTENT_MAX_IMAGES https links, each checked
+ * (contentImageTarget) but not downloaded - prepare writes nothing. null
+ * when absent; [] is "no images".
+ */
+function argImages(array $a, $key = "images")
+{
+    if (!array_key_exists($key, $a) || $a[$key] === null) {
+        return null;
+    }
+    $list = $a[$key];
+    if (!is_array($list) || array_values($list) !== $list) {
+        throw new PortalWriteError("$key must be a list of links.");
+    }
+    foreach ($list as $i => $url) {
+        if (!is_string($url)) {
+            throw new PortalWriteError("Image " . ($i + 1) . " must be a link.");
+        }
+    }
+    $list = array_values(array_unique(array_map("trim", $list)));
+    if (count($list) > CONTENT_MAX_IMAGES) {
+        throw new PortalWriteError("A post can have up to " . CONTENT_MAX_IMAGES . " images.");
+    }
+    foreach ($list as $i => $url) {
+        contentImageTarget($i, $url);
+    }
+    return $list;
+}
+
+/** The content types an assistant may pick: id => label, as list_content_types gives them. */
+function contentTypeChoices()
+{
+    $types = [];
+    foreach (CONTENT_TYPE_TITLES as $label) {
+        $types[trim(preg_replace("/[^a-z0-9]+/", "_", strtolower($label)), "_")] = $label;
+    }
+    return $types;
+}
+
+/** "2 images" */
+function imageCount($n)
+{
+    return $n . ($n === 1 ? " image" : " images");
+}
+
+/**
+ * A draft post this admin may change: one they can see (contentVisibleSql,
+ * as the page's canEditContent()) that is still a draft. Scheduled and
+ * published posts are edited in the portal.
+ */
+function loadEditableDraft(PDO $pdo, array $p, $id)
+{
+    ensureContentColumns($pdo);
+    [$own, $ownParams] = v1SeesAllContent($p) ? ["1 = 1", []] : contentVisibleSql("c", (int) $p["id"]);
+    $stmt = $pdo->prepare("SELECT c.* FROM content c WHERE c.id = ? AND $own LIMIT 1");
+    $stmt->execute(array_merge([$id], $ownParams));
+    $post = $stmt->fetch();
+    if (!$post) {
+        throw new PortalWriteError("No post with that id among the posts you can see.", 404);
+    }
+    if ($post["status"] !== "draft") {
+        throw new PortalWriteError("That post is " . $post["status"] . ", not a draft - change it in the portal.", 409);
+    }
+    return $post;
 }
 
 /** What the assistant wrote as plain text, as the HTML the portal's editors store. */
@@ -542,10 +609,7 @@ function v1WriteHandlers()
             "scope" => "content:write",
             "prepare" => function (PDO $pdo, array $p, array $a) {
                 $clientId = argInt($a, "client");
-                $types = [];
-                foreach (CONTENT_TYPE_TITLES as $label) {
-                    $types[trim(preg_replace("/[^a-z0-9]+/", "_", strtolower($label)), "_")] = $label;
-                }
+                $types = contentTypeChoices();
                 $type = argEnum($a, "type", array_keys($types));
                 $title = argText($a, "title", 255);
                 // The page's own limit, counted on the text (admin-content.php).
@@ -556,6 +620,7 @@ function v1WriteHandlers()
                     throw new PortalWriteError("A time needs a date.");
                 }
                 $link = normalisePortalLink($a["link"] ?? "");
+                $images = argImages($a) ?? [];
                 $client = v1VisibleClient($pdo, $p, $clientId);
                 $company = trim((string) ($client["company_name"] ?? ""));
                 if ($company === "") {
@@ -563,32 +628,166 @@ function v1WriteHandlers()
                 }
                 return [
                     "args" => ["client" => $clientId, "company" => $company, "type" => $type, "type_label" => $types[$type],
-                               "title" => $title, "caption" => $caption, "date" => $date, "time" => $time, "link" => $link],
+                               "title" => $title, "caption" => $caption, "date" => $date, "time" => $time, "link" => $link,
+                               "images" => $images],
                     "summary" => "Save a draft " . $types[$type] . " post " . quoteFor($title) . " for $company"
                         . ($date ? ", dated $date" . ($time ? " $time" : "") : "")
+                        . ($images ? ", with " . imageCount(count($images)) . " downloaded from the links given" : "")
                         . ". It stays a draft: nothing is published until someone schedules it in the portal.",
                     "preview" => [
                         "client" => $company, "type" => $types[$type], "title" => $title,
                         "date" => $date, "time" => $time, "link" => $link,
-                        "untrusted_content" => ["caption" => $caption],
+                        "untrusted_content" => ["caption" => $caption, "images" => $images],
                     ],
                 ];
             },
             "apply" => function (PDO $pdo, array $p, array $a) {
                 ensureContentColumns($pdo);
-                // The columns admin-content-form.html fills for a type: its
-                // name as label, platform and category; never published here.
-                $pdo->prepare("
-                    INSERT INTO content
-                        (title, client, link, caption, content_type, type_label, platform, category,
-                         orientation, media_path, post_date, post_time, publish_now, status, created_by)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'horizontal', NULL, ?, ?, 0, 'draft', ?)
-                ")->execute([
-                    $a["title"], $a["company"], $a["link"], $a["caption"] !== "" ? textToHtml($a["caption"]) : null,
-                    $a["type"], $a["type_label"], $a["type_label"], $a["type_label"],
-                    $a["date"], $a["time"] !== null ? $a["time"] . ":00" : null, $p["id"],
-                ]);
-                return ["content_id" => (int) $pdo->lastInsertId(), "status" => "draft"];
+                // Downloaded only now, on confirm; removed again if the post isn't saved.
+                $images = fetchContentImages($a["images"] ?? []);
+                try {
+                    // The columns admin-content-form.html fills for a type: its
+                    // name as label, platform and category; never published here.
+                    $pdo->prepare("
+                        INSERT INTO content
+                            (title, client, link, caption, content_type, type_label, platform, category,
+                             orientation, media_path, media_paths, post_date, post_time, publish_now, status, created_by)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'horizontal', ?, ?, ?, ?, 0, 'draft', ?)
+                    ")->execute([
+                        $a["title"], $a["company"], $a["link"], $a["caption"] !== "" ? textToHtml($a["caption"]) : null,
+                        $a["type"], $a["type_label"], $a["type_label"], $a["type_label"],
+                        $images[0] ?? null, $images ? json_encode($images, JSON_UNESCAPED_SLASHES) : null,
+                        $a["date"], $a["time"] !== null ? $a["time"] . ":00" : null, $p["id"],
+                    ]);
+                } catch (Throwable $e) {
+                    deleteFetchedContentImages($images);
+                    throw $e;
+                }
+                return ["content_id" => (int) $pdo->lastInsertId(), "status" => "draft", "images" => count($images)];
+            },
+        ],
+
+        "update_content_draft" => [
+            "scope" => "content:write",
+            "prepare" => function (PDO $pdo, array $p, array $a) {
+                $id = argInt($a, "id");
+                $post = loadEditableDraft($pdo, $p, $id);
+                $types = contentTypeChoices();
+
+                // Only the fields given change; each kept under its own name
+                // so the cleaned arguments prepare again unchanged on confirm.
+                $set = [];
+                $what = [];
+                if (array_key_exists("title", $a)) {
+                    $set["title"] = argText($a, "title", 255);
+                    $what[] = "the title to " . quoteFor($set["title"]);
+                }
+                if (array_key_exists("type", $a)) {
+                    $set["type"] = argEnum($a, "type", array_keys($types));
+                    $what[] = "the type to " . $types[$set["type"]];
+                }
+                if (array_key_exists("caption", $a)) {
+                    $set["caption"] = argText($a, "caption", 10000, false);
+                    $what[] = $set["caption"] !== "" ? "the caption" : "clear the caption";
+                }
+                if (array_key_exists("date", $a)) {
+                    $set["date"] = argDate($a, "date");
+                    $what[] = $set["date"] !== null ? "the date to " . $set["date"] : "clear the date";
+                }
+                if (array_key_exists("time", $a)) {
+                    $set["time"] = argTime($a, "time");
+                    $what[] = $set["time"] !== null ? "the time to " . $set["time"] : "clear the time";
+                }
+                if (array_key_exists("link", $a)) {
+                    $set["link"] = normalisePortalLink($a["link"]);
+                    $what[] = $set["link"] !== null ? "the link" : "clear the link";
+                }
+                $images = argImages($a);
+                if ($images !== null) {
+                    $set["images"] = $images;
+                    $had = count(contentImages($post));
+                    $fetched = imageCount(count($images)) . " downloaded from the links given";
+                    if (!$images) {
+                        $what[] = $had ? "remove its " . imageCount($had) : "keep it without images";
+                    } else {
+                        $what[] = $had ? "replace its " . imageCount($had) . " with $fetched" : "add $fetched";
+                    }
+                }
+                if (!$set) {
+                    throw new PortalWriteError("Give at least one field to change.");
+                }
+
+                $date = array_key_exists("date", $set) ? $set["date"] : $post["post_date"];
+                $time = array_key_exists("time", $set) ? $set["time"] : $post["post_time"];
+                if ($time !== null && $date === null) {
+                    throw new PortalWriteError("A time needs a date.");
+                }
+
+                return [
+                    "args" => ["id" => $id] + $set,
+                    "summary" => "Change the draft post " . quoteFor($post["title"])
+                        . (trim((string) $post["client"]) !== "" ? " for " . $post["client"] : "")
+                        . ": " . implode("; ", $what)
+                        . ". It stays a draft: nothing is published until someone schedules it in the portal.",
+                    "preview" => [
+                        "id" => $id,
+                        "title" => $set["title"] ?? null, "type" => isset($set["type"]) ? $types[$set["type"]] : null,
+                        "date" => $set["date"] ?? null, "time" => $set["time"] ?? null, "link" => $set["link"] ?? null,
+                        "untrusted_content" => ["caption" => $set["caption"] ?? null, "images" => $set["images"] ?? null],
+                    ],
+                ];
+            },
+            "apply" => function (PDO $pdo, array $p, array $a) {
+                $post = loadEditableDraft($pdo, $p, $a["id"]);
+                $types = contentTypeChoices();
+
+                $columns = [];
+                if (array_key_exists("title", $a)) {
+                    $columns["title"] = $a["title"];
+                }
+                if (array_key_exists("type", $a)) {
+                    $label = $types[$a["type"]];
+                    $columns += ["content_type" => $a["type"], "type_label" => $label, "platform" => $label, "category" => $label];
+                }
+                if (array_key_exists("caption", $a)) {
+                    $columns["caption"] = $a["caption"] !== "" ? textToHtml($a["caption"]) : null;
+                }
+                if (array_key_exists("date", $a)) {
+                    $columns["post_date"] = $a["date"];
+                }
+                if (array_key_exists("time", $a)) {
+                    $columns["post_time"] = $a["time"] !== null ? $a["time"] . ":00" : null;
+                }
+                if (array_key_exists("link", $a)) {
+                    $columns["link"] = $a["link"];
+                }
+
+                // Downloaded only now, on confirm; removed again if the post isn't saved.
+                $images = array_key_exists("images", $a) ? fetchContentImages($a["images"]) : null;
+                if ($images !== null) {
+                    $columns["media_path"] = $images[0] ?? null;
+                    $columns["media_paths"] = $images ? json_encode($images, JSON_UNESCAPED_SLASHES) : null;
+                }
+
+                try {
+                    $assign = implode(", ", array_map(function ($c) {
+                        return "`$c` = ?";
+                    }, array_keys($columns)));
+                    $pdo->prepare("UPDATE content SET $assign WHERE id = ? AND status = 'draft'")
+                        ->execute(array_merge(array_values($columns), [$a["id"]]));
+                } catch (Throwable $e) {
+                    deleteFetchedContentImages($images ?? []);
+                    throw $e;
+                }
+
+                // The old files go only once the post no longer points at them,
+                // as admin-content.php does.
+                if ($images !== null) {
+                    deleteFetchedContentImages(array_diff(contentImages($post), $images));
+                }
+
+                return ["content_id" => (int) $a["id"], "status" => "draft",
+                        "images" => $images !== null ? count($images) : count(contentImages($post))];
             },
         ],
 
