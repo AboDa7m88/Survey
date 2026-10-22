@@ -86,10 +86,16 @@ $stmt = $pdo->prepare("
         sa.question_id,
         sa.answer,
         sa.question_label AS question_text,
+        -- The question as it is on the form, so a checklist can be shown with
+        -- every option and the ticked ones marked, as the review popup draws it.
+        sq.question_type,
+        sq.chips,
         suf.id AS file_id,
         suf.original_name AS file_name,
         suf.file_size
     FROM survey_answers sa
+    LEFT JOIN survey_questions sq
+        ON sq.id = sa.question_id
     LEFT JOIN survey_uploaded_files suf
         ON suf.response_id = sa.response_id
         AND suf.question_id = sa.question_id
