@@ -35,6 +35,39 @@ function contentImageLabel(int $index, string $url): string
 }
 
 /**
+ * A share link as the file itself. Google Drive and Dropbox hand out links to
+ * a viewer page, not the image, and those are what a person (or their
+ * assistant's Drive or Dropbox connector) usually has. Anything else is
+ * returned as it is. The result goes through contentImageTarget() like any
+ * other link.
+ */
+function contentImageDirectLink(string $url): string
+{
+    $url = trim($url);
+    $parts = parse_url($url);
+    $host = strtolower($parts["host"] ?? "");
+    $path = $parts["path"] ?? "";
+    parse_str($parts["query"] ?? "", $query);
+
+    // drive.google.com/file/d/<id>/view, /open?id=<id>, /uc?id=<id>
+    if ($host === "drive.google.com") {
+        $id = preg_match('#^/file/d/([\w-]+)#', $path, $m) ? $m[1] : (string) ($query["id"] ?? "");
+        if (preg_match('/^[\w-]+$/', $id)) {
+            return "https://drive.google.com/uc?export=download&id=" . $id;
+        }
+    }
+
+    // www.dropbox.com/s/... or /scl/fi/...?dl=0 - raw=1 serves the file.
+    if ($host === "www.dropbox.com" || $host === "dropbox.com") {
+        unset($query["dl"]);
+        $query["raw"] = "1";
+        return "https://www.dropbox.com" . $path . "?" . http_build_query($query);
+    }
+
+    return $url;
+}
+
+/**
  * Checks a link without downloading it. Returns what the download needs:
  * [url, host, port, ip]. Run by prepare on every link, and again on each
  * hop of a download.
@@ -87,6 +120,7 @@ function contentImageTarget(int $index, $url): array
 function downloadContentImage(int $index, string $url): array
 {
     $label = contentImageLabel($index, $url);
+    $url = contentImageDirectLink($url);
     $tmp = tempnam(sys_get_temp_dir(), "wzimg");
 
     try {
@@ -150,7 +184,8 @@ function downloadContentImage(int $index, string $url): array
         $extension = $bytes > 0 ? contentImageExtension($tmp) : null;
 
         if ($extension === null) {
-            throw new PortalWriteError("$label is not a JPG, PNG, WEBP or GIF image.");
+            throw new PortalWriteError("$label is not a JPG, PNG, WEBP or GIF image. If it is a share link "
+                . "(Google Drive, Dropbox, OneDrive...), set its sharing to \"Anyone with the link\" and try again.");
         }
 
         return [$tmp, $extension];

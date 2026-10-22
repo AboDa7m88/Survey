@@ -10,7 +10,7 @@
 |
 | A post works like a task. The owner, the account managers and the super
 | admins create it, often with nothing but a title, and pick the teammates -
-| Super Admins and Admins - who work on it with them (content_assignees).
+| the client's team - who work on it with them (content_assignees).
 |
 | The owner and the account managers run the posting calendar: they see every
 | post, and they alone schedule and publish. Anyone else sees the posts they
@@ -21,6 +21,7 @@
 */
 
 require_once __DIR__ . "/db.php";
+require_once __DIR__ . "/notify.php";
 
 function canPublishContent($admin)
 {
@@ -74,4 +75,182 @@ function canAssignContent($admin, $creatorId)
 function canDeleteContent($admin, $creatorId)
 {
     return canAssignContent($admin, $creatorId);
+}
+
+/*
+|--------------------------------------------------------------------------
+| The team on a post
+|--------------------------------------------------------------------------
+|
+| A post is worked on by its client's team: the account managers, Super
+| Admins and Admins assigned to any account at the client's company
+| (admin_user_assignments - client-team.php teamMembers()). A post with no
+| client yet can take anyone in CONTENT_ASSIGNEE_ROLES.
+|
+*/
+
+/** Who can be put on a post for $company: [{id, name, email, role}], by name. */
+function contentAssigneeCandidates(PDO $pdo, $company)
+{
+    $company = trim((string) $company);
+    $roles = implode(",", array_fill(0, count(CONTENT_ASSIGNEE_ROLES), "?"));
+
+    if ($company === "") {
+        $stmt = $pdo->prepare("
+            SELECT id, name, email, role
+            FROM admins
+            WHERE active = 1 AND role IN ($roles)
+            ORDER BY name ASC
+        ");
+        $stmt->execute(CONTENT_ASSIGNEE_ROLES);
+    } else {
+        ensureUserProfileColumns($pdo);
+        $stmt = $pdo->prepare("
+            SELECT DISTINCT a.id, a.name, a.email, a.role
+            FROM admin_user_assignments aua
+            JOIN admins a ON a.id = aua.admin_id
+            JOIN users u ON u.id = aua.user_id
+            WHERE u.company_name = ? AND a.active = 1 AND a.role IN ($roles)
+            ORDER BY a.name ASC
+        ");
+        $stmt->execute(array_merge([$company], CONTENT_ASSIGNEE_ROLES));
+    }
+
+    return array_map(function ($r) {
+        return ["id" => (int) $r["id"], "name" => (string) $r["name"],
+                "email" => (string) $r["email"], "role" => (string) $r["role"]];
+    }, $stmt->fetchAll(PDO::FETCH_ASSOC));
+}
+
+/**
+ * The ids from $ids that may be on a post for $company, in the order given:
+ * its candidates, plus anyone already on it ($current) - someone taken off
+ * the client's team since is kept rather than silently dropped. Never the
+ * person saving: they are on the post already, or its author.
+ */
+function allowedContentAssignees(PDO $pdo, array $ids, $company, array $current, $actorId)
+{
+    $allowed = array_merge(
+        array_column(contentAssigneeCandidates($pdo, $company), "id"),
+        array_map("intval", $current)
+    );
+
+    return array_values(array_filter(
+        array_unique(array_map("intval", $ids)),
+        function ($id) use ($allowed, $actorId) {
+            return $id > 0 && $id !== (int) $actorId && in_array($id, $allowed, true);
+        }
+    ));
+}
+
+/**
+ * Puts exactly $after on the post, then tells each teammate who was not on it
+ * before. Run after the post itself is saved; a failure here leaves the post
+ * saved and the team as it was, which the next save can put right.
+ */
+function saveContentAssignees(PDO $pdo, $contentId, array $before, array $after, $title, $actorId)
+{
+    $added = array_values(array_diff($after, $before));
+    $removed = array_values(array_diff($before, $after));
+
+    if (!$added && !$removed) {
+        return;
+    }
+
+    try {
+        $pdo->beginTransaction();
+
+        if ($removed) {
+            $placeholders = implode(",", array_fill(0, count($removed), "?"));
+
+            $stmt = $pdo->prepare("
+                DELETE FROM content_assignees
+                WHERE content_id = ? AND admin_id IN ($placeholders)
+            ");
+            $stmt->execute(array_merge([(int) $contentId], $removed));
+        }
+
+        $stmt = $pdo->prepare("
+            INSERT IGNORE INTO content_assignees (content_id, admin_id) VALUES (?, ?)
+        ");
+
+        foreach ($added as $adminId) {
+            $stmt->execute([(int) $contentId, (int) $adminId]);
+        }
+
+        $pdo->commit();
+
+    } catch (Throwable $e) {
+
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+
+        return;
+    }
+
+    // Outside the transaction, per rule 2 in notify.php. Only the people new
+    // to the post hear about it - the ones already on it were told before.
+    foreach ($added as $adminId) {
+        notify(
+            $pdo,
+            "admin",
+            (int) $adminId,
+            NOTIFY_CONTENT_ASSIGNED,
+            "You were assigned a content task",
+            (string) $title,
+            "admin-content.html?id=" . (int) $contentId,
+            "admin",
+            (int) $actorId
+        );
+    }
+}
+
+/** The admin ids on a post now. */
+function currentAssigneeIds(PDO $pdo, $contentId)
+{
+    try {
+        $stmt = $pdo->prepare("SELECT admin_id FROM content_assignees WHERE content_id = ?");
+        $stmt->execute([(int) $contentId]);
+
+        return array_map("intval", $stmt->fetchAll(PDO::FETCH_COLUMN));
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+/*
+|--------------------------------------------------------------------------
+| When a post goes out
+|--------------------------------------------------------------------------
+|
+| Publishing now clears the date and time. A scheduled post needs both, and
+| one whose time has already passed goes live now and keeps its date, so the
+| Content pages and the calendar show the day it was meant for - publishing
+| here, rather than waiting for a read to notice, is also what sends the
+| client their notification.
+|
+| Returns [status, date, time]; throws PortalWriteError when a schedule has
+| no date or time.
+|
+*/
+function resolveContentSchedule($status, $publishNow, $postDate, $postTime)
+{
+    if ($publishNow) {
+        return ["published", null, null];
+    }
+
+    if ($status === "scheduled") {
+        if (!$postDate || !$postTime) {
+            throw new PortalWriteError("Post date and time are required.");
+        }
+
+        $scheduledAt = strtotime($postDate . " " . $postTime);
+
+        if ($scheduledAt !== false && $scheduledAt <= time()) {
+            $status = "published";
+        }
+    }
+
+    return [$status, $postDate, $postTime];
 }

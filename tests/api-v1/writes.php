@@ -27,6 +27,25 @@ function one(PDO $pdo, $sql, array $params = [])
     return $stmt->fetch();
 }
 
+/** GET on a browser endpoint (get() is for api/v1): [status, body]. */
+function pageGet($path, $token)
+{
+    global $port;
+    $body = @file_get_contents("http://127.0.0.1:$port/$path", false, stream_context_create([
+        "http" => ["header" => "Authorization: Bearer $token", "ignore_errors" => true, "timeout" => 10],
+    ]));
+    preg_match('/^HTTP\/\S+ (\d+)/', $http_response_header[0] ?? "", $m);
+    return [(int) ($m[1] ?? 0), json_decode((string) $body, true)];
+}
+
+/** The admin ids on a post, lowest first. */
+function teamOf(PDO $pdo, $contentId)
+{
+    $stmt = $pdo->prepare("SELECT admin_id FROM content_assignees WHERE content_id = ? ORDER BY admin_id");
+    $stmt->execute([(int) $contentId]);
+    return array_map("intval", $stmt->fetchAll(PDO::FETCH_COLUMN));
+}
+
 function prepare($token, $tool, array $args, array $headers = [])
 {
     return post("api/v1/changes.php", $token, ["action" => "prepare", "tool" => $tool, "args" => (object) $args], $headers);
@@ -147,11 +166,16 @@ check("page: a title is all a new post needs, and links get https",
 check("page: nothing goes live without a client", $status === 400 && !one($pdo, "SELECT id FROM content WHERE title = 'Page post 2'"),
     "HTTP $status " . json_encode($r));
 
-// A super admin creates too, and picks the teammates: only active Super Admins
-// and Admins get on, and only they hear about it. Nothing a super admin saves
+// A super admin creates too, and picks the teammates: only the client's team
+// (Acme: Sam, Amy, Sean - not Andy, Beta's) gets on, never the deactivated
+// or the one saving, and only they hear about it. Nothing a super admin saves
 // is scheduled or published.
+[$status, $r] = pageGet("api/admin-content.php?candidates=1&client=" . urlencode("Acme Ltd"), $sa);
+check("page: the picker offers the client's team", array_column($r["admins"] ?? [], "id") === [3, 2, 5], "HTTP $status " . json_encode($r));
+[, $r] = pageGet("api/admin-content.php?candidates=1", $sa);
+check("page: with no client, anyone who can be assigned", array_column($r["admins"] ?? [], "id") === [3, 4, 2, 5], json_encode($r));
 [, $r] = post("api/admin-content.php", $sa, ["title" => "Team post", "client" => "Acme Ltd", "publish_now" => "1", "status" => "published",
-    "member_ids_sent" => "1", "member_ids" => [5, 6, 1, 3, 2]], [], true);
+    "member_ids_sent" => "1", "member_ids" => [5, 6, 1, 3, 2, 4]], [], true);
 $teamPost = one($pdo, "SELECT id, status FROM content WHERE title = 'Team post'");
 $teamOf = function ($id) use ($pdo) {
     $stmt = $pdo->prepare("SELECT admin_id FROM content_assignees WHERE content_id = ? ORDER BY admin_id");
@@ -159,14 +183,15 @@ $teamOf = function ($id) use ($pdo) {
     return array_map("intval", $stmt->fetchAll(PDO::FETCH_COLUMN));
 };
 check("page: a super admin creates a draft with teammates", ($r["success"] ?? false) && $teamPost && $teamPost["status"] === "draft"
-    && $teamOf($teamPost["id"]) === [5], json_encode([$r, $teamPost]));
-check("page: the teammate is told, nobody else", notes($pdo, "admin", 5, "content_assigned") === 1
-    && notes($pdo, "admin", 2, "content_assigned") === 0 && notes($pdo, "admin", 3, "content_assigned") === 0);
+    && $teamOf($teamPost["id"]) === [3, 5], json_encode([$r, $teamPost]));
+check("page: the teammates are told, nobody else", notes($pdo, "admin", 5, "content_assigned") === 1
+    && notes($pdo, "admin", 3, "content_assigned") === 1 && notes($pdo, "admin", 2, "content_assigned") === 0
+    && notes($pdo, "admin", 4, "content_assigned") === 0);
 
 // The assignee fills it in but can't change who is on it.
 [, $r] = post("api/admin-content.php", $seo, ["id" => (int) $teamPost["id"], "title" => "Team post", "client" => "Acme Ltd",
     "member_ids_sent" => "1"], [], true);
-check("page: an assignee edits but keeps the team", ($r["success"] ?? false) && $teamOf($teamPost["id"]) === [5], json_encode($r));
+check("page: an assignee edits but keeps the team", ($r["success"] ?? false) && $teamOf($teamPost["id"]) === [3, 5], json_encode($r));
 
 // The owner re-saving the same team tells nobody twice.
 [, $r] = post("api/admin-content.php", $owner, ["id" => (int) $teamPost["id"], "title" => "Team post", "client" => "Acme Ltd",
@@ -335,6 +360,77 @@ refusedChange("changes: no images to remove is nothing to change", $am, "update_
 [$status, $prep] = prepare($am, "update_content_draft", ["id" => (int) $aiPost["id"], "images" => ["https://8.8.8.8/a.png"]]);
 check("changes: adding images is in the summary", $status === 200
     && strpos($prep["data"]["summary"] ?? "", "1 image downloaded from the links given") !== false, "HTTP $status " . json_encode($prep));
+
+// The team on a post: its client's team (Acme: Sam, Amy, Sean - not Andy).
+$aiId = (int) $aiPost["id"];
+[$status, $body] = get("content.php?teammates=1&id=$aiId", $am);
+$mates = array_column($body["data"]["items"] ?? [], null, "id");
+check("changes: a post's teammates are its client's team", $status === 200 && array_keys($mates) == [3, 2, 5]
+    && $mates[3]["is_you"] === true && $mates[2]["on_post"] === false && ($body["data"]["client"] ?? null) === "Acme Ltd", "HTTP $status " . json_encode($body));
+[$status, $body] = get("content.php?teammates=1&client=11", $owner);
+check("changes: a new post's teammates by client", $status === 200 && array_column($body["data"]["items"] ?? [], "id") === [4], "HTTP $status " . json_encode($body));
+refusedChange("changes: only the client's team goes on a post", $am, "update_content_draft", ["id" => $aiId, "team" => [4]], 422);
+refusedChange("changes: not yourself on the team", $am, "update_content_draft", ["id" => $aiId, "team" => [3]], 422);
+refusedChange("changes: no deactivated teammates", $owner, "update_content_draft", ["id" => $aiId, "team" => [6]], 422);
+refusedChange("changes: orientation is the page's", $am, "update_content_draft", ["id" => $aiId, "orientation" => "square"], 422);
+refusedChange("changes: priority is the page's", $am, "update_content_draft", ["id" => $aiId, "priority" => "urgent"], 422);
+
+$samTold = notes($pdo, "admin", 2, "content_assigned");
+$seanTold = notes($pdo, "admin", 5, "content_assigned");
+[$prep] = change("changes: a draft's team, notes, priority and orientation", $am, "update_content_draft", ["id" => $aiId,
+    "orientation" => "vertical", "priority" => "high", "notes" => "Art Director: check the brand.
+SEO: no ranking promises.", "team" => [2, 5]]);
+$teamPost = one($pdo, "SELECT orientation, priority, notes, status FROM content WHERE id = ?", [$aiId]);
+check("changes: the team fields saved, still a draft", $teamPost == ["orientation" => "vertical", "priority" => "high",
+    "notes" => "Art Director: check the brand.
+SEO: no ranking promises.", "status" => "draft"]
+    && teamOf($pdo, $aiId) === [2, 5], json_encode($teamPost));
+check("changes: each new teammate is notified", notes($pdo, "admin", 2, "content_assigned") === $samTold + 1
+    && notes($pdo, "admin", 5, "content_assigned") === $seanTold + 1
+    && strpos($prep["data"]["summary"] ?? "", "team \"(nobody)\" → \"Sam, Sean\"") !== false
+    && strpos($prep["data"]["summary"], "are notified") !== false, $prep["data"]["summary"] ?? "");
+change("changes: a teammate taken off", $am, "update_content_draft", ["id" => $aiId, "team" => [5]]);
+check("changes: only Sean left, and nobody told again", teamOf($pdo, $aiId) === [5]
+    && notes($pdo, "admin", 5, "content_assigned") === $seanTold + 1);
+change("changes: Sam back on the post", $am, "update_content_draft", ["id" => $aiId, "team" => [2, 5]]);
+refusedChange("changes: an assignee doesn't change the team", $sa, "update_content_draft", ["id" => $aiId, "team" => []], 403);
+change("changes: an assignee fills a post in", $sa, "update_content_draft", ["id" => $aiId, "notes" => ""]);
+check("changes: notes cleared", one($pdo, "SELECT notes FROM content WHERE id = ?", [$aiId])["notes"] === null);
+
+[$status, $body] = get("content.php?id=$aiId", $am);
+check("changes: get_content shows priority, team and notes", $status === 200 && ($body["data"]["priority"] ?? null) === "high"
+    && ($body["data"]["orientation"] ?? null) === "vertical"
+    && array_column($body["data"]["assignees"] ?? [], "name") === ["Sam", "Sean"]
+    && array_key_exists("notes", $body["data"]["untrusted_content"] ?? []), "HTTP $status " . json_encode($body));
+
+[, $done] = change("changes: a draft with its team", $am, "create_content_draft", ["client" => 10, "type" => "photos", "title" => "Team draft",
+    "orientation" => "vertical", "priority" => "low", "notes" => "Brief", "team" => [5]]);
+$teamDraft = one($pdo, "SELECT id, orientation, priority, notes FROM content WHERE title = 'Team draft'");
+check("changes: a new draft carries its team", $teamDraft["orientation"] === "vertical" && $teamDraft["priority"] === "low"
+    && $teamDraft["notes"] === "Brief" && teamOf($pdo, $teamDraft["id"]) === [5]
+    && ($done["data"]["result"]["team"] ?? null) === 1, json_encode([$teamDraft, $done]));
+refusedChange("changes: a new draft's team is its client's", $am, "create_content_draft", ["client" => 10, "type" => "photos", "title" => "x", "team" => [4]], 422);
+
+// Scheduling and publishing: the owner and account managers, drafts only.
+refusedChange("changes: a super admin doesn't publish", $sa, "publish_content", ["id" => $aiId, "publish_now" => true], 403);
+refusedChange("changes: a schedule needs a date and time", $am, "publish_content", ["id" => $aiId, "date" => $tomorrow], 422);
+refusedChange("changes: now or a time, not both", $am, "publish_content", ["id" => $aiId, "publish_now" => true, "date" => $tomorrow, "time" => "09:00"], 422);
+$acmeTold = notes($pdo, "user", 10, "content_published");
+[$prep] = change("changes: schedule a draft", $am, "publish_content", ["id" => $aiId, "date" => $tomorrow, "time" => "09:00"]);
+$scheduled = one($pdo, "SELECT status, publish_now, post_date, post_time FROM content WHERE id = ?", [$aiId]);
+check("changes: scheduled, and nobody told yet", $scheduled == ["status" => "scheduled", "publish_now" => 0, "post_date" => $tomorrow, "post_time" => "09:00:00"]
+    && notes($pdo, "user", 10, "content_published") === $acmeTold
+    && strpos($prep["data"]["summary"] ?? "", "to go live on $tomorrow at 09:00") !== false, json_encode([$scheduled, $prep["data"]["summary"] ?? ""]));
+refusedChange("changes: a scheduled post isn't scheduled again", $am, "publish_content", ["id" => $aiId, "publish_now" => true], 409);
+[$prep] = change("changes: a past time goes live now", $owner, "publish_content", ["id" => (int) $teamDraft["id"], "date" => day("-1"), "time" => "09:00"]);
+$live = one($pdo, "SELECT status, post_date FROM content WHERE id = ?", [$teamDraft["id"]]);
+check("changes: published, keeping its date, and the client told", $live == ["status" => "published", "post_date" => day("-1")]
+    && notes($pdo, "user", 10, "content_published") === $acmeTold + 1
+    && strpos($prep["data"]["summary"] ?? "", "already passed") !== false, json_encode([$live, $prep["data"]["summary"] ?? ""]));
+change("changes: publish a draft now", $am, "publish_content", ["id" => (int) one($pdo, "SELECT id FROM content WHERE title = 'SA draft'")["id"], "publish_now" => true]);
+check("changes: published now, with no date", one($pdo, "SELECT status, publish_now, post_date FROM content WHERE title = 'SA draft'")
+    == ["status" => "published", "publish_now" => 1, "post_date" => null]
+    && notes($pdo, "user", 10, "content_published") === $acmeTold + 2);
 
 // Meetings.
 refusedChange("changes: no calendar for an seo admin", $seo, "propose_meeting", ["client" => 10, "date" => $tomorrow, "time" => "10:00", "topic" => "x"], 403);

@@ -88,8 +88,8 @@ describe("private server: confirmed changes", () => {
     const c = await connect();
     const names = await toolNames(c);
     for (const n of [
-      "create_form_draft", "update_form", "create_content_draft", "update_content_draft",
-      "post_project_update", "update_task", "confirm_change", "mark_notifications_read",
+      "create_form_draft", "update_form", "create_content_draft", "update_content_draft", "publish_content",
+      "list_content_teammates", "post_project_update", "update_task", "confirm_change", "mark_notifications_read",
     ]) {
       expect(names).toContain(n);
     }
@@ -181,6 +181,21 @@ describe("private server: confirmed changes", () => {
     await c.close();
   });
 
+  it("sends a post's team, notes and schedule to the portal to check", async () => {
+    const upstream = fakePortal({ scopes: SEO });
+    const c = await connect();
+    const team = { id: 50, orientation: "vertical", priority: "high", notes: "Art Director: final review", team: [2, 5] };
+    const r = await c.callTool({ name: "update_content_draft", arguments: team });
+    expect(r.isError).toBeFalsy();
+    const r2 = await c.callTool({ name: "publish_content", arguments: { id: 50, date: "2026-10-23", time: "09:00" } });
+    expect(r2.isError).toBeFalsy();
+    expect(posts(upstream).map((p) => p.body)).toEqual([
+      { action: "prepare", tool: "update_content_draft", args: team },
+      { action: "prepare", tool: "publish_content", args: { id: 50, date: "2026-10-23", time: "09:00" } },
+    ]);
+    await c.close();
+  });
+
   it("checks arguments before asking the portal", async () => {
     const upstream = fakePortal({ scopes: SEO });
     const c = await connect();
@@ -196,6 +211,12 @@ describe("private server: confirmed changes", () => {
       ["update_form", { title: "No id" }],
       ["update_content_draft", { id: 1, type: "tiktok" }],
       ["update_content_draft", { id: 1, date: "next week" }],
+      ["update_content_draft", { id: 1, orientation: "square" }],
+      ["update_content_draft", { id: 1, priority: "urgent" }],
+      ["update_content_draft", { id: 1, team: ["Sam"] }],
+      ["create_content_draft", { client: 10, type: "photos", title: "x", notes: "x".repeat(5001) }],
+      ["publish_content", { id: 1, publish_now: false }],
+      ["publish_content", { id: 1, date: "today", time: "9am" }],
     ];
     for (const [name, args] of bad) {
       const r = await c.callTool({ name, arguments: args });

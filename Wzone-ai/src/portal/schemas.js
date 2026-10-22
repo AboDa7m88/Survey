@@ -216,8 +216,27 @@ export const contentItem = z.object({
 export const contentDetail = {
   ...contentItem.shape,
   orientation: text,
+  priority: z.string().optional().describe("low, medium or high"),
+  assignees: z
+    .array(z.object({ id, name: text, role: text, is_done: z.boolean() }))
+    .optional()
+    .describe("The teammates on the post, and whether each has ticked their part done"),
+  untrusted_content: untrusted({ caption: text, notes: maybe.optional().describe("The team's notes - staff only") }),
   created_at: dateTime,
   updated_at: dateTime,
+};
+
+export const contentTeammates = {
+  client: maybe.describe("The client's company name; null for a post with no client yet - then anyone who can be assigned"),
+  items: z.array(
+    z.object({
+      id,
+      name: text,
+      role: z.string().describe("account_manager, super_admin or seo_admin"),
+      on_post: z.boolean().describe("Already on the post"),
+      is_you: z.boolean().describe("This connection's own account - leave it out of team"),
+    })
+  ),
 };
 
 export const contentTypes = { items: z.array(z.object({ id: text, label: text })) };

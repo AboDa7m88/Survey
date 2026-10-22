@@ -222,7 +222,7 @@ export const READ_TOOLS = [
     name: "get_content",
     scope: "content:read",
     title: "Get a post",
-    description: "One post with its full caption.",
+    description: "One post with its full caption, its priority, the team on it and their notes.",
     input: { id: recordId("The post's id") },
     output: S.contentDetail,
     path: "content.php",
@@ -236,6 +236,22 @@ export const READ_TOOLS = [
     output: S.contentTypes,
     path: "content.php",
     query: () => ({ types: 1 }),
+  },
+  {
+    name: "list_content_teammates",
+    scope: "content:write",
+    title: "Who can work on a post",
+    description:
+      "The people who can be put on a post: its client's team (account managers, Super Admins and " +
+      "Admins assigned to the client). Give the post's id, or a client for a new post. Use their " +
+      "ids for team in create_content_draft or update_content_draft.",
+    input: {
+      id: recordId("A post's id - from list_content").optional(),
+      client: clientId.optional(),
+    },
+    output: S.contentTeammates,
+    path: "content.php",
+    query: (args) => ({ ...args, teammates: 1 }),
   },
 
   // ── Calendar ──────────────────────────────────────────────────────────

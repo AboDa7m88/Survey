@@ -576,6 +576,7 @@ if (in_array("--fixtures", $argv, true)) {
         "list_content" => ["content.php", $owner],
         "get_content" => ["content.php?id=300", $owner],
         "list_content_types" => ["content.php?types=1", $owner],
+        "list_content_teammates" => ["content.php?teammates=1&id=300", $owner],
         "get_calendar" => ["calendar.php", $owner],
         "list_pending_approvals" => ["calendar.php?pending=1", $owner],
         "get_meeting" => ["calendar.php?id=400", $owner],
