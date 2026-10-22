@@ -44,30 +44,62 @@ body{
 
 .downloads{display:flex;gap:10px;flex-wrap:wrap}
 
-/* One answer. A plain divided row inside the panel rather than its own
-   floating card - the panel is the card now. */
-.card{
-  padding:18px 0;
-  border-bottom:1px solid #eef1f5;
+/* One answer as a question card, drawn like the review popup in admin.html:
+   a header (question number and text) that collapses the answer away, so a
+   long form can be skimmed question by question. */
+.review-question{border:1px solid #dfe3ea;border-radius:14px;margin-bottom:12px;overflow:hidden}
+.review-question:last-child{margin-bottom:0}
+.review-question .rq-head{
+  display:flex;align-items:center;gap:14px;width:100%;padding:14px 18px;
+  background:#f8fafc;border:none;text-align:left;font:inherit;color:inherit;
+  cursor:pointer;
 }
+.review-question .rq-head:hover{background:#f1f5f9}
+.review-question .rq-head:focus-visible{outline:2px solid #1b1e3a;outline-offset:-2px}
+.review-question .rq-title{flex:1;min-width:0}
+.review-question .rq-title > span{display:block}
+.review-question .rq-toggle{flex:none;font-size:12px;color:#667085;transition:transform .2s ease}
+.review-question.collapsed .rq-toggle{transform:rotate(-90deg)}
+.review-question .rq-body{padding:16px 18px;border-top:1px solid #eef1f5}
+.review-question.collapsed .rq-body{display:none}
+.review-question .q-index{font-size:11px;color:#98a2b3;font-weight:800;margin-bottom:4px}
+.review-question .q-text{font-size:14px;font-weight:700;line-height:1.5}
 
-.card:first-child{padding-top:0}
-.card:last-child{border-bottom:none;padding-bottom:0}
+.answer{font-size:14px;line-height:1.6;color:#344054;white-space:pre-wrap}
+.answer.is-blank{color:var(--muted)}
+.answer + .download-file{margin-top:12px}
 
-.question{
-  font-weight:800;
-  font-size:14px;
-  margin-bottom:8px;
+/* A checklist: every option on the form, as the popup's grid, with the ticked
+   ones marked the way the client's own checklist marks them (survey.html). */
+.q-options-count{
+  margin:0 0 8px;font-size:11px;color:#98a2b3;font-weight:800;
+  text-transform:uppercase;letter-spacing:.04em;
 }
-
-.answer{
-  margin-bottom:12px;
-  font-size:14px;
-  line-height:1.6;
-  color:var(--muted);
+.q-options{
+  list-style:none;margin:0;padding:0;display:grid;gap:8px;
+  grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
 }
-
-.answer:last-child{margin-bottom:0}
+.q-options li{
+  display:flex;align-items:flex-start;gap:10px;font-size:13px;line-height:1.4;
+  color:#667085;background:#f8fafc;border:1px solid #eaecf0;border-radius:10px;
+  padding:8px 12px;
+}
+.q-options li::before{
+  content:"";flex:none;width:14px;height:14px;margin-top:1px;box-sizing:border-box;
+  border:1.5px solid #cbd2dc;border-radius:4px;background:#fff;
+}
+.q-options li.is-ticked{border-color:#1b1e3a;background:#f1f2f8;color:#1b1e3a;font-weight:700}
+.q-options li.is-ticked::before{
+  border-color:#1b1e3a;
+  background:#1b1e3a url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='%23fff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/11px no-repeat;
+}
+.q-options li.is-none{grid-column:1/-1;border-style:dashed}
+.q-options li.is-none.is-ticked{border-style:solid}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media (max-width:520px){
+  .q-options{grid-template-columns:1fr}
+  .review-question .rq-head,.review-question .rq-body{padding-left:14px;padding-right:14px}
+}
 
 .empty{
   padding:30px;
@@ -388,6 +420,47 @@ function esc(value){
     .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
 }
 
+/* A checklist answer is saved as the ticked items only - "✅ Logo, ✅ Web"
+   (survey.html) - so each option on the form is looked up in it whole, which
+   keeps an option with a comma in it intact. Ticked items the form no longer
+   offers are still shown, after the rest. A checklist without options is one
+   box to tick. */
+function checklistAnswerHTML(item){
+  let options = [];
+  try{ options = item.chips ? JSON.parse(item.chips) : []; }catch(e){ options = []; }
+  options = Array.isArray(options) ? options.map(String) : [];
+
+  const answer = String(item.answer || "");
+
+  if(!options.length){
+    const ticked = answer.trim() !== "";
+    return `<ul class="q-options"><li class="${ticked ? "is-ticked" : ""}">${ticked ? "Ticked" : "Not ticked"}</li></ul>`;
+  }
+
+  const saved = ", " + answer + ",";
+  const isTicked = option => saved.includes(", ✅ " + option + ",");
+
+  // Ticked items no longer on the form: what is left once the known ones go.
+  let rest = saved;
+  options.forEach(option => { rest = rest.split(", ✅ " + option + ",").join(","); });
+  const extra = rest.split(", ✅ ").slice(1).map(part => part.replace(/,$/, "").replace(/,+$/, "").trim()).filter(Boolean);
+
+  const rows = options.map(option => ({ label: option, ticked: isTicked(option) }))
+    .concat(extra.map(label => ({ label, ticked: true })));
+  const count = rows.filter(row => row.ticked).length;
+
+  return `
+    <div class="q-options-count">${count} of ${rows.length} selected</div>
+    <ul class="q-options">
+      ${rows.map(row => `
+        <li class="${row.ticked ? "is-ticked" : ""}${/^\s*none of/i.test(row.label) ? " is-none" : ""}" dir="auto">
+          <span class="sr-only">${row.ticked ? "Selected: " : "Not selected: "}</span>${esc(row.label)}
+        </li>
+      `).join("")}
+    </ul>
+  `;
+}
+
 // The endpoint now checks who is asking - the answers are client data.
 fetch("api/response-details.php?id=" + encodeURIComponent(id), {
   headers: { Authorization: "Bearer " + adminToken }
@@ -416,7 +489,7 @@ fetch("api/response-details.php?id=" + encodeURIComponent(id), {
     return;
   }
 
-  target.innerHTML = responseAnswers.map(item => {
+  target.innerHTML = responseAnswers.map((item, index) => {
 
     const fileButton = item.file_id
       ? `
@@ -427,17 +500,27 @@ fetch("api/response-details.php?id=" + encodeURIComponent(id), {
       `
       : "";
 
+    const isChecklist = item.question_type === "checkbox" || item.question_type === "checklist";
+
+    const body = isChecklist
+      ? checklistAnswerHTML(item)
+      : `<div class="answer${item.answer ? "" : " is-blank"}" dir="auto">${esc(item.answer) || "—"}</div>${fileButton}`;
+
     return `
-      <div class="card">
-        <div class="question">
-          ${esc(item.question_text)}
-        </div>
-
-        <div class="answer">
-          ${esc(item.answer) || "—"}
-        </div>
-
-        ${fileButton}
+      <div class="review-question">
+        <button
+          type="button"
+          class="rq-head"
+          aria-expanded="true"
+          onclick="const card = this.parentElement; this.setAttribute('aria-expanded', !card.classList.toggle('collapsed'));"
+        >
+          <span class="rq-title">
+            <span class="q-index">Question ${index + 1}</span>
+            <span class="q-text" dir="auto">${esc(item.question_text)}</span>
+          </span>
+          <span class="rq-toggle" aria-hidden="true">▼</span>
+        </button>
+        <div class="rq-body">${body}</div>
       </div>
     `;
   }).join("");
