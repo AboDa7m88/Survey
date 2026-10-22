@@ -147,13 +147,14 @@ ensureNotificationsTable($pdo);
 |--------------------------------------------------------------------------
 |
 | Sent either as repeated member_ids[] fields or as one comma-separated
-| string, the way api/projects.php reads its team. Only active Super Admins
-| and Admins survive, and never the person saving - they are on the post
+| string, the way api/projects.php reads its team. Only the client's team
+| survives (allowedContentAssignees() in content-writes.php), plus anyone
+| already on the post, and never the person saving - they are on the post
 | already as its author.
 |
 */
 
-function requestedAssigneeIds(PDO $pdo, $actorId)
+function requestedAssigneeIds(PDO $pdo, $actorId, $company, array $current)
 {
     $ids = $_POST["member_ids"] ?? [];
 
@@ -161,103 +162,7 @@ function requestedAssigneeIds(PDO $pdo, $actorId)
         $ids = array_filter(explode(",", (string) $ids), "strlen");
     }
 
-    $ids = array_values(array_unique(array_filter(
-        array_map("intval", $ids),
-        function ($value) use ($actorId) {
-            return $value > 0 && $value !== (int) $actorId;
-        }
-    )));
-
-    if (!$ids) {
-        return [];
-    }
-
-    $placeholders = implode(",", array_fill(0, count($ids), "?"));
-    $roles = implode(",", array_fill(0, count(CONTENT_ASSIGNEE_ROLES), "?"));
-
-    $stmt = $pdo->prepare("
-        SELECT id FROM admins
-        WHERE id IN ($placeholders) AND active = 1 AND role IN ($roles)
-    ");
-    $stmt->execute(array_merge($ids, CONTENT_ASSIGNEE_ROLES));
-
-    return array_map("intval", $stmt->fetchAll(PDO::FETCH_COLUMN));
-}
-
-/**
- * Puts exactly $after on the post, then tells each teammate who was not on it
- * before. Run after the post itself is saved; a failure here leaves the post
- * saved and the team as it was, which the next save can put right.
- */
-function saveContentAssignees(PDO $pdo, $contentId, array $before, array $after, $title, $actorId)
-{
-    $added = array_values(array_diff($after, $before));
-    $removed = array_values(array_diff($before, $after));
-
-    if (!$added && !$removed) {
-        return;
-    }
-
-    try {
-        $pdo->beginTransaction();
-
-        if ($removed) {
-            $placeholders = implode(",", array_fill(0, count($removed), "?"));
-
-            $stmt = $pdo->prepare("
-                DELETE FROM content_assignees
-                WHERE content_id = ? AND admin_id IN ($placeholders)
-            ");
-            $stmt->execute(array_merge([(int) $contentId], $removed));
-        }
-
-        $stmt = $pdo->prepare("
-            INSERT IGNORE INTO content_assignees (content_id, admin_id) VALUES (?, ?)
-        ");
-
-        foreach ($added as $adminId) {
-            $stmt->execute([(int) $contentId, (int) $adminId]);
-        }
-
-        $pdo->commit();
-
-    } catch (Throwable $e) {
-
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
-        }
-
-        return;
-    }
-
-    // Outside the transaction, per rule 2 in notify.php. Only the people new
-    // to the post hear about it - the ones already on it were told before.
-    foreach ($added as $adminId) {
-        notify(
-            $pdo,
-            "admin",
-            (int) $adminId,
-            NOTIFY_CONTENT_ASSIGNED,
-            "You were assigned a content task",
-            (string) $title,
-            "admin-content.html?id=" . (int) $contentId,
-            "admin",
-            (int) $actorId
-        );
-    }
-}
-
-/** The admin ids on a post now. */
-function currentAssigneeIds(PDO $pdo, $contentId)
-{
-    try {
-        $stmt = $pdo->prepare("SELECT admin_id FROM content_assignees WHERE content_id = ?");
-        $stmt->execute([(int) $contentId]);
-
-        return array_map("intval", $stmt->fetchAll(PDO::FETCH_COLUMN));
-    } catch (Throwable $e) {
-        return [];
-    }
+    return allowedContentAssignees($pdo, $ids, $company, $current, $actorId);
 }
 
 /*
@@ -426,22 +331,14 @@ if ($_SERVER["REQUEST_METHOD"] === "GET") {
     try {
 
         /*
-        | The teammates a post can be assigned to, for the form's picker.
+        | The teammates a post can be assigned to, for the form's picker:
+        | the team of the client picked (?client=<company>), or anyone in
+        | CONTENT_ASSIGNEE_ROLES while no client is picked.
         */
         if (!empty($_GET["candidates"])) {
 
-            $roles = implode(",", array_fill(0, count(CONTENT_ASSIGNEE_ROLES), "?"));
-
-            $stmt = $pdo->prepare("
-                SELECT id, name, email, role
-                FROM admins
-                WHERE active = 1 AND role IN ($roles)
-                ORDER BY name ASC
-            ");
-            $stmt->execute(CONTENT_ASSIGNEE_ROLES);
-
             response(true, "Teammates loaded.", [
-                "admins" => $stmt->fetchAll(PDO::FETCH_ASSOC)
+                "admins" => contentAssigneeCandidates($pdo, (string) ($_GET["client"] ?? ""))
             ]);
         }
 
@@ -849,7 +746,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     try {
         $assigneeIds = $setsTeam
-            ? requestedAssigneeIds($pdo, $admin["id"])
+            ? requestedAssigneeIds($pdo, $admin["id"], $client, $hadAssignees)
             : $hadAssignees;
     } catch (Throwable $e) {
         response(false, "Could not check the teammates.", [], 500);
@@ -917,39 +814,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     |--------------------------------------------------------------------------
     */
 
-    if (!$setsSchedule) {
+    if ($setsSchedule) {
 
-        // The stored schedule, untouched - see $setsSchedule above.
-
-    } elseif ($publishNow) {
-
-        $postDate = null;
-        $postTime = null;
-
-        $status = "published";
-
-    } elseif ($status === "scheduled") {
-
-        if (!$postDate || !$postTime) {
-            response(
-                false,
-                "Post date and time are required.",
-                [],
-                400
-            );
-        }
-
-        /*
-        | A date that has already passed is when the post went out, not a
-        | reason to treat it as "Publish immediately": it goes live now and
-        | keeps its date, so the Content pages and the calendar show the day
-        | it was meant for. Publishing here, rather than waiting for a read to
-        | notice, is also what sends the client their notification.
-        */
-        $scheduledAt = strtotime($postDate . " " . $postTime);
-
-        if ($scheduledAt !== false && $scheduledAt <= time()) {
-            $status = "published";
+        // resolveContentSchedule() in content-writes.php, shared with api/v1.
+        // Otherwise the stored schedule, untouched - see $setsSchedule above.
+        try {
+            [$status, $postDate, $postTime] = resolveContentSchedule($status, $publishNow, $postDate, $postTime);
+        } catch (PortalWriteError $e) {
+            response(false, $e->getMessage(), [], 400);
         }
 
     }

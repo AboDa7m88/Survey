@@ -30,7 +30,11 @@
 | Edits (update_form, update_inquiry, update_content_draft, update_task) take
 | only the fields to change, and list each change in the summary.
 |
-| Deliberately missing: anything that deletes, publishes content, opens an
+| publish_content schedules or publishes a draft post, for the roles the
+| content page lets do that (canPublishContent) - nothing else here makes
+| anything public on its own.
+|
+| Deliberately missing: anything that deletes, unpublishes content, opens an
 | inquiry, sends an announcement, or changes accounts or permissions. Those
 | stay in the portal.
 |
@@ -215,6 +219,93 @@ function argImages(array $a, $key = "images")
 function imageCount($n)
 {
     return $n . ($n === 1 ? " image" : " images");
+}
+
+const CONTENT_PRIORITIES = ["low", "medium", "high"];
+const CONTENT_ORIENTATIONS = ["horizontal", "vertical"];
+
+/**
+ * A post's team: admin ids from its client's team, plus anyone already on it
+ * (allowedContentAssignees() in content-writes.php, as the page checks). null
+ * when absent; [] takes everyone off.
+ */
+function argTeam(PDO $pdo, array $p, array $a, $company, array $current)
+{
+    if (!array_key_exists("team", $a) || $a["team"] === null) {
+        return null;
+    }
+    $list = $a["team"];
+    if (!is_array($list) || array_values($list) !== $list) {
+        throw new PortalWriteError("team must be a list of teammate ids.");
+    }
+    foreach ($list as $id) {
+        if (!is_int($id) || $id <= 0) {
+            throw new PortalWriteError("team must be a list of teammate ids - from list_content_teammates.");
+        }
+    }
+    $ids = array_values(array_unique($list));
+    if (in_array((int) $p["id"], $ids, true)) {
+        throw new PortalWriteError("Leave yourself out of team: you are on the post as the one saving it.");
+    }
+    $bad = array_diff($ids, allowedContentAssignees($pdo, $ids, $company, $current, $p["id"]));
+    if ($bad) {
+        throw new PortalWriteError(
+            "Not on " . (trim((string) $company) !== "" ? trim((string) $company) . "'s" : "the") . " team: id "
+            . implode(", ", $bad) . ". list_content_teammates shows who can be put on the post."
+        );
+    }
+    return $ids;
+}
+
+/** "Ana, Sam" - admins by name, in the order given; "(nobody)" for none. */
+function adminNames(PDO $pdo, array $ids)
+{
+    if (!$ids) {
+        return "(nobody)";
+    }
+    $stmt = $pdo->prepare("SELECT id, name FROM admins WHERE id IN (" . implode(",", array_fill(0, count($ids), "?")) . ")");
+    $stmt->execute(array_values($ids));
+    $names = array_column($stmt->fetchAll(), "name", "id");
+    return implode(", ", array_map(function ($id) use ($names) {
+        return $names[$id] ?? "#$id";
+    }, $ids));
+}
+
+/**
+ * The fields create_content_draft and update_content_draft share beyond the
+ * text: orientation, priority, notes and team - only the ones given. Adds each
+ * to $args and, when it changes, to $changes. The team needs canAssignContent
+ * (the author, the owner and the account managers).
+ */
+function contentTeamArgs(PDO $pdo, array $p, array $a, array &$args, array &$changes, ?array $post = null, $company = "")
+{
+    if (array_key_exists("orientation", $a)) {
+        $args["orientation"] = argEnum($a, "orientation", CONTENT_ORIENTATIONS);
+        noteChange($changes, "orientation", $post["orientation"] ?? null, $args["orientation"]);
+    }
+    if (array_key_exists("priority", $a)) {
+        $args["priority"] = argEnum($a, "priority", CONTENT_PRIORITIES);
+        noteChange($changes, "priority", $post["priority"] ?? null, $args["priority"]);
+    }
+    if (array_key_exists("notes", $a)) {
+        $args["notes"] = argText($a, "notes", CONTENT_NOTES_MAX, false);
+        noteChange($changes, "team notes", $post ? (string) ($post["notes"] ?? "") : null, $args["notes"]);
+    }
+    $current = $post ? currentAssigneeIds($pdo, $post["id"]) : [];
+    $team = argTeam($pdo, $p, $a, $company, $current);
+    if ($team !== null) {
+        if (!canAssignContent($p, $post["created_by"] ?? $p["id"])) {
+            throw new PortalWriteError("Only the post's author, the owner or an account manager can change who is on it.", 403);
+        }
+        $args["team"] = $team;
+        $was = $current;
+        sort($was);
+        $now = $team;
+        sort($now);
+        if ($was !== $now) {
+            $changes[] = ["field" => "team", "from" => $post ? adminNames($pdo, $current) : null, "to" => adminNames($pdo, $team)];
+        }
+    }
 }
 
 /** What the assistant wrote as plain text, as the HTML the portal's editors store. */
@@ -901,18 +992,28 @@ function v1WriteHandlers()
                 if ($company === "") {
                     throw new PortalWriteError("Posts are tied to a client by company name, and " . $client["name"] . " has none yet.");
                 }
+                $args = ["client" => $clientId, "company" => $company, "type" => $type, "type_label" => $types[$type],
+                         "title" => $title, "caption" => $caption, "date" => $date, "time" => $time, "link" => $link,
+                         "images" => $images];
+                $extras = [];
+                contentTeamArgs($pdo, $p, $a, $args, $extras, null, $company);
                 return [
-                    "args" => ["client" => $clientId, "company" => $company, "type" => $type, "type_label" => $types[$type],
-                               "title" => $title, "caption" => $caption, "date" => $date, "time" => $time, "link" => $link,
-                               "images" => $images],
+                    "args" => $args,
                     "summary" => "Save a draft " . $types[$type] . " post " . quoteFor($title) . " for $company"
                         . ($date ? ", dated $date" . ($time ? " $time" : "") : "")
                         . ($images ? ", with " . imageCount(count($images)) . " downloaded from the links given" : "")
-                        . ". It stays a draft: nothing is published until someone schedules it in the portal.",
+                        . ($extras ? "; " . implode("; ", array_map(function ($c) {
+                            return "{$c["field"]} " . quoteFor($c["to"], 60);
+                        }, $extras)) : "")
+                        . (!empty($args["team"]) ? " (each teammate is notified)" : "")
+                        . ". It stays a draft until someone schedules it (publish_content or the portal).",
                     "preview" => [
                         "client" => $company, "type" => $types[$type], "title" => $title,
                         "date" => $date, "time" => $time, "link" => $link,
-                        "untrusted_content" => ["caption" => $caption, "images" => $images],
+                        "orientation" => $args["orientation"] ?? "horizontal",
+                        "priority" => $args["priority"] ?? "medium",
+                        "team" => isset($args["team"]) ? adminNames($pdo, $args["team"]) : null,
+                        "untrusted_content" => ["caption" => $caption, "images" => $images, "notes" => $args["notes"] ?? null],
                     ],
                 ];
             },
@@ -926,19 +1027,26 @@ function v1WriteHandlers()
                     $pdo->prepare("
                         INSERT INTO content
                             (title, client, link, caption, content_type, type_label, platform, category,
-                             orientation, media_path, media_paths, post_date, post_time, publish_now, status, created_by)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'horizontal', ?, ?, ?, ?, 0, 'draft', ?)
+                             orientation, media_path, media_paths, post_date, post_time, publish_now, status,
+                             priority, notes, created_by)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'draft', ?, ?, ?)
                     ")->execute([
                         $a["title"], $a["company"], $a["link"], $a["caption"] !== "" ? textToHtml($a["caption"]) : null,
                         $a["type"], $a["type_label"], $a["type_label"], $a["type_label"],
+                        $a["orientation"] ?? "horizontal",
                         $images[0] ?? null, $images ? json_encode($images, JSON_UNESCAPED_SLASHES) : null,
-                        $a["date"], $a["time"] !== null ? $a["time"] . ":00" : null, $p["id"],
+                        $a["date"], $a["time"] !== null ? $a["time"] . ":00" : null,
+                        $a["priority"] ?? "medium", ($a["notes"] ?? "") !== "" ? $a["notes"] : null, $p["id"],
                     ]);
                 } catch (Throwable $e) {
                     deleteFetchedContentImages($images);
                     throw $e;
                 }
-                return ["content_id" => (int) $pdo->lastInsertId(), "status" => "draft", "images" => count($images)];
+                $id = (int) $pdo->lastInsertId();
+                // As the page does: the post first, then its team, who are notified.
+                saveContentAssignees($pdo, $id, [], $a["team"] ?? [], $a["title"], $p["id"]);
+                return ["content_id" => $id, "status" => "draft", "images" => count($images),
+                        "team" => count($a["team"] ?? [])];
             },
         ],
 
@@ -989,15 +1097,18 @@ function v1WriteHandlers()
                 if ($time !== null && $time !== "" && ($date === null || $date === "")) {
                     throw new PortalWriteError("A time needs a date.");
                 }
+                $company = trim((string) ($post["client"] ?? ""));
+                contentTeamArgs($pdo, $p, $a, $args, $changes, $post, $company);
                 if (!$changes) {
                     throw new PortalWriteError("Nothing to change - every value given is what the post already has.");
                 }
-                $company = trim((string) ($post["client"] ?? ""));
+                $joining = isset($args["team"]) ? array_values(array_diff($args["team"], currentAssigneeIds($pdo, $id))) : [];
                 return [
                     "args" => $args,
                     "summary" => "Change the draft post " . quoteFor($post["title"]) . ($company !== "" ? " for $company" : "") . ": "
                         . describeChanges($changes)
-                        . ". It stays a draft: nothing is published until someone schedules it in the portal.",
+                        . ($joining ? " (" . adminNames($pdo, $joining) . (count($joining) === 1 ? " is" : " are") . " notified)" : "")
+                        . ". It stays a draft until someone schedules it (publish_content or the portal).",
                     "preview" => [
                         "content_id" => $id,
                         "client" => $company !== "" ? $company : null,
@@ -1011,13 +1122,14 @@ function v1WriteHandlers()
                 // Downloaded only now, on confirm; removed again if the post isn't saved.
                 $hadImages = contentImages($post);
                 $images = array_key_exists("images", $a) ? fetchContentImages($a["images"]) : $hadImages;
-                // Only the given fields; status, schedule flag and the team
-                // stay as they are. Still a draft, or nothing.
+                // Only the given fields; status and schedule flag stay as they
+                // are. Still a draft, or nothing.
                 try {
                     $pdo->prepare("
                         UPDATE content
                         SET title = ?, caption = ?, content_type = ?, type_label = ?, platform = ?, category = ?,
                             post_date = ?, post_time = ?, link = ?, media_path = ?, media_paths = ?,
+                            orientation = ?, priority = ?, notes = ?,
                             updated_at = CURRENT_TIMESTAMP
                         WHERE id = ? AND status = 'draft'
                     ")->execute([
@@ -1032,6 +1144,9 @@ function v1WriteHandlers()
                         array_key_exists("link", $a) ? $a["link"] : $post["link"],
                         array_key_exists("images", $a) ? ($images[0] ?? null) : $post["media_path"],
                         array_key_exists("images", $a) ? ($images ? json_encode($images, JSON_UNESCAPED_SLASHES) : null) : $post["media_paths"],
+                        $a["orientation"] ?? $post["orientation"],
+                        $a["priority"] ?? $post["priority"],
+                        array_key_exists("notes", $a) ? ($a["notes"] !== "" ? $a["notes"] : null) : $post["notes"],
                         $a["id"],
                     ]);
                 } catch (Throwable $e) {
@@ -1045,7 +1160,71 @@ function v1WriteHandlers()
                 if (array_key_exists("images", $a)) {
                     deleteFetchedContentImages(array_diff($hadImages, $images));
                 }
+                // The team last, as the page does; the people new to it are notified.
+                if (array_key_exists("team", $a)) {
+                    saveContentAssignees($pdo, $a["id"], currentAssigneeIds($pdo, $a["id"]), $a["team"],
+                        $a["title"] ?? $post["title"], $p["id"]);
+                }
                 return ["content_id" => (int) $a["id"], "status" => "draft", "images" => count($images)];
+            },
+        ],
+
+        "publish_content" => [
+            "scope" => "content:write",
+            "prepare" => function (PDO $pdo, array $p, array $a) {
+                if (!canPublishContent($p)) {
+                    throw new PortalWriteError("Only the owner and the account managers schedule and publish posts.", 403);
+                }
+                $id = argInt($a, "id");
+                $post = loadEditableDraft($pdo, $p, $id);
+                $now = argBool($a, "publish_now", false);
+                $date = argDate($a, "date");
+                $time = argTime($a, "time");
+                if ($now && ($date !== null || $time !== null)) {
+                    throw new PortalWriteError("Give publish_now, or a date and time - not both.");
+                }
+                if (!$now && ($date === null || $time === null)) {
+                    throw new PortalWriteError("Give a date and time to schedule it, or publish_now: true.");
+                }
+                $company = trim((string) ($post["client"] ?? ""));
+                if ($company === "") {
+                    throw new PortalWriteError("Pick a client for the post before scheduling or publishing it.");
+                }
+                // The page's own rules: a time already passed goes live now.
+                [$status] = resolveContentSchedule("scheduled", $now, $date, $time);
+                return [
+                    "args" => ["id" => $id, "publish_now" => $now, "date" => $date, "time" => $time],
+                    "summary" => ($status === "published"
+                            ? "Publish the post " . quoteFor($post["title"]) . " for $company now"
+                                . ($now ? "" : " (its time, $date $time, has already passed, so it goes live straight away and keeps that date)")
+                                . ". $company is notified in the portal."
+                            : "Schedule the post " . quoteFor($post["title"]) . " for $company to go live on $date at $time"
+                                . ". It goes live on its own then, and $company is notified when it does.")
+                        . " Once it is out, it is changed or taken down in the portal.",
+                    "preview" => [
+                        "content_id" => $id, "client" => $company, "title" => $post["title"],
+                        "status_after" => $status, "date" => $now ? null : $date, "time" => $now ? null : $time,
+                    ],
+                ];
+            },
+            "apply" => function (PDO $pdo, array $p, array $a) {
+                $post = loadEditableDraft($pdo, $p, $a["id"]);
+                [$status, $date, $time] = resolveContentSchedule("scheduled", $a["publish_now"], $a["date"], $a["time"]);
+                $stmt = $pdo->prepare("
+                    UPDATE content
+                    SET status = ?, publish_now = ?, post_date = ?, post_time = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ? AND status = 'draft'
+                ");
+                $stmt->execute([$status, $a["publish_now"] ? 1 : 0, $date, $time !== null ? $time . ":00" : null, $a["id"]]);
+                if ($stmt->rowCount() !== 1) {
+                    throw new PortalWriteError("That post is no longer a draft.", 409);
+                }
+                // As admin-content.php: only a post that is live has anything to announce.
+                if ($status === "published") {
+                    notifyUsersAtCompany($pdo, $post["client"], NOTIFY_CONTENT_PUBLISHED, "New content published",
+                        $post["title"], "content.html?id=" . (int) $a["id"], (int) $p["id"]);
+                }
+                return ["content_id" => (int) $a["id"], "status" => $status];
             },
         ],
 

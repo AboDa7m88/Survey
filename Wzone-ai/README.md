@@ -104,8 +104,10 @@ Each person gets only the tools their connection's scopes allow, so a client nev
 | `forms:review` | `review_form` | approves a waiting form (it reaches the client) or returns it to its author with a comment |
 | `inquiries:write` | `create_inquiry_draft` | creates a consultation inquiry, **closed** until someone opens it in the portal |
 | `inquiries:write` | `update_inquiry` | changes the given fields of an inquiry, or closes it. Once anyone has answered, its title, intro and questions are locked. A new title moves its public link. It is **never opened** from here |
-| `content:write` | `create_content_draft` | saves a **draft** post. Nothing here publishes. Images are given as up to 5 public `https://` links; the portal downloads and checks them on confirm (JPG/PNG/WEBP/GIF, 3 MB each), never from a private address |
-| `content:write` | `update_content_draft` | changes the given fields of a **draft** post; `images` replaces all of its images (`[]` removes them). Scheduled and published posts are edited in the portal |
+| `content:write` | `list_content_teammates` | who can be put on a post: its client's team (account managers, Super Admins and Admins assigned to it) |
+| `content:write` | `create_content_draft` | saves a **draft** post, with its orientation, priority, team notes and team (each new teammate is notified). Images are given as up to 5 public `https://` links (Google Drive and Dropbox share links are turned into the file behind them; a chat attachment has no link, so the tool tells the assistant to walk the person through a storage connector or a shared link); the portal downloads and checks them on confirm (JPG/PNG/WEBP/GIF, 3 MB each), never from a private address |
+| `content:write` | `update_content_draft` | changes the given fields of a **draft** post, its team notes and team included; `images` and `team` replace the whole set (`[]` removes them). Scheduled and published posts are edited in the portal |
+| `content:write` | `publish_content` | schedules a **draft** for a date and time, or publishes it now - owner and account managers only, as in the portal. The client is notified when it goes live |
 | `calendar:write` | `propose_meeting` | asks a client for a meeting: every account at their company that you can reach, in the portal and by email, as the calendar page does |
 | `calendar:write` | `respond_to_meeting` | accepts or declines a client's pending request |
 | `projects:write` | `post_project_update` | adds an update to a project, published (the client is told once it's live) or as a draft |

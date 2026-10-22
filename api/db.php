@@ -714,9 +714,10 @@ const CONTENT_EXTRA_COLUMNS = [
        v1 API and older code read - see contentImages(). */
     "media_paths" => "TEXT NULL",
 
-    /* Set on the content form only - low, medium or high - with free-text
-       notes for the team. Neither is shown on the list or the v1 API.
-       sql/content_priority_notes.sql is the manual version. */
+    /* Low, medium or high, with free-text notes for the team - set on the
+       content form and by api/v1's content drafts, shown by get_content but
+       never to the client. sql/content_priority_notes.sql is the manual
+       version. */
     "priority"    => "VARCHAR(10) NOT NULL DEFAULT 'medium'",
     "notes"       => "TEXT NULL",
 ];
@@ -939,8 +940,8 @@ function contentImageExtension(string $path): ?string
 /** Roles that see the whole content library. */
 const CONTENT_SEES_ALL_ROLES = ["owner", "account_manager"];
 
-/** Roles a post can be assigned to: Super Admins and Admins. */
-const CONTENT_ASSIGNEE_ROLES = ["super_admin", "seo_admin"];
+/** Roles a post can be assigned to: account managers, Super Admins and Admins. */
+const CONTENT_ASSIGNEE_ROLES = ["account_manager", "super_admin", "seo_admin"];
 
 function contentSeesAll(string $role): bool
 {

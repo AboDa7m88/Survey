@@ -99,8 +99,8 @@ const PROMPTS = [
         ...(scopes.includes("content:write")
           ? [
               "5. Ask which posts to save as drafts. For each one they pick, call create_content_draft",
-              "   with the date, type, title and a first caption (and images, if they give https links to them). " + CONFIRM_RULE,
-              "   Drafts are never published from here; scheduling happens in the portal.",
+              "   with the date, type, title and a first caption (and images as public links - Google Drive or Dropbox share links work; a file attached to the chat does not). " + CONFIRM_RULE,
+              "   They stay drafts: schedule one with publish_content only when the person asks to.",
             ]
           : ["This is a proposal: posts are created and scheduled in the portal."]),
         DATA_RULE,

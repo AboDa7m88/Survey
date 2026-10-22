@@ -37,14 +37,43 @@ const date = (what) => z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "must be a date l
 const time = (what) => z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "must be a 24-hour time like 14:30").describe(what);
 
 // A post's images, by link: the portal downloads them on confirm and checks
-// them as its own upload does (api/content-image-fetch.php).
+// them as its own upload does (api/content-image-fetch.php). A tool call
+// can't carry the file itself, so the description tells the assistant how to
+// walk the person through getting a link.
 const postImages = z
   .array(z.string().url().startsWith("https://", "must be an https:// link").max(2000))
   .max(5)
   .describe(
     "Up to 5 public https links to JPG, PNG, WEBP or GIF images, 3 MB each, in the order to show them. " +
-      "The portal downloads them when the change is confirmed; a file the person attached to the chat has no link, so it can't be used here."
+      "The portal downloads them when the change is confirmed. " +
+      "An image attached to the chat can't be sent from here: the assistant never gets the file itself, only a link works. " +
+      "When the person wants to add an image they only have as a file, explain this plainly and offer the way through: " +
+      "(1) put the image in Google Drive, Dropbox, OneDrive or any storage that gives share links - if you have a connector " +
+      "for one of them in this chat (Google Drive, Dropbox...), use it to find the file and get its link; otherwise ask them to " +
+      "connect one in their AI app's connector settings, or to upload it there themselves; " +
+      "(2) set its sharing to \"Anyone with the link\" - a private file can't be downloaded; " +
+      "(3) give that link here. Google Drive and Dropbox share links work as they are; the portal fetches the file behind them."
   );
+
+// What a post carries for the team working on it: never shown to the client.
+const postTeamFields = {
+  orientation: z.enum(["horizontal", "vertical"]).optional(),
+  priority: z.enum(["low", "medium", "high"]).optional(),
+  notes: z
+    .string()
+    .max(5000)
+    .optional()
+    .describe("Notes for the team on the post - a brief, a checklist. Plain text; staff only, never shown to the client"),
+  team: z
+    .array(recordId("A teammate's id"))
+    .max(50)
+    .optional()
+    .describe(
+      "Everyone to put on the post, from list_content_teammates (the client's team), leaving yourself out. " +
+        "Replaces who is on it ([] takes everyone off); each person newly added is notified. " +
+        "Only the post's author, the owner and account managers change it."
+    ),
+};
 
 const TWO_STEP =
   " Step 1 of 2: nothing changes yet. Show the person the summary this returns, " +
@@ -171,9 +200,10 @@ export const WRITE_TOOLS = [
     scope: "content:write",
     title: "Draft a post",
     description:
-      "Saves a draft post for a client. It is never published from here: someone schedules or " +
-      "publishes it in the portal. The caption is plain text; blank lines start new paragraphs. " +
-      "Images are given as links: the portal downloads them when the change is confirmed." + TWO_STEP,
+      "Saves a draft post for a client; publish_content schedules or publishes it afterwards. " +
+      "The caption is plain text; blank lines start new paragraphs. Images are given as links: " +
+      "the portal downloads them when the change is confirmed. orientation, priority, notes and " +
+      "team (from list_content_teammates) are set here too." + TWO_STEP,
     input: {
       client: clientId,
       type: z.enum(CONTENT_TYPE_IDS).describe("From list_content_types"),
@@ -183,6 +213,7 @@ export const WRITE_TOOLS = [
       time: time("The time it is planned for (needs a date)").optional(),
       link: z.string().max(500).optional().describe("An http(s) link shown with the post"),
       images: postImages.optional(),
+      ...postTeamFields,
     },
   },
   {
@@ -190,9 +221,10 @@ export const WRITE_TOOLS = [
     scope: "content:write",
     title: "Change a draft post",
     description:
-      "Changes a draft post (get_content shows it as it is). Only drafts: a scheduled or " +
-      "published post is edited in the portal, and this never schedules or publishes. The " +
-      "caption is plain text and replaces the whole caption; \"\" clears date, time or link. " +
+      "Changes a draft post (get_content shows it as it is): its text, date, link and images, and " +
+      "for the team its orientation, priority, notes and who is on it. Only drafts: a scheduled or " +
+      "published post is edited in the portal. To schedule or publish, use publish_content. The " +
+      "caption is plain text and replaces the whole caption; \"\" clears date, time, link or notes. " +
       "images replaces all of the post's images ([] removes them)." + EDIT + TWO_STEP,
     input: {
       id: recordId("The post's id - from list_content"),
@@ -203,6 +235,23 @@ export const WRITE_TOOLS = [
       time: z.union([time("The time it is planned for (needs a date)"), z.literal("")]).optional(),
       link: z.string().max(500).optional().describe("An http(s) link shown with the post"),
       images: postImages.optional(),
+      ...postTeamFields,
+    },
+  },
+  {
+    name: "publish_content",
+    scope: "content:write",
+    title: "Schedule or publish a post",
+    description:
+      "Schedules a draft post to go live at a date and time, or publishes it now - the owner and " +
+      "account managers only, as in the portal. A scheduled post goes live on its own; a time " +
+      "already passed goes live straight away. The client is notified when it goes live. A post " +
+      "that is out is changed or taken down in the portal." + TWO_STEP,
+    input: {
+      id: recordId("The draft post's id - from list_content"),
+      date: date("The day it goes live (with time)").optional(),
+      time: time("The time it goes live, portal local time (with date)").optional(),
+      publish_now: z.literal(true).optional().describe("true publishes it now, instead of a date and time"),
     },
   },
   {

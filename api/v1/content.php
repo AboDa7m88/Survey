@@ -6,6 +6,11 @@
 |   GET content.php?client=&from=&to=&status=&cursor=&limit=   list_content
 |   GET content.php?id=N                                      get_content
 |   GET content.php?types=1                                   list_content_types
+|   GET content.php?teammates=1&id=N | &client=N              list_content_teammates
+|
+| Teammates are who can be put on a post: its client's team
+| (content-writes.php contentAssigneeCandidates()). They are for changing a
+| post, so they need content:write as well.
 |
 | Scope content:read. Same rule as admin-content.php: the owner and account
 | managers see the whole library, anyone else the posts they wrote and the
@@ -21,6 +26,7 @@
 */
 
 require_once __DIR__ . "/_bootstrap.php";
+require_once __DIR__ . "/../content-writes.php";
 
 $p = v1Principal($pdo);
 v1RequireMethod("GET");
@@ -40,13 +46,44 @@ ensureContentColumns($pdo);
 
 $now = contentNow();
 $own = v1SeesAllContent($p) ? ["", []] : contentVisibleSql("c", (int) $p["id"]);
+
+if (!empty($_GET["teammates"])) {
+    v1RequireScope($p, "content:write");
+    $postId = v1IntParam("id");
+    $clientId = v1IntParam("client");
+    if (($postId === null) === ($clientId === null)) {
+        v1Error(422, "invalid_parameter", "Give a post id or a client, not both.");
+    }
+    if ($postId !== null) {
+        [$where, $params] = v1Where([["c.id = ?", [$postId]], $own]);
+        $stmt = $pdo->prepare("SELECT c.id, c.client FROM content c" . $where . " LIMIT 1");
+        $stmt->execute($params);
+        $post = $stmt->fetch();
+        if (!$post) {
+            v1Error(404, "not_found", "No content with that id among the posts you can see.");
+        }
+        $company = trim((string) $post["client"]);
+        $on = array_column(contentAssignees($pdo, [$postId])[$postId] ?? [], "id");
+    } else {
+        $company = trim((string) (v1VisibleClient($pdo, $p, $clientId)["company_name"] ?? ""));
+        $on = [];
+    }
+    v1Reply(200, [
+        "client" => $company !== "" ? $company : null,
+        "items" => array_map(function ($a) use ($on, $p) {
+            return ["id" => $a["id"], "name" => $a["name"], "role" => $a["role"],
+                    "on_post" => in_array($a["id"], array_map("intval", $on), true),
+                    "is_you" => $a["id"] === (int) $p["id"]];
+        }, contentAssigneeCandidates($pdo, $company)),
+    ]);
+}
 $liveAt = contentLiveAtSql("c");
 
 // Binds one ? (contentNow()) for the status column.
 $select = "
     SELECT c.id, c.title, c.client, c.link, c.caption, c.content_type, c.type_label,
            c.platform, c.category, c.orientation, c.media_path, c.media_paths, c.post_date, c.post_time,
-           c.created_at, c.updated_at,
+           c.priority, c.notes, c.created_at, c.updated_at,
            " . contentStatusSql("c") . " AS status,
            $liveAt AS live_at,
            a.name AS created_by_name
@@ -89,6 +126,13 @@ if ($id !== null) {
 
     $data = contentItem($row, null);
     $data["orientation"] = (string) $row["orientation"];
+    $data["priority"] = (string) ($row["priority"] ?? "medium");
+    $data["assignees"] = array_map(function ($a) {
+        return ["id" => (int) $a["id"], "name" => (string) $a["name"], "role" => (string) $a["role"],
+                "is_done" => (bool) $a["is_done"]];
+    }, contentAssignees($pdo, [$id])[$id] ?? []);
+    // The team's notes - staff only, never shown to the client.
+    $data["untrusted_content"]["notes"] = v1NullableString($row["notes"] ?? null);
     $data["created_at"] = (string) $row["created_at"];
     $data["updated_at"] = (string) $row["updated_at"];
     v1Reply(200, $data);
