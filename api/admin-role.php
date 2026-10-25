@@ -22,6 +22,7 @@
 */
 
 require_once "db.php";
+require_once "admin-settings-writes.php";
 
 header("Content-Type: application/json; charset=UTF-8");
 
@@ -65,65 +66,25 @@ $input = json_decode(file_get_contents("php://input"), true) ?? [];
 $targetId = (int) ($input["admin_id"] ?? 0);
 $newRole = trim((string) ($input["role"] ?? ""));
 
-$assignable = ["seo_admin", "super_admin", "account_manager"];
-
-if (!$targetId || !in_array($newRole, $assignable, true)) {
+if (!$targetId || !in_array($newRole, ASSIGNABLE_ADMIN_ROLES, true)) {
     roleReply(false, "Invalid request.");
 }
 
-$stmt = $pdo->prepare("
-    SELECT id, name, email, role
-    FROM admins
-    WHERE id = ?
-    LIMIT 1
-");
+// The rules (never an owner row, never yourself) and the session reset that
+// goes with a change are in admin-settings-writes.php, shared with api/v1.
+try {
+    $target = checkAdminRoleChange($pdo, $caller, $targetId, $newRole);
 
-$stmt->execute([$targetId]);
-$target = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($target["role"] === $newRole) {
+        roleReply(true, "No change - that is already their role.");
+    }
 
-if (!$target) {
-    roleReply(false, "Admin not found.");
+    changeAdminRole($pdo, $targetId, $newRole);
+} catch (PortalWriteError $e) {
+    roleReply(false, $e->getMessage());
 }
 
-if ($target["role"] === "owner") {
-    roleReply(false, "The owner's role cannot be changed here.");
-}
-
-// Belt and braces: an owner editing their own row would already have been
-// caught above, but the intent is worth stating.
-if ((int) $target["id"] === (int) $caller["id"]) {
-    roleReply(false, "You cannot change your own role.");
-}
-
-if ($target["role"] === $newRole) {
-    roleReply(true, "No change - that is already their role.");
-}
-
-/*
-| session_token is cleared along with the role.
-|
-| Every page reads the role from the copy of the admin record saved in the
-| browser at sign-in, so someone already logged in would keep their old
-| permissions in the interface until they happened to sign in again. Ending
-| the session forces that, and the next login hands them the new role.
-*/
-
-$update = $pdo->prepare("
-    UPDATE admins
-    SET role = ?,
-        session_token = NULL
-    WHERE id = ?
-");
-
-$update->execute([$newRole, $targetId]);
-
-$labels = [
-    "seo_admin"       => "Admin",
-    "super_admin"     => "Super Admin",
-    "account_manager" => "Account Manager"
-];
-
-roleReply(true, $target["name"] . " is now " . $labels[$newRole] . ". They will be signed out and pick up the change on their next login.", [
+roleReply(true, $target["name"] . " is now " . adminRoleName($newRole) . ". They will be signed out and pick up the change on their next login.", [
     "admin_id" => $targetId,
     "role"     => $newRole
 ]);

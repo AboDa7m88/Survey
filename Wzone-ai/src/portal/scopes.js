@@ -11,6 +11,7 @@ export const STAFF_SCOPES = [
   "calendar:read", "calendar:write",
   "projects:read", "projects:write",
   "notifications:read", "notifications:write",
+  "settings:read", "settings:write", "admins:write",
 ];
 
 export const CLIENT_SCOPES = ["self:read", "self:write"];

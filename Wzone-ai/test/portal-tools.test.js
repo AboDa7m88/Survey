@@ -15,10 +15,12 @@ const ALL_STAFF = [
   "inquiries:read", "inquiries:write", "content:read", "content:write",
   "calendar:read", "calendar:write", "projects:read", "projects:write",
   "notifications:read", "notifications:write",
+  "settings:read", "settings:write", "admins:write",
 ];
 
-// What an seo_admin's role allows: no calendar, no inquiries.
-const SEO = ALL_STAFF.filter((s) => !s.startsWith("calendar") && !s.startsWith("inquiries") && s !== "forms:review" && s !== "clients:write");
+// What an seo_admin's role allows: no calendar, no inquiries, no settings.
+const SEO = ALL_STAFF.filter((s) => !s.startsWith("calendar") && !s.startsWith("inquiries") && s !== "forms:review"
+  && s !== "clients:write" && !s.startsWith("settings") && s !== "admins:write");
 
 /**
  * A fake portal: introspection grants `scopes`; api/v1 answers from the

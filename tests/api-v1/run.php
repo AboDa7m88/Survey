@@ -593,6 +593,7 @@ if (in_array("--fixtures", $argv, true)) {
 
 require __DIR__ . "/writes.php";
 require __DIR__ . "/clients.php";
+require __DIR__ . "/settings.php";
 
 if (in_array("--fixtures", $argv, true)) {
     file_put_contents(

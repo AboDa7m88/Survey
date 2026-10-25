@@ -86,6 +86,7 @@ Each person gets only the tools their connection's scopes allow, so a client nev
 | `calendar:read` | `get_calendar`, `list_pending_approvals`, `get_meeting` | meetings of your assigned clients; closed to SEO admins |
 | `projects:read` | `list_projects`, `get_project` | your clients' projects, the ones you manage, and the ones you're a member of; drafts as on the project page |
 | `notifications:read` | `list_my_notifications` | your own inbox |
+| `settings:read` | `get_settings` | the owner only: website address, logo, login slides and the admin team (roles, on/off, who manages whom). Never a password, token or the files password |
 
 - **`get_client_overview`** answers "tell me about client X" in one call: profile, team, open forms, recent responses, upcoming and recent content, upcoming meetings, active projects. A section the connection has no scope for is left out and named in `not_included`.
 - **Lists are paged by cursor.** Pass `next_cursor` back as `cursor`. Rows never repeat or go missing when new ones arrive between pages.
@@ -113,6 +114,15 @@ Each person gets only the tools their connection's scopes allow, so a client nev
 | `projects:write` | `post_project_update` | adds an update to a project, published (the client is told once it's live) or as a draft |
 | `projects:write` | `update_task` | changes the given fields of an update |
 | `notifications:write` | `mark_notifications_read` | marks your own notifications read. **The only change without a confirmation step** |
+| `settings:write` | `update_website_address` | sets or clears the address the public logo links to |
+| `settings:write` | `set_logo` | replaces the logo from a public `https://` link (PNG or JPG), downloaded and checked on confirm like post images |
+| `settings:write` | `add_login_slide`, `update_login_slide`, `reorder_login_slides`, `remove_login_slide` | the sign-in page slideshow: add one from a link (at least 600 × 800 px, up to 5 slides), change its text, reorder them, or remove one and its image |
+| `admins:write` | `add_admin` | adds an Admin, Super Admin or Account Manager. **No password passes through the assistant**: they are emailed a link to choose one, good for 3 days |
+| `admins:write` | `change_admin_role` | changes a role (never to or from owner, never your own). They are signed out and pick it up on their next sign-in |
+| `admins:write` | `set_admin_active` | stops an admin signing in, or lets them again; nothing of theirs is removed. Never yourself |
+| `admins:write` | `assign_admins_to_manager` | sets exactly who a Super Admin or Account Manager manages |
+
+`settings:*` and `admins:write` are the owner's alone. The consent page lists them on their own lines, so the owner can connect an assistant without handing it the team.
 
 Every other change takes two steps, through [`api/v1/changes.php`](../api/v1/changes.php):
 
@@ -134,6 +144,7 @@ Elicitation would be the protocol's way to ask, but this server is stateless, so
 | [`api/task-writes.php`](../api/task-writes.php) | `project-tasks.php` | `post_project_update`, `update_task` |
 | [`api/inquiry-templates.php`](../api/inquiry-templates.php) | `admin-inquiries.php` | `create_inquiry_draft`, `update_inquiry` |
 | [`api/content-writes.php`](../api/content-writes.php) | `admin-content.php` | `update_content_draft` (who may edit a post) |
+| [`api/admin-settings-writes.php`](../api/admin-settings-writes.php) | `settings.php`, `admin-role.php`, `add-user.php`, `admin-manager-assignments.php`, `admin-login-slides.php`, `get-admins.php` | `get_settings` and every `settings:write` / `admins:write` tool |
 
 **Attribution.** `mcp_confirmations` keeps every prepared change: who, through which connection (`grant_id`), what, and its result with the ids it created. Each call is also in `mcp_audit_log`.
 

@@ -332,6 +332,21 @@ export const READ_TOOLS = [
     query: ({ unread, ...rest }) => ({ ...rest, unread: unread ? 1 : undefined }),
   },
 
+  // ── Settings (the owner's) ────────────────────────────────────────────
+  {
+    name: "get_settings",
+    scope: "settings:read",
+    title: "Portal settings",
+    description:
+      "Everything on the Settings page: the website address, logo, login page slides " +
+      "(with their ids, in display order) and the admin team - each admin's id, role, " +
+      "whether they can sign in, and who manages them. Start here before changing a setting " +
+      "or an admin; the ids the change tools take come from this.",
+    input: {},
+    output: S.settings,
+    path: "settings.php",
+  },
+
   // ── A client's own account (self:read) ────────────────────────────────
   // Only ever the caller's own records - api/v1/me takes the client from
   // the token, never from an argument.

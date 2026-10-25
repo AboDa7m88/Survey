@@ -333,6 +333,37 @@ export const notifications = {
   unread_count: id,
 };
 
+// ── Settings ────────────────────────────────────────────────────────────
+
+export const settings = {
+  website_address: maybe.describe("As typed on Settings; null when unset"),
+  website_link: maybe.describe("The address the public logo links to"),
+  logo_url: maybe,
+  clients_may_use_ai: z.boolean().describe("Whether clients may connect an AI assistant"),
+  login_slides_max: id,
+  login_slide_min_size: text.describe("Smallest slide image, WIDTHxHEIGHT in px"),
+  login_slides: z.array(
+    z.object({
+      id,
+      position: id,
+      image_url: text,
+      untrusted_content: untrusted({ title: maybe, subtitle: maybe }),
+    })
+  ),
+  admins: z
+    .array(
+      z.object({
+        id,
+        role: z.enum(["seo_admin", "super_admin", "account_manager"]),
+        role_name: text,
+        active: z.boolean().describe("false: they can't sign in"),
+        managed_by: id.nullable().describe("The manager's admin id"),
+        untrusted_content: untrusted({ name: text, email: text, managed_by_name: maybe }),
+      })
+    )
+    .describe("Everyone on the team but the owner"),
+};
+
 // ── Whoami ──────────────────────────────────────────────────────────────
 
 export const whoami = {

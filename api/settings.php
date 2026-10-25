@@ -1,5 +1,6 @@
 <?php
 require_once "db.php";
+require_once "admin-settings-writes.php";
 header("Content-Type: application/json");
 
 $headers = getallheaders();
@@ -124,28 +125,17 @@ if($_SERVER["REQUEST_METHOD"]=="POST"){
             exit;
         }
 
-        if($targetId === (int)$admin["id"]){
+        // Shared with api/v1 (admin-settings-writes.php).
+        try {
+            checkAdminActiveChange($pdo, $admin, $targetId);
+            setAdminActive($pdo, $targetId, $active);
+        } catch (PortalWriteError $e) {
             echo json_encode([
                 "success"=>false,
-                "message"=>"You can't deactivate your own account"
+                "message"=>$e->getMessage()
             ]);
             exit;
         }
-
-        $checkStmt = $pdo->prepare("SELECT id, role, managed_by_admin_id FROM admins WHERE id=? LIMIT 1");
-        $checkStmt->execute([$targetId]);
-        $target = $checkStmt->fetch();
-
-        if(!$target){
-            echo json_encode([
-                "success"=>false,
-                "message"=>"Admin not found"
-            ]);
-            exit;
-        }
-
-        $updateStmt = $pdo->prepare("UPDATE admins SET active=? WHERE id=?");
-        $updateStmt->execute([$active, $targetId]);
 
         echo json_encode([
             "success"=>true,
@@ -175,27 +165,14 @@ if($_SERVER["REQUEST_METHOD"]=="POST"){
             exit;
         }
 
-        $website = trim($input["website_url"] ?? "");
-
-        if($website !== "" && normaliseWebUrl($website) === ""){
+        // Shared with api/v1 (admin-settings-writes.php).
+        try {
+            $website = checkWebsiteAddress($input["website_url"] ?? "");
+            saveWebsiteAddress($pdo, $website);
+        } catch (PortalWriteError $e) {
             echo json_encode([
                 "success"=>false,
-                "message"=>"That does not look like a web address. Try something like wzone.london"
-            ]);
-            exit;
-        }
-
-        // The reason travels with the refusal: the usual one is a database
-        // user that may not CREATE the site_settings table, and that is not
-        // something the page can work out on its own.
-        $saveError = "";
-
-        if(!setSiteSetting($pdo, "website_url", $website, $saveError)){
-            echo json_encode([
-                "success"=>false,
-                "message"=>$saveError === ""
-                    ? "Could not save the website address"
-                    : "Could not save the website address: " . $saveError
+                "message"=>$e->getMessage()
             ]);
             exit;
         }

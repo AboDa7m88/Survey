@@ -79,6 +79,10 @@ function bearerToken()
 |                              only on projects they are a member of, which
 |                              the endpoint checks per project
 |   notifications:*  all       notifications.php
+|   settings:*       O         settings.php, upload-logo.php,
+|                              admin-login-slides.php
+|   admins:write     O         add-user.php, admin-role.php,
+|                              admin-manager-assignments.php
 |
 | O owner, SA super_admin, AM account_manager. Which *records* a role sees
 | within a scope (assigned clients, own posts, project membership) is the
@@ -105,6 +109,9 @@ const SCOPE_ROLES = [
     "projects:write"      => ADMIN_ROLES,
     "notifications:read"  => ADMIN_ROLES,
     "notifications:write" => ADMIN_ROLES,
+    "settings:read"       => ["owner"],
+    "settings:write"      => ["owner"],
+    "admins:write"        => ["owner"],
 ];
 
 /**
