@@ -24,6 +24,8 @@ CREATE TABLE admins (
   inquiries_access    TINYINT(1)   NOT NULL DEFAULT 0,
   active              TINYINT(1)   NOT NULL DEFAULT 1,
   managed_by_admin_id INT              NULL,
+  reset_token         VARCHAR(64)      NULL,
+  reset_expires       DATETIME         NULL,
   created_at          TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

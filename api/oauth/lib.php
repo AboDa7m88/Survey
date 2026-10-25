@@ -45,6 +45,7 @@ const STAFF_SCOPES = [
     "calendar:read", "calendar:write",
     "projects:read", "projects:write",
     "notifications:read", "notifications:write",
+    "settings:read", "settings:write", "admins:write",
 ];
 
 const CLIENT_SCOPES = ["self:read", "self:write"];
@@ -66,6 +67,9 @@ const SCOPE_DESCRIPTIONS = [
     "projects:write"      => "Post project updates and change tasks",
     "notifications:read"  => "See your notifications",
     "notifications:write" => "Mark your notifications as read",
+    "settings:read"       => "See the portal settings: website address, logo, login slides and the admin team",
+    "settings:write"      => "Change the website address, logo and login page slides",
+    "admins:write"        => "Add admins, change their roles, switch them on or off, and assign them to managers",
     "self:read"           => "See your meetings, content, forms, projects and notifications",
     "self:write"          => "Request and answer meetings, fill in your forms, mark notifications read",
 ];

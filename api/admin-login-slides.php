@@ -1,6 +1,7 @@
 <?php
 
 require_once "db.php";
+require_once "admin-settings-writes.php";
 
 header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS");
@@ -132,24 +133,8 @@ if (!is_dir($uploadDir)) {
     }
 }
 
-/*
-|--------------------------------------------------------------------------
-| Helper: Delete Existing Image
-|--------------------------------------------------------------------------
-*/
-
-function deleteSlideImage($relativePath)
-{
-    if (!$relativePath) {
-        return;
-    }
-
-    $fullPath = dirname(__DIR__) . "/" . ltrim($relativePath, "/");
-
-    if (is_file($fullPath)) {
-        @unlink($fullPath);
-    }
-}
+// deleteSlideImage(), and the slide writes below, are in
+// admin-settings-writes.php - shared with api/v1.
 
 /*
 |--------------------------------------------------------------------------
@@ -347,36 +332,18 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             response(false, "Slide not found.", [], 404);
         }
 
-        $title = mb_substr(trim((string) ($body["title"] ?? $_POST["title"] ?? "")), 0, 120);
-        $subtitle = mb_substr(trim((string) ($body["subtitle"] ?? $_POST["subtitle"] ?? "")), 0, 255);
+        $title = loginSlideTitle($body["title"] ?? $_POST["title"] ?? "");
+        $subtitle = loginSlideSubtitle($body["subtitle"] ?? $_POST["subtitle"] ?? "");
 
         try {
 
-            $stmt = $pdo->prepare("
-                UPDATE login_slides
-                SET title = ?, subtitle = ?
-                WHERE id = ?
-            ");
-
-            $stmt->execute([
-                $title !== "" ? $title : null,
-                $subtitle !== "" ? $subtitle : null,
-                $id
-            ]);
-
-            if ($stmt->rowCount() === 0) {
-
-                // rowCount() is 0 both for "gone" and for "saved the same
-                // text again", so only the missing row is an error.
-                $check = $pdo->prepare("SELECT id FROM login_slides WHERE id = ? LIMIT 1");
-                $check->execute([$id]);
-
-                if (!$check->fetch()) {
-                    response(false, "Slide not found.", [], 404);
-                }
-            }
+            updateLoginSlideText($pdo, $id, $title, $subtitle);
 
             response(true, "Slide text saved.");
+
+        } catch (PortalWriteError $e) {
+
+            response(false, $e->getMessage(), [], $e->status);
 
         } catch (Throwable $e) {
 
@@ -397,64 +364,18 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     if ($action === "reorder") {
 
-        $order = $body["order"] ?? null;
-
-        if (!is_array($order) || !$order || count($order) > LOGIN_SLIDES_MAX) {
-            response(false, "Slide order is out of date. Reload the page.", [], 400);
-        }
-
-        $ids = [];
-
-        foreach ($order as $value) {
-
-            if (!is_int($value) && !ctype_digit((string) $value)) {
-                response(false, "Slide order is out of date. Reload the page.", [], 400);
-            }
-
-            $id = (int) $value;
-
-            if ($id < 1 || in_array($id, $ids, true)) {
-                response(false, "Slide order is out of date. Reload the page.", [], 400);
-            }
-
-            $ids[] = $id;
-        }
-
         try {
 
-            $pdo->beginTransaction();
-
-            $stored = $pdo
-                ->query("SELECT id FROM login_slides FOR UPDATE")
-                ->fetchAll(PDO::FETCH_COLUMN);
-
-            $stored = array_map("intval", $stored);
-
-            $sortedStored = $stored;
-            $sortedSent = $ids;
-            sort($sortedStored);
-            sort($sortedSent);
-
-            if ($sortedStored !== $sortedSent) {
-                $pdo->rollBack();
-                response(false, "Slide order is out of date. Reload the page.", [], 400);
-            }
-
-            $stmt = $pdo->prepare("UPDATE login_slides SET position = ? WHERE id = ?");
-
-            foreach ($ids as $index => $id) {
-                $stmt->execute([$index, $id]);
-            }
-
-            $pdo->commit();
+            reorderLoginSlides($pdo, checkLoginSlideOrder($pdo, $body["order"] ?? null));
 
             response(true, "Slide order saved.");
 
-        } catch (Throwable $e) {
+        } catch (PortalWriteError $e) {
 
-            if ($pdo->inTransaction()) {
-                $pdo->rollBack();
-            }
+            // A stale order is the page's to fix by reloading: 400, as before.
+            response(false, $e->getMessage(), [], $e->status === 422 ? 400 : $e->status);
+
+        } catch (Throwable $e) {
 
             response(false, "Could not save the slide order.", [], 500);
         }
@@ -587,65 +508,16 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         response(false, "Please choose an image.", [], 400);
     }
 
+    // The count is checked again under a lock - someone else may have taken
+    // the last slot since the check above - and a refused add removes the
+    // uploaded file rather than leave an orphan.
     try {
 
-        $pdo->beginTransaction();
+        response(true, "Slide added.", addLoginSlide($pdo, $imagePath, $title, $subtitle, $admin["id"]));
 
-        $count = (int) $pdo
-            ->query("SELECT COUNT(*) FROM login_slides FOR UPDATE")
-            ->fetchColumn();
+    } catch (PortalWriteError $e) {
 
-        if ($count >= LOGIN_SLIDES_MAX) {
-
-            // Someone else took the last slot between the check above and
-            // this lock. Undo our upload rather than leave an orphan file.
-            $pdo->rollBack();
-            deleteSlideImage($imagePath);
-
-            response(
-                false,
-                "You already have " . LOGIN_SLIDES_MAX . " slides. Remove one first.",
-                [],
-                409
-            );
-        }
-
-        $position = (int) $pdo
-            ->query("SELECT COALESCE(MAX(position), -1) + 1 FROM login_slides")
-            ->fetchColumn();
-
-        $stmt = $pdo->prepare("
-            INSERT INTO login_slides (image_path, title, subtitle, position, created_by)
-            VALUES (?, ?, ?, ?, ?)
-        ");
-
-        $stmt->execute([
-            $imagePath,
-            $title !== "" ? $title : null,
-            $subtitle !== "" ? $subtitle : null,
-            $position,
-            $admin["id"]
-        ]);
-
-        $newId = (int) $pdo->lastInsertId();
-
-        $pdo->commit();
-
-        response(true, "Slide added.", [
-            "id"         => $newId,
-            "image_path" => $imagePath,
-            "position"   => $position
-        ]);
-
-    } catch (Throwable $e) {
-
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
-        }
-
-        deleteSlideImage($imagePath);
-
-        response(false, "Could not add the slide.", [], 500);
+        response(false, $e->getMessage(), [], $e->status);
     }
 }
 
@@ -674,56 +546,16 @@ if ($_SERVER["REQUEST_METHOD"] === "DELETE") {
         response(false, "Slide not found.", [], 404);
     }
 
+    // Closes the gap the delete leaves, so positions stay 0..n-1.
     try {
 
-        $pdo->beginTransaction();
-
-        $stmt = $pdo->prepare("
-            SELECT id, image_path
-            FROM login_slides
-            WHERE id = ?
-            LIMIT 1
-            FOR UPDATE
-        ");
-
-        $stmt->execute([$id]);
-
-        $slide = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!$slide) {
-            $pdo->rollBack();
-            response(false, "Slide not found.", [], 404);
-        }
-
-        $pdo->prepare("DELETE FROM login_slides WHERE id = ?")->execute([$id]);
-
-        /*
-        | Close the gap the delete left, so positions stay 0..n-1 and the
-        | admin list never has to reason about holes.
-        */
-        $remaining = $pdo
-            ->query("SELECT id FROM login_slides ORDER BY position ASC, id ASC")
-            ->fetchAll(PDO::FETCH_COLUMN);
-
-        $update = $pdo->prepare("UPDATE login_slides SET position = ? WHERE id = ?");
-
-        foreach ($remaining as $index => $remainingId) {
-            $update->execute([$index, (int) $remainingId]);
-        }
-
-        $pdo->commit();
-
-        deleteSlideImage($slide["image_path"]);
+        removeLoginSlide($pdo, $id);
 
         response(true, "Slide removed.");
 
-    } catch (Throwable $e) {
+    } catch (PortalWriteError $e) {
 
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
-        }
-
-        response(false, "Could not remove the slide.", [], 500);
+        response(false, $e->getMessage(), [], $e->status);
     }
 }
 

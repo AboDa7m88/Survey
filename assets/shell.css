@@ -293,3 +293,119 @@
     display: none;
   }
 }
+
+/*
+|------------------------------------------------------------------------------
+| Account popup (the sidebar's account card opens it)
+|------------------------------------------------------------------------------
+|
+| One copy for every admin page. The dialog shell - backdrop, box, header - is
+| also what a few pages build their own dialogs from (settings' slide form,
+| the calendar's request form), so it is wrapped in :where(): no specificity,
+| and a page's own box rule (.slide-box, .req-box) wins whatever the load
+| order. The popup's contents are scoped to #acctModal.
+|
+| It shows the role alone - one of the four the portal has: Owner, plus the
+| Admin, Super Admin and Account Manager the owner hands out on Settings.
+| Esc and the backdrop close it (assets/shell.js).
+*/
+
+:where(.acct-modal) {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .45);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  padding: 20px;
+}
+
+:where(.acct-modal.show) {
+  display: flex;
+}
+
+:where(.acct-box) {
+  width: 100%;
+  max-width: 380px;
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .18);
+  overflow: hidden;
+}
+
+:where(.acct-head) {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #eef1f5;
+}
+
+:where(.acct-head h2) {
+  font-size: 17px;
+}
+
+:where(.acct-head button) {
+  border: none;
+  background: var(--nav-active, #1b1e3a);
+  color: #fff;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+#acctModal .acct-box {
+  max-width: 360px;
+}
+
+#acctModal .acct-body {
+  padding: 20px 24px 24px;
+  text-align: left;
+}
+
+#acctModal .acct-who {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 20px;
+}
+
+#acctModal .acct-label {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted, #667085);
+}
+
+#acctModal .acct-role {
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.3;
+  color: var(--text, #101828);
+}
+
+#acctModal .acct-logout {
+  width: 100%;
+  height: 46px;
+  border: 1px solid #f0d2d4;
+  background: #fff;
+  color: var(--brand, #c9000b);
+  border-radius: 12px;
+  font: inherit;
+  font-weight: 800;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+#acctModal .acct-logout:hover {
+  background: #fff5f5;
+}
+
+#acctModal .acct-head button:focus-visible,
+#acctModal .acct-logout:focus-visible {
+  outline: 2px solid var(--nav-active, #1b1e3a);
+  outline-offset: 2px;
+}

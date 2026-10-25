@@ -93,9 +93,51 @@ describe("private server: confirmed changes", () => {
     ]) {
       expect(names).toContain(n);
     }
-    for (const n of ["review_form", "propose_meeting", "respond_to_meeting", "save_my_client_note", "create_inquiry_draft", "update_inquiry"]) {
+    for (const n of ["review_form", "propose_meeting", "respond_to_meeting", "save_my_client_note", "create_inquiry_draft", "update_inquiry",
+                     "get_settings", "update_website_address", "set_logo", "add_admin", "change_admin_role"]) {
       expect(names).not.toContain(n);
     }
+    await c.close();
+  });
+
+  it("keeps settings and the admin team apart", async () => {
+    fakePortal({ scopes: ["settings:read", "settings:write"] });
+    const c = await connect();
+    const names = await toolNames(c);
+    for (const n of ["get_settings", "update_website_address", "set_logo", "add_login_slide", "update_login_slide",
+                     "reorder_login_slides", "remove_login_slide", "confirm_change"]) {
+      expect(names).toContain(n);
+    }
+    for (const n of ["add_admin", "change_admin_role", "set_admin_active", "assign_admins_to_manager"]) {
+      expect(names).not.toContain(n);
+    }
+    await c.close();
+  });
+
+  it("adds an admin without ever taking a password", async () => {
+    const upstream = fakePortal({ scopes: ["admins:write"] });
+    const c = await connect();
+    const { tools } = await c.listTools();
+    expect(Object.keys(tools.find((t) => t.name === "add_admin").inputSchema.properties).sort()).toEqual(["email", "name", "role"]);
+
+    const r = await c.callTool({ name: "add_admin", arguments: { name: "Nia", email: "n@w.test", role: "super_admin" } });
+    expect(r.isError).toBeFalsy();
+    expect(r.content[0].text).toMatch(/^NOTHING HAS CHANGED YET/);
+    expect(posts(upstream)).toEqual([expect.objectContaining({
+      path: "changes.php",
+      body: { action: "prepare", tool: "add_admin", args: { name: "Nia", email: "n@w.test", role: "super_admin" } },
+    })]);
+
+    const owner = await c.callTool({ name: "change_admin_role", arguments: { admin: 7, role: "owner" } });
+    expect(owner.isError).toBe(true);
+    await c.close();
+  });
+
+  it("takes images for settings by https link only", async () => {
+    fakePortal({ scopes: ["settings:write"] });
+    const c = await connect();
+    const r = await c.callTool({ name: "set_logo", arguments: { image: "http://example.com/logo.png" } });
+    expect(r.isError).toBe(true);
     await c.close();
   });
 

@@ -1,6 +1,7 @@
 <?php
 
 require_once "db.php";
+require_once "admin-settings-writes.php";
 
 header("Content-Type: application/json");
 
@@ -36,26 +37,8 @@ if (!$admin) {
     exit;
 }
 
-if ($admin["role"] === "owner") {
-
-    // The owner sees every Admin, Super Admin and Account Manager, plus
-    // who each Admin has been distributed to (for the Distribute Admins panel).
-    $stmt = $pdo->prepare("
-        SELECT
-            admins.id, admins.name, admins.email, admins.role, admins.active,
-            admins.managed_by_admin_id,
-            manager.name AS managed_by_name
-        FROM admins
-        LEFT JOIN admins manager ON manager.id = admins.managed_by_admin_id
-        WHERE admins.role IN ('seo_admin', 'super_admin', 'account_manager')
-        ORDER BY admins.id DESC
-    ");
-
-    $stmt->execute();
-
-} else {
-
-    // Available Admins on settings.html is the owner's alone.
+// Available Admins on settings.html is the owner's alone.
+if ($admin["role"] !== "owner") {
 
     http_response_code(403);
 
@@ -67,7 +50,9 @@ if ($admin["role"] === "owner") {
     exit;
 }
 
-$admins = $stmt->fetchAll(PDO::FETCH_ASSOC);
+// Every Admin, Super Admin and Account Manager, plus who each Admin has been
+// distributed to - the same list api/v1's get_settings returns.
+$admins = listTeamAdmins($pdo);
 
 
 echo json_encode([

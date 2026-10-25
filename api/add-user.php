@@ -1,5 +1,6 @@
 <?php
 require_once "db.php";
+require_once "admin-settings-writes.php";
 
 header("Content-Type: application/json");
 
@@ -20,27 +21,23 @@ if(!$admin || $admin["role"] !== "owner"){
 
 $input = json_decode(file_get_contents("php://input"), true);
 
-$name = trim($input["name"] ?? "");
-$email = trim($input["email"] ?? "");
-
-if(!$name || !$email || empty($input["password"])){
+if(empty($input["password"])){
     echo json_encode(["success"=>false,"message"=>"Name, email and password are required"]);
     exit;
 }
 
-$password = password_hash($input["password"], PASSWORD_DEFAULT);
+// Anything but an assignable role falls back to a plain Admin, as the
+// dropdown's default.
+$role = in_array($input["role"] ?? "", ASSIGNABLE_ADMIN_ROLES, true) ? $input["role"] : "seo_admin";
 
-// Whitelist every admin role that actually exists now - previously this
-// only recognized super_admin/seo_admin and silently downgraded anything
-// else (including account_manager) to seo_admin.
-$allowedRoles = ["seo_admin", "super_admin", "account_manager"];
-$role = in_array($input["role"] ?? "", $allowedRoles, true) ? $input["role"] : "seo_admin";
-
-$stmt = $pdo->prepare("
-    INSERT INTO admins (name,email,password,role,active)
-    VALUES (?,?,?,?,1)
-");
-
-$stmt->execute([$name,$email,$password,$role]);
+// The checks (valid email, not already an admin) are shared with api/v1's
+// add_admin - admin-settings-writes.php.
+try {
+    [$name, $email] = checkNewAdmin($pdo, $input["name"] ?? "", $input["email"] ?? "", $role);
+    createAdmin($pdo, $name, $email, $role, (string) $input["password"]);
+} catch (PortalWriteError $e) {
+    echo json_encode(["success"=>false,"message"=>$e->getMessage()]);
+    exit;
+}
 
 echo json_encode(["success"=>true]);

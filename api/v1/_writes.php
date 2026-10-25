@@ -34,9 +34,15 @@
 | content page lets do that (canPublishContent) - nothing else here makes
 | anything public on its own.
 |
-| Deliberately missing: anything that deletes, unpublishes content, opens an
-| inquiry, sends an announcement, or changes accounts or permissions. Those
-| stay in the portal.
+| The owner's Settings page is here too (settings:write, admins:write -
+| scopes no other role can hold): the website address, logo and login
+| slides, and the admin team - adding admins (who choose their own password
+| from an emailed link; none passes through the assistant), roles, switching
+| them on or off, and who manages whom. remove_login_slide is the one delete.
+|
+| Deliberately missing: deleting anything else, unpublishing content, opening
+| an inquiry, sending an announcement, a client's account, and the files
+| password. Those stay in the portal.
 |
 | Each handler is for staff, or - with "kind" => "user" - for a client acting
 | on their own account (the self:* scopes). changes.php never lets one reach
@@ -50,6 +56,7 @@ require_once __DIR__ . "/../inquiry-templates.php";
 require_once __DIR__ . "/../survey-submit.php";
 require_once __DIR__ . "/../content-writes.php";
 require_once __DIR__ . "/../content-image-fetch.php";
+require_once __DIR__ . "/../admin-settings-writes.php";
 
 const V1_CONFIRM_TTL = 900; // 15 minutes to say yes
 
@@ -213,6 +220,14 @@ function argImages(array $a, $key = "images")
         contentImageTarget($i, $url);
     }
     return $list;
+}
+
+/** One https image link, checked (contentImageTarget) but not downloaded. */
+function argImageLink(array $a, $key)
+{
+    $url = argText($a, $key, 2000);
+    contentImageTarget(0, $url);
+    return $url;
 }
 
 /** "2 images" */
@@ -1447,6 +1462,270 @@ function v1WriteHandlers()
                 ];
             },
         ],
+
+        // ── Settings (the owner's; admin-settings-writes.php) ────────────
+
+        "update_website_address" => [
+            "scope" => "settings:write",
+            "prepare" => function (PDO $pdo, array $p, array $a) {
+                $address = checkWebsiteAddress(argText($a, "address", 500, false));
+                $now = getSiteSetting($pdo, "website_url", "");
+                return [
+                    "args" => ["address" => $address],
+                    "summary" => $address === ""
+                        ? "Clear the website address, so the logo on public pages is no longer a link."
+                        : "Set the website address to " . normaliseWebUrl($address)
+                          . ($now !== "" ? " (now " . normaliseWebUrl($now) . ")" : "")
+                          . ". The logo on every public page links there.",
+                    "preview" => ["address_now" => $now === "" ? null : $now, "address_after" => $address === "" ? null : $address],
+                ];
+            },
+            "apply" => function (PDO $pdo, array $p, array $a) {
+                saveWebsiteAddress($pdo, $a["address"]);
+                return ["website_address" => $a["address"] === "" ? null : $a["address"]];
+            },
+        ],
+
+        "set_logo" => [
+            "scope" => "settings:write",
+            "prepare" => function (PDO $pdo, array $p, array $a) {
+                $image = argImageLink($a, "image");
+                return [
+                    "args" => ["image" => $image],
+                    "summary" => "Replace the portal's logo, on every page, with the image at " . $image
+                        . ". It is downloaded and checked (PNG or JPG, 3 MB at most) when you confirm.",
+                    "preview" => ["image" => $image],
+                ];
+            },
+            "apply" => function (PDO $pdo, array $p, array $a) {
+                fetchSiteLogo($a["image"]);
+                return ["logo_url" => APP_URL . "/logo.png?v=" . filemtime(siteLogoPath())];
+            },
+        ],
+
+        "add_login_slide" => [
+            "scope" => "settings:write",
+            "prepare" => function (PDO $pdo, array $p, array $a) {
+                $image = argImageLink($a, "image");
+                $title = loginSlideTitle(argText($a, "title", 120, false));
+                $subtitle = loginSlideSubtitle(argText($a, "subtitle", 255, false));
+                checkLoginSlideRoom($pdo);
+                return [
+                    "args" => ["image" => $image, "title" => $title, "subtitle" => $subtitle],
+                    "summary" => "Add a slide to the sign-in page, after the others, with the image at " . $image
+                        . ($title !== "" ? ", titled " . quoteFor($title) : "")
+                        . ". The image is downloaded and checked (at least " . LOGIN_SLIDE_MIN_WIDTH . " × "
+                        . LOGIN_SLIDE_MIN_HEIGHT . " px) when you confirm.",
+                    "preview" => ["image" => $image, "untrusted_content" => ["title" => $title, "subtitle" => $subtitle]],
+                ];
+            },
+            "apply" => function (PDO $pdo, array $p, array $a) {
+                $imagePath = fetchLoginSlideImage($a["image"]);
+                $slide = addLoginSlide($pdo, $imagePath, $a["title"], $a["subtitle"], $p["id"]);
+                return ["slide_id" => $slide["id"], "position" => $slide["position"]];
+            },
+        ],
+
+        "update_login_slide" => [
+            "scope" => "settings:write",
+            "prepare" => function (PDO $pdo, array $p, array $a) {
+                $slideId = argInt($a, "slide");
+                $slide = findLoginSlide($pdo, $slideId);
+                $changes = [];
+                $args = ["slide" => $slideId, "title" => (string) $slide["title"], "subtitle" => (string) $slide["subtitle"]];
+                foreach (["title" => 120, "subtitle" => 255] as $field => $max) {
+                    if (array_key_exists($field, $a) && $a[$field] !== null) {
+                        $args[$field] = mb_substr(argText($a, $field, $max, false), 0, $max);
+                        noteChange($changes, $field, (string) $slide[$field], $args[$field]);
+                    }
+                }
+                if (!$changes) {
+                    throw new PortalWriteError("Nothing to change - give a new title or subtitle.");
+                }
+                return [
+                    "args" => $args,
+                    "summary" => "Change sign-in slide " . ((int) $slide["position"] + 1) . ": " . describeChanges($changes) . ".",
+                    "preview" => ["slide_id" => $slideId, "untrusted_content" => ["changes" => $changes]],
+                ];
+            },
+            "apply" => function (PDO $pdo, array $p, array $a) {
+                updateLoginSlideText($pdo, $a["slide"], $a["title"], $a["subtitle"]);
+                return ["slide_id" => $a["slide"], "saved" => true];
+            },
+        ],
+
+        "reorder_login_slides" => [
+            "scope" => "settings:write",
+            "prepare" => function (PDO $pdo, array $p, array $a) {
+                $order = argList($a, "order", 1, LOGIN_SLIDES_MAX);
+                try {
+                    $ids = checkLoginSlideOrder($pdo, $order);
+                } catch (PortalWriteError $e) {
+                    throw new PortalWriteError("order must list every slide's id once - get_settings has them.");
+                }
+                return [
+                    "args" => ["order" => $ids],
+                    "summary" => "Show the sign-in page slides in this order: " . implode(", ", array_map(function ($id) {
+                        return "slide " . $id;
+                    }, $ids)) . ".",
+                    "preview" => ["order" => $ids],
+                ];
+            },
+            "apply" => function (PDO $pdo, array $p, array $a) {
+                reorderLoginSlides($pdo, $a["order"]);
+                return ["order" => $a["order"]];
+            },
+        ],
+
+        "remove_login_slide" => [
+            "scope" => "settings:write",
+            "prepare" => function (PDO $pdo, array $p, array $a) {
+                $slideId = argInt($a, "slide");
+                $slide = findLoginSlide($pdo, $slideId);
+                return [
+                    "args" => ["slide" => $slideId],
+                    "summary" => "Remove sign-in slide " . ((int) $slide["position"] + 1)
+                        . ($slide["title"] ? " (" . quoteFor($slide["title"]) . ")" : "")
+                        . " and delete its image. This can't be undone.",
+                    "preview" => [
+                        "slide_id" => $slideId,
+                        "image_url" => APP_URL . "/" . ltrim($slide["image_path"], "/"),
+                        "untrusted_content" => ["title" => $slide["title"], "subtitle" => $slide["subtitle"]],
+                    ],
+                ];
+            },
+            "apply" => function (PDO $pdo, array $p, array $a) {
+                removeLoginSlide($pdo, $a["slide"]);
+                return ["slide_id" => $a["slide"], "removed" => true];
+            },
+        ],
+
+        // ── The admin team (the owner's; admin-settings-writes.php) ──────
+
+        "add_admin" => [
+            "scope" => "admins:write",
+            "prepare" => function (PDO $pdo, array $p, array $a) {
+                $role = argEnum($a, "role", ASSIGNABLE_ADMIN_ROLES);
+                [$name, $email] = checkNewAdmin($pdo, argText($a, "name", 100), argText($a, "email", 190), $role);
+                return [
+                    "args" => ["name" => $name, "email" => $email, "role" => $role],
+                    "summary" => "Add " . quoteFor($name) . " (" . $email . ") to the admin team as " . adminRoleName($role)
+                        . ". They are emailed a link to choose their password, good for 3 days.",
+                    "preview" => ["role" => $role, "untrusted_content" => ["name" => $name, "email" => $email]],
+                ];
+            },
+            "apply" => function (PDO $pdo, array $p, array $a) {
+                $id = createAdmin($pdo, $a["name"], $a["email"], $a["role"]);
+                $emailed = emailNewAdminWelcome($pdo, $id, $a["name"], $a["email"], $a["role"], $p["name"]);
+                return [
+                    "admin_id" => $id,
+                    "emailed" => $emailed,
+                    "note" => $emailed ? null
+                        : "The email didn't go out. They can use \"Forgot password\" on the admin sign-in page with this address.",
+                ];
+            },
+        ],
+
+        "change_admin_role" => [
+            "scope" => "admins:write",
+            "prepare" => function (PDO $pdo, array $p, array $a) {
+                $adminId = argInt($a, "admin");
+                $role = argEnum($a, "role", ASSIGNABLE_ADMIN_ROLES);
+                $target = checkAdminRoleChange($pdo, $p, $adminId, $role);
+                if ($target["role"] === $role) {
+                    throw new PortalWriteError(adminLabel($target) . " is already " . adminRoleName($role) . ".", 409);
+                }
+                return [
+                    "args" => ["admin" => $adminId, "role" => $role],
+                    "summary" => "Change " . adminLabel($target) . " from " . adminRoleName($target["role"]) . " to "
+                        . adminRoleName($role) . ". They are signed out and get the new role when they next sign in.",
+                    "preview" => [
+                        "admin_id" => $adminId,
+                        "role_now" => $target["role"],
+                        "role_after" => $role,
+                        "untrusted_content" => ["name" => $target["name"], "email" => $target["email"]],
+                    ],
+                ];
+            },
+            "apply" => function (PDO $pdo, array $p, array $a) {
+                changeAdminRole($pdo, $a["admin"], $a["role"]);
+                return ["admin_id" => $a["admin"], "role" => $a["role"], "signed_out" => true];
+            },
+        ],
+
+        "set_admin_active" => [
+            "scope" => "admins:write",
+            "prepare" => function (PDO $pdo, array $p, array $a) {
+                $adminId = argInt($a, "admin");
+                $active = argBool($a, "active", null);
+                if ($active === null) {
+                    throw new PortalWriteError("active is required.");
+                }
+                $target = checkAdminActiveChange($pdo, $p, $adminId);
+                if (((int) $target["active"] === 1) === $active) {
+                    throw new PortalWriteError(adminLabel($target) . " is already " . ($active ? "active" : "deactivated") . ".", 409);
+                }
+                return [
+                    "args" => ["admin" => $adminId, "active" => $active],
+                    "summary" => $active
+                        ? "Activate " . adminLabel($target) . " so they can sign in again, with everything as it was."
+                        : "Deactivate " . adminLabel($target) . ": they can no longer sign in. Nothing of theirs is removed.",
+                    "preview" => [
+                        "admin_id" => $adminId,
+                        "active_now" => (int) $target["active"] === 1,
+                        "active_after" => $active,
+                        "untrusted_content" => ["name" => $target["name"], "email" => $target["email"]],
+                    ],
+                ];
+            },
+            "apply" => function (PDO $pdo, array $p, array $a) {
+                setAdminActive($pdo, $a["admin"], $a["active"]);
+                return ["admin_id" => $a["admin"], "active" => $a["active"]];
+            },
+        ],
+
+        "assign_admins_to_manager" => [
+            "scope" => "admins:write",
+            "prepare" => function (PDO $pdo, array $p, array $a) {
+                $managerId = argInt($a, "manager");
+                $given = argList($a, "admins", 0, 200);
+                foreach ($given as $id) {
+                    if (!is_int($id) || $id <= 0) {
+                        throw new PortalWriteError("admins must be a list of admin ids.");
+                    }
+                }
+                [$manager, $adminIds] = checkManagerAssignment($pdo, $managerId, $given);
+                $dropped = array_values(array_diff(array_unique($given), $adminIds));
+                if ($dropped) {
+                    throw new PortalWriteError(adminRoleName($manager["role"]) . "s can't manage admin "
+                        . implode(", ", $dropped) . ". A super admin manages Admins (seo_admin); an account manager, "
+                        . "Admins and super admins.");
+                }
+                $current = $pdo->prepare("SELECT id FROM admins WHERE managed_by_admin_id = ? ORDER BY id");
+                $current->execute([$managerId]);
+                $now = array_map("intval", $current->fetchAll(PDO::FETCH_COLUMN));
+                $names = adminNames($pdo, $adminIds);
+                return [
+                    "args" => ["manager" => $managerId, "admins" => $adminIds],
+                    "summary" => $adminIds
+                        ? "Set who " . adminLabel($manager) . " manages to: " . $names
+                          . ". Anyone they manage now who isn't listed is taken off; anyone listed who had another manager moves to them."
+                        : "Take everyone off " . adminLabel($manager) . ", so they manage no one.",
+                    "preview" => [
+                        "manager_id" => $managerId,
+                        "manages_now" => $now,
+                        "manages_after" => $adminIds,
+                        "untrusted_content" => ["manager" => $manager["name"], "admins_after" => $names],
+                    ],
+                ];
+            },
+            "apply" => function (PDO $pdo, array $p, array $a) {
+                [, $adminIds, $allowedRoles] = checkManagerAssignment($pdo, $a["manager"], $a["admins"]);
+                assignAdminsToManager($pdo, $a["manager"], $adminIds, $allowedRoles);
+                return ["manager_id" => $a["manager"], "admins" => $adminIds];
+            },
+        ],
+
         // ── A client's own account ───────────────────────────────────────
 
         "request_meeting" => [

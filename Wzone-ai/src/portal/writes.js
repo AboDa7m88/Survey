@@ -36,24 +36,32 @@ const clientId = recordId("The client's id - from search_clients");
 const date = (what) => z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "must be a date like 2026-10-05").describe(what);
 const time = (what) => z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "must be a 24-hour time like 14:30").describe(what);
 
-// A post's images, by link: the portal downloads them on confirm and checks
-// them as its own upload does (api/content-image-fetch.php). A tool call
-// can't carry the file itself, so the description tells the assistant how to
-// walk the person through getting a link.
+// Images go by link: the portal downloads them on confirm and checks them as
+// its own upload does (api/content-image-fetch.php). A tool call can't carry
+// the file itself, so the description tells the assistant how to walk the
+// person through getting a link.
+const httpsLink = z.string().url().startsWith("https://", "must be an https:// link").max(2000);
+const IMAGE_BY_LINK =
+  "The portal downloads it when the change is confirmed. " +
+  "An image attached to the chat can't be sent from here: the assistant never gets the file itself, only a link works. " +
+  "When the person wants to add an image they only have as a file, explain this plainly and offer the way through: " +
+  "(1) put the image in Google Drive, Dropbox, OneDrive or any storage that gives share links - if you have a connector " +
+  "for one of them in this chat (Google Drive, Dropbox...), use it to find the file and get its link; otherwise ask them to " +
+  "connect one in their AI app's connector settings, or to upload it there themselves; " +
+  "(2) set its sharing to \"Anyone with the link\" - a private file can't be downloaded; " +
+  "(3) give that link here. Google Drive and Dropbox share links work as they are; the portal fetches the file behind them.";
+
 const postImages = z
-  .array(z.string().url().startsWith("https://", "must be an https:// link").max(2000))
+  .array(httpsLink)
   .max(5)
-  .describe(
-    "Up to 5 public https links to JPG, PNG, WEBP or GIF images, 3 MB each, in the order to show them. " +
-      "The portal downloads them when the change is confirmed. " +
-      "An image attached to the chat can't be sent from here: the assistant never gets the file itself, only a link works. " +
-      "When the person wants to add an image they only have as a file, explain this plainly and offer the way through: " +
-      "(1) put the image in Google Drive, Dropbox, OneDrive or any storage that gives share links - if you have a connector " +
-      "for one of them in this chat (Google Drive, Dropbox...), use it to find the file and get its link; otherwise ask them to " +
-      "connect one in their AI app's connector settings, or to upload it there themselves; " +
-      "(2) set its sharing to \"Anyone with the link\" - a private file can't be downloaded; " +
-      "(3) give that link here. Google Drive and Dropbox share links work as they are; the portal fetches the file behind them."
-  );
+  .describe("Up to 5 public https links to JPG, PNG, WEBP or GIF images, 3 MB each, in the order to show them. " + IMAGE_BY_LINK);
+
+const imageLink = (what) => httpsLink.describe(what + " " + IMAGE_BY_LINK);
+
+const adminId = recordId("The admin's id - from get_settings");
+const adminRole = z
+  .enum(["seo_admin", "super_admin", "account_manager"])
+  .describe("seo_admin is shown as Admin. The owner role can't be given");
 
 // What a post carries for the team working on it: never shown to the client.
 const postTeamFields = {
@@ -314,6 +322,109 @@ export const WRITE_TOOLS = [
       link: z.string().max(500).optional(),
       status: z.enum(["draft", "published"]).optional(),
       is_complete: z.boolean().optional(),
+    },
+  },
+
+  // ── Settings (the owner's) ────────────────────────────────────────────
+  {
+    name: "update_website_address",
+    scope: "settings:write",
+    title: "Change the website address",
+    description:
+      "Sets the public website address the logo links to on every public page, e.g. wzone.london. " +
+      "\"\" clears it, so the logo is no longer a link." + TWO_STEP,
+    input: { address: z.string().max(500).describe("The address as it should be shown; https:// is added when missing") },
+  },
+  {
+    name: "set_logo",
+    scope: "settings:write",
+    title: "Replace the logo",
+    description:
+      "Replaces the portal's logo, shown on every page, with a PNG or JPG image at a link." + TWO_STEP,
+    input: { image: imageLink("The new logo: a public https link to a PNG or JPG image, 3 MB at most.") },
+  },
+  {
+    name: "add_login_slide",
+    scope: "settings:write",
+    title: "Add a login page slide",
+    description:
+      "Adds a slide to the slideshow on the sign-in page, after the others. get_settings gives how many " +
+      "there can be and the smallest image size." + TWO_STEP,
+    input: {
+      image: imageLink("A public https link to a JPG, PNG, WEBP or GIF image, 3 MB at most, at least 600x800 px."),
+      title: z.string().max(120).optional(),
+      subtitle: z.string().max(255).optional(),
+    },
+  },
+  {
+    name: "update_login_slide",
+    scope: "settings:write",
+    title: "Change a login slide's text",
+    description: "Changes a sign-in page slide's title and subtitle. \"\" clears one." + EDIT + TWO_STEP,
+    input: {
+      slide: recordId("The slide's id - from get_settings"),
+      title: z.string().max(120).optional(),
+      subtitle: z.string().max(255).optional(),
+    },
+  },
+  {
+    name: "reorder_login_slides",
+    scope: "settings:write",
+    title: "Reorder the login slides",
+    description: "Puts the sign-in page slides in a new order. List every slide's id, first to last." + TWO_STEP,
+    input: { order: z.array(recordId("A slide's id")).min(1).max(20).describe("Every slide id, in the new order") },
+  },
+  {
+    name: "remove_login_slide",
+    scope: "settings:write",
+    title: "Remove a login slide",
+    description: "Removes a slide from the sign-in page slideshow, and its image. It can't be undone." + TWO_STEP,
+    input: { slide: recordId("The slide's id - from get_settings") },
+  },
+
+  // ── The admin team (the owner's) ──────────────────────────────────────
+  {
+    name: "add_admin",
+    scope: "admins:write",
+    title: "Add an admin",
+    description:
+      "Adds someone to the admin team. No password is set here: they are emailed a link to choose their own, " +
+      "good for 3 days. Roles: seo_admin (shown as Admin), super_admin, account_manager." + TWO_STEP,
+    input: {
+      name: z.string().min(1).max(100),
+      email: z.string().email().max(190),
+      role: adminRole,
+    },
+  },
+  {
+    name: "change_admin_role",
+    scope: "admins:write",
+    title: "Change an admin's role",
+    description:
+      "Changes an admin's role. They are signed out and pick up the new role when they next sign in. " +
+      "The owner's role, and your own, can't be changed." + TWO_STEP,
+    input: { admin: adminId, role: adminRole },
+  },
+  {
+    name: "set_admin_active",
+    scope: "admins:write",
+    title: "Switch an admin on or off",
+    description:
+      "Deactivating stops an admin signing in; nothing of theirs is removed, and activating them again restores " +
+      "everything as it was. You can't deactivate yourself." + TWO_STEP,
+    input: { admin: adminId, active: z.boolean().describe("true: they can sign in; false: they can't") },
+  },
+  {
+    name: "assign_admins_to_manager",
+    scope: "admins:write",
+    title: "Assign admins to a manager",
+    description:
+      "Sets exactly who a super admin or account manager manages, replacing who they have now ([] clears it). " +
+      "A super admin can manage Admins (seo_admin); an account manager, Admins and super admins. " +
+      "Someone who had another manager moves to this one." + TWO_STEP,
+    input: {
+      manager: recordId("The super admin's or account manager's id - from get_settings"),
+      admins: z.array(adminId).max(200).describe("Every admin they should manage"),
     },
   },
 

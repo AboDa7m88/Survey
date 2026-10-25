@@ -199,10 +199,51 @@
     return close;
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", start);
-  } else {
+  /* The account popup (#acctModal). Each page opens and closes it with its own
+     openAccount() / closeAccount(), which only toggle .show - so this watches
+     that class: focus moves into the popup when it opens and back to the
+     account card when it shuts, and Esc or a click on the backdrop shuts it. */
+  function accountPopup() {
+
+    var modal = document.getElementById("acctModal");
+
+    if (!modal) return;
+
+    var opener = null;
+
+    function shut() {
+      modal.classList.remove("show");
+    }
+
+    new MutationObserver(function () {
+      if (modal.classList.contains("show")) {
+        opener = document.activeElement;
+        var first = modal.querySelector("button");
+        if (first) first.focus();
+      } else if (opener && document.contains(opener)) {
+        opener.focus();
+        opener = null;
+      }
+    }).observe(modal, { attributes: true, attributeFilter: ["class"] });
+
+    modal.addEventListener("click", function (event) {
+      if (event.target === modal) shut();
+    });
+
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && modal.classList.contains("show")) shut();
+    });
+  }
+
+  function ready() {
     start();
+    accountPopup();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", ready);
+  } else {
+    ready();
   }
 
 })();

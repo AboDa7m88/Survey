@@ -1,6 +1,7 @@
 <?php
 
 require_once "db.php";
+require_once "admin-settings-writes.php";
 
 header("Content-Type: application/json");
 
@@ -85,78 +86,25 @@ if ($method === "POST") {
         exit;
     }
 
-    $managerStmt = $pdo->prepare("SELECT id, role FROM admins WHERE id = ? LIMIT 1");
-    $managerStmt->execute([$managerId]);
-    $manager = $managerStmt->fetch();
-
-    if (!$manager || !in_array($manager["role"], ["super_admin", "account_manager"], true)) {
-        echo json_encode([
-            "success" => false,
-            "message" => "That manager was not found."
-        ]);
-        exit;
-    }
-
-    // Who may sit under this manager: plain Admins for anyone, and super admins
-    // as well when the manager is an account manager - the same pool
-    // settings.html offers. Anything else sent from outside the checkbox list
-    // is quietly dropped.
-    $allowedRoles = $manager["role"] === "account_manager"
-        ? ["seo_admin", "super_admin"]
-        : ["seo_admin"];
-
-    $rolePlaceholders = implode(",", array_fill(0, count($allowedRoles), "?"));
-
-    $validIdsStmt = $pdo->prepare("SELECT id FROM admins WHERE role IN ($rolePlaceholders) AND id <> ?");
-    $validIdsStmt->execute(array_merge($allowedRoles, [$managerId]));
-    $validAdminIds = array_map(function ($row) {
-        return (int)$row["id"];
-    }, $validIdsStmt->fetchAll());
-
-    $adminIds = array_values(array_intersect($adminIds, $validAdminIds));
-
-    $pdo->beginTransaction();
-
+    // Who may sit under which manager, and the full-replace save, are shared
+    // with api/v1 (admin-settings-writes.php). Ids from outside the pool
+    // settings.html offers are quietly dropped.
     try {
-        // Full replace: clear whatever this manager currently has, then set
-        // it to exactly what was checked.
-        // (An admin checked here that belonged to a different manager moves
-        // over - that's intended, since one Admin only ever has one manager.)
-        $clearStmt = $pdo->prepare("
-            UPDATE admins
-            SET managed_by_admin_id = NULL
-            WHERE managed_by_admin_id = ?
-        ");
-        $clearStmt->execute([$managerId]);
-
-        if (!empty($adminIds)) {
-            $placeholders = implode(",", array_fill(0, count($adminIds), "?"));
-
-            $assignStmt = $pdo->prepare("
-                UPDATE admins
-                SET managed_by_admin_id = ?
-                WHERE id IN ($placeholders) AND role IN ($rolePlaceholders)
-            ");
-            $assignStmt->execute(array_merge([$managerId], $adminIds, $allowedRoles));
-        }
-
-        $pdo->commit();
-
-        echo json_encode([
-            "success" => true,
-            "message" => "Assignments saved successfully"
-        ]);
-        exit;
-
-    } catch (Exception $e) {
-        $pdo->rollBack();
-
+        [, $adminIds, $allowedRoles] = checkManagerAssignment($pdo, $managerId, $adminIds);
+        assignAdminsToManager($pdo, $managerId, $adminIds, $allowedRoles);
+    } catch (PortalWriteError $e) {
         echo json_encode([
             "success" => false,
-            "message" => "Failed to save assignments"
+            "message" => $e->getMessage()
         ]);
         exit;
     }
+
+    echo json_encode([
+        "success" => true,
+        "message" => "Assignments saved successfully"
+    ]);
+    exit;
 }
 
 echo json_encode([
