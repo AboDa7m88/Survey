@@ -218,98 +218,6 @@
         display: none;
       }
 
-      /* ── Account popup (sidebar card) ── */
-      .acct-modal {
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.45);
-        display: none;
-        align-items: center;
-        justify-content: center;
-        z-index: 99999;
-        padding: 20px;
-      }
-      .acct-modal.show {
-        display: flex;
-      }
-      .acct-box {
-        width: 100%;
-        max-width: 380px;
-        background: #fff;
-        border-radius: 20px;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
-        overflow: hidden;
-      }
-      .acct-head {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 20px 24px;
-        border-bottom: 1px solid #eef1f5;
-      }
-      .acct-head h2 {
-        font-size: 17px;
-      }
-      .acct-head button {
-        border: none;
-        background: var(--nav-active);
-        color: #fff;
-        width: 34px;
-        height: 34px;
-        border-radius: 50%;
-        font-size: 22px;
-        line-height: 1;
-        cursor: pointer;
-      }
-      .acct-body {
-        padding: 24px;
-        text-align: center;
-      }
-      .acct-avatar {
-        width: 72px;
-        height: 72px;
-        border-radius: 50%;
-        background: #dce3ff;
-        color: #3745a4;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 800;
-        font-size: 26px;
-        margin: 0 auto 16px;
-      }
-      .acct-body strong {
-        display: block;
-        font-size: 16px;
-        margin-bottom: 8px;
-      }
-      .acct-role {
-        display: inline-block;
-        font-size: 11px;
-        font-weight: 800;
-        text-transform: uppercase;
-        letter-spacing: 0.6px;
-        color: var(--nav-active);
-        background: #eef0f6;
-        border-radius: 20px;
-        padding: 5px 12px;
-        margin-bottom: 22px;
-      }
-      .acct-logout {
-        width: 100%;
-        height: 46px;
-        border: 1px solid #f0d2d4;
-        background: #fff;
-        color: var(--brand);
-        border-radius: 12px;
-        font-weight: 800;
-        font-size: 14px;
-        cursor: pointer;
-      }
-      .acct-logout:hover {
-        background: #fff5f5;
-      }
-
       /* ── Page header ── */
       .page-head {
         display: flex;
@@ -1294,7 +1202,7 @@
         document.getElementById("acctModal").classList.remove("show");
       }
     </script>
-    <link rel="stylesheet" href="assets/shell.css?v=4" />
+    <link rel="stylesheet" href="assets/shell.css?v=5" />
   </head>
 
   <body>
@@ -1479,7 +1387,7 @@
         <div class="side-avatar" id="adminAvatar">A</div>
         <div class="side-meta">
           <strong id="adminName">Admin</strong>
-          <span id="adminRole">Administrator</span>
+          <span id="adminRole"></span>
         </div>
         <svg
           class="side-dots"
@@ -2065,18 +1973,17 @@
     </div>
 
     <div class="acct-modal" id="acctModal">
-      <div class="acct-box">
+      <div class="acct-box" role="dialog" aria-modal="true" aria-labelledby="acctTitle">
         <div class="acct-head">
-          <h2>Account</h2>
-          <button type="button" onclick="closeAccount()">&times;</button>
+          <h2 id="acctTitle">Account</h2>
+          <button type="button" onclick="closeAccount()" aria-label="Close">&times;</button>
         </div>
         <div class="acct-body">
-          <div class="acct-avatar" id="acctAvatar">A</div>
-          <strong id="acctName">Admin</strong>
-          <span class="acct-role" id="acctRole">Administrator</span>
-          <button class="acct-logout" type="button" onclick="logout()">
-            Logout
-          </button>
+          <div class="acct-who">
+            <span class="acct-label">Your role</span>
+            <strong class="acct-role" id="acctRole"></strong>
+          </div>
+          <button class="acct-logout" type="button" onclick="logout()">&#8617; Log out</button>
         </div>
       </div>
     </div>
@@ -2095,7 +2002,7 @@
       (function () {
         const name = adminUser.name || "Admin";
         const label =
-          adminUser.role === "super_admin" ? "Super Admin" : "Administrator";
+          ({ owner: "Owner", super_admin: "Super Admin", account_manager: "Account Manager", seo_admin: "Admin" })[adminUser.role] || "";
         const initial = name.charAt(0).toUpperCase();
         const set = (id, value) => {
           const el = document.getElementById(id);
@@ -2104,9 +2011,7 @@
         set("adminName", name);
         set("adminRole", label);
         set("adminAvatar", initial);
-        set("acctName", name);
         set("acctRole", label);
-        set("acctAvatar", initial);
       })();
 
       const editId = new URLSearchParams(location.search).get("id");
@@ -3687,7 +3592,7 @@
 
     <script src="assets/notifications.js?v=1"></script>
     <script src="assets/confirm.js?v=1"></script>
-    <script src="assets/shell.js?v=3"></script>
+    <script src="assets/shell.js?v=4"></script>
     <script src="assets/sources-lock.js?v=1"></script>
     <script src="assets/role-nav.js?v=2"></script>
   </body>
