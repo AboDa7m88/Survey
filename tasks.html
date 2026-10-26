@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --ink: #1c2033;
+            --muted: #6b7185;
+            --line: #e6e8ef;
+            --bg: #f6f7fb;
+            --green: #10b981;
+            --orange: #f59e0b;
+            --blue: #3b82f6;
+            --red: #b91c1c;
+            --week: #f97316;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+            color: var(--ink);
+            background: #f3f3f3;
+            font-size: 14px;
+            overflow-x: hidden;
+        }
+
+        .app {
+            display: grid;
+            grid-template-columns: 220px 1fr;
+            min-height: 100vh;
+            max-width: 1240px;
+            margin: 0 auto;
+            background: var(--bg);
+            position: relative;
+        }
+
+        /* ---------- Mobile Top Bar ---------- */
+        .mobile-header {
+            display: none;
+            background: #fff;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--line);
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 90;
+        }
+
+        .hamburger {
+            background: none;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .hamburger svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 99;
+            backdrop-filter: blur(2px);
+        }
+
+        .overlay.active {
+            display: block;
+        }
+
+        /* ---------- Sidebar ---------- */
+        .sidebar {
+            background: #fff;
+            padding: 22px 16px;
+            display: flex;
+            flex-direction: column;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            align-self: start;
+            border-right: 1px solid var(--line);
+            z-index: 100;
+            transition: transform 0.3s ease;
+        }
+
+        .brand {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 28px;
+            padding: 0 6px;
+        }
+
+        .logo {
+            font-weight: 700;
+            font-size: 22px;
+            letter-spacing: -1px;
+        }
+
+        .logo span {
+            color: #d1202a;
+        }
+
+        .close-sidebar {
+            display: none;
+            background: none;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            width: 28px;
+            height: 28px;
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .nav {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .nav a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 11px 16px;
+            border-radius: 999px;
+            color: var(--ink);
+            text-decoration: none;
+            font-weight: 500;
+            min-height: 44px;
+        }
+
+        .nav a svg {
+            width: 18px;
+            height: 18px;
+            flex: none;
+        }
+
+        .nav a:hover {
+            background: var(--bg);
+        }
+
+        .nav a.active {
+            background: var(--ink);
+            color: #fff;
+        }
+
+        .nav a:focus-visible,
+        select:focus-visible,
+        .chip:focus-visible {
+            outline: 2px solid var(--blue);
+            outline-offset: 2px;
+        }
+
+        .user {
+            margin-top: auto;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+        }
+
+        .avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #60a5fa, #1e3a8a);
+            flex-shrink: 0;
+        }
+
+        .user b {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .user small {
+            font-size: 10px;
+            color: var(--muted);
+        }
+
+        .user .dots {
+            margin-left: auto;
+            color: var(--muted);
+            cursor: pointer;
+        }
+
+        /* ---------- Main ---------- */
+        main {
+            padding: 26px 24px 40px;
+            min-width: 0;
+        }
+
+        h1 {
+            font-size: 26px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .sub {
+            color: var(--muted);
+            font-size: 13px;
+            margin-top: 4px;
+        }
+
+        /* ---------- Summary Grid ---------- */
+        .summary {
+            display: grid;
+            grid-template-columns: 1.6fr repeat(2, 1fr);
+            gap: 14px;
+            margin-top: 18px;
+        }
+
+        .card {
+            background: #fff;
+            border-radius: 14px;
+            box-shadow: 0 1px 4px rgba(28, 32, 51, .06);
+        }
+
+        .chart-card {
+            grid-row: span 2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 24px;
+            padding: 20px;
+        }
+
+        .donut-wrap {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            flex: none;
+        }
+
+        .donut {
+            --done: 25;
+            --prog: 41.67;
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: conic-gradient(var(--green) 0 calc(var(--done) * 1%),
+                    var(--orange) 0 calc((var(--done) + var(--prog)) * 1%),
+                    var(--blue) 0 100%);
+            -webkit-mask: radial-gradient(circle, transparent 36px, #000 37px);
+            mask: radial-gradient(circle, transparent 36px, #000 37px);
+        }
+
+        .donut-label {
+            position: absolute;
+            inset: 0;
+            display: grid;
+            place-content: center;
+            text-align: center;
+        }
+
+        .donut-label b {
+            font-size: 20px;
+            font-weight: 600;
+            line-height: 1;
+        }
+
+        .donut-label small {
+            font-size: 8px;
+            color: var(--muted);
+            margin-top: 2px;
+        }
+
+        .legend h3 {
+            font-size: 12px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .legend li {
+            list-style: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            color: var(--muted);
+            margin-bottom: 7px;
+        }
+
+        .legend li span.dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .legend li em {
+            font-style: normal;
+            margin-left: auto;
+            padding-left: 20px;
+            color: var(--ink);
+            font-weight: 600;
+        }
+
+        .stat {
+            padding: 16px 18px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .stat .tag {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        .stat .tag i {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+        }
+
+        .stat .num {
+            font-size: 26px;
+            font-weight: 600;
+            margin: 4px 0 2px;
+        }
+
+        .stat .note {
+            font-size: 11px;
+            color: var(--muted);
+        }
+
+        /* ---------- Tasks ---------- */
+        .tasks-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-top: 32px;
+            flex-wrap: wrap;
+            gap: 14px;
+        }
+
+        .tasks-head h2 {
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .chips {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+            max-width: 100%;
+        }
+
+        .chip {
+            border: 1px solid var(--line);
+            background: #fff;
+            color: var(--ink);
+            border-radius: 999px;
+            padding: 8px 14px;
+            font: inherit;
+            font-size: 11px;
+            cursor: pointer;
+            white-space: nowrap;
+            touch-action: manipulation;
+            transition: all 0.15s ease;
+        }
+
+        .chip.active {
+            background: var(--ink);
+            color: #fff;
+            border-color: var(--ink);
+        }
+
+        .group-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin: 24px 0 12px;
+        }
+
+        .group-title i {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+        }
+
+        .group-title span {
+            color: var(--muted);
+            font-weight: 500;
+        }
+
+        .task {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr 1fr 1fr;
+            gap: 12px;
+            align-items: center;
+            background: #fff;
+            border-radius: 10px;
+            padding: 14px 18px;
+            margin-bottom: 10px;
+            border-left: 3px solid var(--c);
+            box-shadow: 0 1px 4px rgba(28, 32, 51, .06);
+        }
+
+        .task-main {
+            min-width: 0;
+        }
+
+        .task h4 {
+            font-size: 13px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .pill {
+            display: inline-block;
+            background: #eef2ff;
+            color: #2f49d1;
+            font-size: 10px;
+            font-weight: 500;
+            padding: 3px 10px;
+            border-radius: 999px;
+            max-width: 100%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .field small {
+            display: block;
+            font-size: 9px;
+            font-weight: 600;
+            color: var(--muted);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .field b {
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .field span {
+            font-size: 11px;
+        }
+
+        select {
+            width: 100%;
+            max-width: 120px;
+            font: inherit;
+            font-size: 11px;
+            color: var(--ink);
+            padding: 8px 10px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #fff;
+            cursor: pointer;
+            min-height: 36px;
+        }
+
+        .empty {
+            text-align: center;
+            color: var(--muted);
+            padding: 40px 0;
+        }
+
+        /* ---------- Responsive Breakpoints ---------- */
+
+        /* Tablet (≤ 992px) */
+        @media (max-width: 992px) {
+            .app {
+                grid-template-columns: 1fr;
+            }
+
+            .mobile-header {
+                display: flex;
+            }
+
+            .overlay.active {
+                display: block;
+            }
+
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                width: 260px;
+                height: 100vh;
+                transform: translateX(-100%);
+                box-shadow: 4px 0 20px rgba(0, 0, 0, 0.1);
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .close-sidebar {
+                display: flex;
+            }
+
+            .summary {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .chart-card {
+                grid-column: 1 / -1;
+                grid-row: auto;
+            }
+        }
+
+        /* Mobile Standard (≤ 640px) */
+        @media (max-width: 640px) {
+            main {
+                padding: 18px 14px 30px;
+            }
+
+            h1 {
+                font-size: 22px;
+            }
+
+            .summary {
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+            }
+
+            .chart-card {
+                flex-direction: column;
+                padding: 16px;
+                gap: 16px;
+                text-align: center;
+            }
+
+            .legend li em {
+                padding-left: 12px;
+            }
+
+            .task {
+                grid-template-columns: 1fr 1fr;
+                gap: 12px 10px;
+                padding: 12px;
+            }
+
+            .task-main {
+                grid-column: 1 / -1;
+            }
+
+            select {
+                max-width: 100%;
+            }
+        }
+
+        /* Mobile Small (≤ 420px) */
+        @media (max-width: 420px) {
+            .summary {
+                grid-template-columns: 1fr;
+            }
+
+            .task {
+                grid-template-columns: 1fr;
+            }
+
+            .task-main {
+                margin-bottom: 2px;
+            }
+
+            .field {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                border-top: 1px dashed var(--line);
+                padding-top: 6px;
+            }
+
+            .field small {
+                margin-bottom: 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Mobile Header -->
+    <header class="mobile-header">
+        <div class="logo">W<span>|</span>ZONE</div>
+        <button class="hamburger" id="openMenu" aria-label="Open Navigation">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 6h16M4 12h16M4 18h16"></path>
+            </svg>
+        </button>
+    </header>
+
+    <!-- Background Overlay for Mobile Drawer -->
+    <div class="overlay" id="overlay"></div>
+
+    <div class="app">
+
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="brand">
+                <div class="logo">W<span>|</span>ZONE</div>
+                <button class="close-sidebar" id="closeMenu" aria-label="Close sidebar">✕</button>
+            </div>
+            <nav class="nav" id="nav"></nav>
+            <div class="user">
+                <div class="avatar"></div>
+                <div>
+                    <b>Jameson Dunn</b>
+                    <small>Pro Member</small>
+                </div>
+                <span class="dots">⋮</span>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main>
+            <h1>Dashboard</h1>
+            <p class="sub">Everything happening across all projects, in one place</p>
+
+            <section class="summary">
+                <div class="card chart-card">
+                    <div class="donut-wrap">
+                        <div class="donut" id="donut"></div>
+                        <div class="donut-label">
+                            <b id="total">12</b>
+                            <small>tasks total</small>
+                        </div>
+                    </div>
+                    <div class="legend">
+                        <h3>Tasks by status</h3>
+                        <ul id="legend"></ul>
+                    </div>
+                </div>
+                <div class="card stat">
+                    <div class="tag"><i style="background:var(--blue)"></i>New tasks</div>
+                    <div class="num">4</div>
+                    <div class="note">Waiting to be started</div>
+                </div>
+                <div class="card stat">
+                    <div class="tag"><i style="background:var(--orange)"></i>In progress</div>
+                    <div class="num">4</div>
+                    <div class="note">Being worked on now</div>
+                </div>
+                <div class="card stat">
+                    <div class="tag"><i style="background:var(--green)"></i>Done</div>
+                    <div class="num">3</div>
+                    <div class="note">Finished</div>
+                </div>
+                <div class="card stat">
+                    <div class="tag"><i style="background:var(--red)"></i>Projects</div>
+                    <div class="num">4</div>
+                    <div class="note">Total Projects</div>
+                </div>
+            </section>
+
+            <div class="tasks-head">
+                <div>
+                    <h2>My tasks</h2>
+                    <p class="sub">Only the tasks I am on. I can change my own status here.</p>
+                </div>
+                <div class="chips" id="chips"></div>
+            </div>
+
+            <div id="task-list"></div>
+        </main>
+    </div>
+
+    <script>
+        /* ---------- Data ---------- */
+        const navItems = [
+            { label: "Dashboard", icon: '<path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/>', active: true },
+            { label: "Forms", icon: '<path d="M6 3h12v18H6zM9 8h6M9 12h6M9 16h4" fill="none" stroke="currentColor" stroke-width="2"/>' },
+            { label: "Responses", icon: '<path d="M4 4h16v12H8l-4 4z" fill="none" stroke="currentColor" stroke-width="2"/>' },
+            { label: "Sources & Files", icon: '<path d="M12 3l9 5-9 5-9-5zM3 13l9 5 9-5" />' },
+            { label: "Calendar", icon: '<path d="M4 5h16v15H4zM4 10h16M8 3v4M16 3v4" fill="none" stroke="currentColor" stroke-width="2"/>' },
+            { label: "Project Management", icon: '<path d="M3 8h18v12H3zM9 8V5h6v3" fill="none" stroke="currentColor" stroke-width="2"/>' },
+        ];
+
+        const tasks = [
+            { id: 1, title: "Slide deck draft", project: "Client presentation", due: "Oct 20", phase: "Phase name", status: "To do", isNew: true },
+            { id: 2, title: "Slide deck draft", project: "Client presentation", due: "Oct 20", phase: "Phase name", status: "To do", isNew: false },
+            { id: 3, title: "Home page design", project: "Website Redesign", due: "Oct 28", phase: "Phase name", status: "In progress", isNew: false },
+            { id: 4, title: "Wireframes", project: "Website Redesign", due: "Oct 20", phase: "Phase name", status: "Done", isNew: false },
+        ];
+
+        const statusOptions = ["To do", "In progress", "Done"];
+        const filters = ["All", "To do", "In progress", "Done"];
+        let activeFilter = "All";
+
+        const groups = {
+            new: { label: "New", color: "var(--red)" },
+            week: { label: "Due this week", color: "var(--week)" },
+            done: { label: "Done", color: "var(--green)" },
+        };
+
+        /* ---------- Sidebar Navigation ---------- */
+        document.getElementById("nav").innerHTML = navItems.map(n => `
+            <a href="#" class="${n.active ? "active" : ""}">
+                <svg viewBox="0 0 24 24" fill="currentColor">${n.icon}</svg>
+                <span>${n.label}</span>
+            </a>
+        `).join("");
+
+        /* ---------- Donut & Legend ---------- */
+        const overview = { done: 3, progress: 5, new: 4 };
+        const total = overview.done + overview.progress + overview.new;
+        const donut = document.getElementById("donut");
+        donut.style.setProperty("--done", (overview.done / total) * 100);
+        donut.style.setProperty("--prog", (overview.progress / total) * 100);
+        document.getElementById("total").textContent = total;
+        document.getElementById("legend").innerHTML = [
+            ["Done", overview.done, "var(--green)"],
+            ["In progress", overview.progress, "var(--orange)"],
+            ["New", overview.new, "var(--blue)"],
+        ].map(([l, n, c]) => `<li><span class="dot" style="background:${c}"></span>${l}<em>${n}</em></li>`).join("");
+
+        /* ---------- Tasks & Filters ---------- */
+        function groupOf(t) {
+            if (t.status === "Done") return "done";
+            return t.isNew ? "new" : "week";
+        }
+
+        function renderChips() {
+            document.getElementById("chips").innerHTML = filters.map(f => {
+                const count = f === "All" ? tasks.length : tasks.filter(t => t.status === f).length;
+                return `<button class="chip ${f === activeFilter ? "active" : ""}" data-filter="${f}">${f} (${count})</button>`;
+            }).join("");
+        }
+
+        function renderTasks() {
+            const visible = tasks.filter(t => activeFilter === "All" || t.status === activeFilter);
+            const list = document.getElementById("task-list");
+
+            if (!visible.length) {
+                list.innerHTML = `<p class="empty">No tasks with this status yet.</p>`;
+                return;
+            }
+
+            list.innerHTML = Object.keys(groups).map(key => {
+                const items = visible.filter(t => groupOf(t) === key);
+                if (!items.length) return "";
+                const g = groups[key];
+                return `
+                <div class="group-title">
+                    <i style="background:${g.color}"></i>${g.label} <span>(${items.length})</span>
+                </div>
+                ${items.map(t => `
+                    <article class="task" style="--c:${g.color}">
+                        <div class="task-main">
+                            <h4>${t.title}</h4>
+                            <span class="pill">${t.project}</span>
+                        </div>
+                        <div class="field"><small>Due</small><b>${t.due}</b></div>
+                        <div class="field"><small>Phase</small><span>${t.phase}</span></div>
+                        <div class="field">
+                            <small>Status</small>
+                            <select data-id="${t.id}" aria-label="Status for ${t.title}">
+                                ${statusOptions.map(s => `<option ${s === t.status ? "selected" : ""}>${s}</option>`).join("")}
+                            </select>
+                        </div>
+                    </article>
+                `).join("")}`;
+            }).join("");
+        }
+
+        function render() {
+            renderChips();
+            renderTasks();
+        }
+
+        /* ---------- Mobile Menu Toggle Logic ---------- */
+        const sidebar = document.getElementById("sidebar");
+        const overlay = document.getElementById("overlay");
+        const openBtn = document.getElementById("openMenu");
+        const closeBtn = document.getElementById("closeMenu");
+
+        function toggleMenu(show) {
+            sidebar.classList.toggle("open", show);
+            overlay.classList.toggle("active", show);
+            document.body.style.overflow = show ? "hidden" : "";
+        }
+
+        openBtn.addEventListener("click", () => toggleMenu(true));
+        closeBtn.addEventListener("click", () => toggleMenu(false));
+        overlay.addEventListener("click", () => toggleMenu(false));
+
+        /* ---------- Event Handlers ---------- */
+        document.getElementById("chips").addEventListener("click", e => {
+            const btn = e.target.closest(".chip");
+            if (!btn) return;
+            activeFilter = btn.dataset.filter;
+            render();
+        });
+
+        document.getElementById("task-list").addEventListener("change", e => {
+            if (!e.target.matches("select")) return;
+            const task = tasks.find(t => t.id === Number(e.target.dataset.id));
+            if (task) {
+                task.status = e.target.value;
+                task.isNew = false;
+                render();
+            }
+        });
+
+        render();
+    </script>
+</body>
+
+</html>
