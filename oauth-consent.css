@@ -1,0 +1,179 @@
+* {
+    box-sizing: border-box;
+    font-family: Arial, sans-serif
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    background: #f6f7fb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    color: #101828
+}
+
+.card {
+    width: 100%;
+    max-width: 460px;
+    background: #fff;
+    border-radius: 24px;
+    padding: 34px;
+    box-shadow: 0 14px 35px rgba(0, 0, 0, .08)
+}
+
+.brand {
+    text-align: center;
+    margin-bottom: 22px
+}
+
+.brand img {
+    width: 132px;
+    max-width: 100%;
+    height: auto
+}
+
+h1 {
+    font-size: 22px;
+    line-height: 1.3;
+    margin: 0 0 8px
+}
+
+.lede {
+    margin: 0 0 20px;
+    color: #475467;
+    font-size: 14px;
+    line-height: 1.5
+}
+
+.who {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #f6f7fb;
+    border-radius: 14px;
+    padding: 12px 14px;
+    margin-bottom: 20px;
+    font-size: 13px
+}
+
+.who b {
+    display: block;
+    font-size: 14px
+}
+
+.who span {
+    color: #667085
+}
+
+.who a {
+    margin-left: auto;
+    color: #1b1e3a;
+    font-weight: 700;
+    font-size: 12px;
+    white-space: nowrap
+}
+
+h2 {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    color: #667085;
+    margin: 0 0 10px
+}
+
+ul.scopes {
+    list-style: none;
+    margin: 0 0 20px;
+    padding: 0;
+    display: grid;
+    gap: 8px
+}
+
+ul.scopes li {
+    display: flex;
+    gap: 10px;
+    font-size: 14px;
+    line-height: 1.4
+}
+
+ul.scopes li::before {
+    content: "";
+    flex: none;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #1b1e3a;
+    margin-top: 6px
+}
+
+.note {
+    font-size: 12px;
+    color: #667085;
+    line-height: 1.5;
+    margin: 0 0 20px
+}
+
+.note code {
+    background: #f1f3f6;
+    padding: 1px 5px;
+    border-radius: 5px
+}
+
+.actions {
+    display: flex;
+    gap: 10px
+}
+
+button,
+.btn {
+    flex: 1;
+    height: 52px;
+    border: none;
+    border-radius: 12px;
+    font-weight: 800;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none
+}
+
+.primary {
+    background: #1b1e3a;
+    color: #fff
+}
+
+.secondary {
+    background: #eef0f6;
+    color: #1b1e3a
+}
+
+button:disabled {
+    opacity: .5;
+    cursor: default
+}
+
+.stack {
+    display: grid;
+    gap: 10px
+}
+
+.status {
+    margin-top: 14px;
+    text-align: center;
+    font-size: 13px;
+    color: #1b1e3a;
+    min-height: 1em
+}
+
+.status.error {
+    color: #b42318
+}
+
+[hidden] {
+    display: none !important
+}

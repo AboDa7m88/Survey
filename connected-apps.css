@@ -1,0 +1,186 @@
+* {
+    box-sizing: border-box;
+    font-family: Arial, sans-serif
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    background: #f6f7fb;
+    padding: 40px 16px;
+    color: #101828
+}
+
+.wrap {
+    max-width: 720px;
+    margin: 0 auto;
+    display: grid;
+    gap: 18px
+}
+
+.top {
+    display: flex;
+    align-items: center;
+    gap: 12px
+}
+
+.top a {
+    color: #1b1e3a;
+    font-weight: 700;
+    font-size: 13px;
+    text-decoration: none
+}
+
+.top img {
+    height: 28px;
+    margin-left: auto
+}
+
+.card {
+    background: #fff;
+    border-radius: 20px;
+    padding: 26px;
+    box-shadow: 0 14px 35px rgba(0, 0, 0, .06)
+}
+
+h1 {
+    font-size: 24px;
+    margin: 0 0 6px
+}
+
+h2 {
+    font-size: 17px;
+    margin: 0 0 6px
+}
+
+.lede {
+    margin: 0;
+    color: #475467;
+    font-size: 14px;
+    line-height: 1.5
+}
+
+.list {
+    display: grid;
+    gap: 12px;
+    margin-top: 18px
+}
+
+.app {
+    border: 1px solid #eaecf0;
+    border-radius: 14px;
+    padding: 16px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 6px 14px;
+    align-items: start
+}
+
+.app b {
+    font-size: 15px
+}
+
+.meta {
+    font-size: 12px;
+    color: #667085
+}
+
+.scopes {
+    grid-column: 1/-1;
+    font-size: 13px;
+    color: #344054;
+    line-height: 1.5;
+    margin: 4px 0 0;
+    padding-left: 18px
+}
+
+button {
+    height: 40px;
+    padding: 0 16px;
+    border: none;
+    border-radius: 10px;
+    font-weight: 800;
+    font-size: 13px;
+    cursor: pointer
+}
+
+.danger {
+    background: #fef3f2;
+    color: #b42318
+}
+
+.danger:hover {
+    background: #fee4e2
+}
+
+.empty {
+    color: #667085;
+    font-size: 14px;
+    margin-top: 16px
+}
+
+.toggle {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+    font-size: 14px;
+    font-weight: 700
+}
+
+.toggle input {
+    width: 20px;
+    height: 20px;
+    accent-color: #1b1e3a
+}
+
+.status {
+    font-size: 13px;
+    color: #1b1e3a;
+    min-height: 1em;
+    margin-top: 10px
+}
+
+.status.error {
+    color: #b42318
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 14px;
+    font-size: 13px
+}
+
+th,
+td {
+    text-align: left;
+    padding: 8px 6px;
+    border-bottom: 1px solid #f2f4f7;
+    vertical-align: top
+}
+
+th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    color: #667085
+}
+
+.ok {
+    color: #067647;
+    font-weight: 700
+}
+
+.bad {
+    color: #b42318;
+    font-weight: 700
+}
+
+.scroll {
+    overflow-x: auto
+}
+
+[hidden] {
+    display: none !important
+}

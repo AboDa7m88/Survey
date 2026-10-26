@@ -1,2556 +1,491 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Settings</title>
-
-<style>
-*{margin:0;padding:0;box-sizing:border-box;font-family:Arial,sans-serif}
-body{background:#f6f7fb;color:#101828;padding:35px}
-
-.panel{
-  background:#fff;
-  border-radius:20px;
-  box-shadow:0 14px 35px rgba(0,0,0,.06);
-  margin-bottom:28px;
-  overflow:hidden;
-}
-
-.panel-head{
-  padding:24px 28px;
-  border-bottom:1px solid #eef1f5;
-}
-
-.panel-head h1{
-  font-size:24px;
-  margin-bottom:6px;
-}
-
-.panel-head p{
-  color:#667085;
-  font-size:14px;
-}
-
-.panel-body{
-  padding:28px;
-}
-
-.small{
-  color:#667085;
-  font-size:14px;
-  margin-bottom:15px;
-}
-
-label{
-  display:block;
-  font-size:16px;
-  font-weight:700;
-  margin-top:18px;
-  margin-bottom:8px;
-}
-
-input[type="password"], input[type="file"], input[type="url"], input[type="text"]{
-  width:100%;
-  padding:14px;
-  border:1px solid #ddd;
-  border-radius:10px;
-  font-size:15px;
-}
-
-.primary{
-  margin-top:20px;
-  background:#101828;
-  color:#fff;
-  border:none;
-  padding:12px 20px;
-  border-radius:10px;
-  font-weight:700;
-  cursor:pointer;
-}
-
-.primary:hover{
-  background:#1f2937;
-}
-
-.btn{ border:none; padding:8px 12px; border-radius:8px; cursor:pointer; font-weight:800; font-size:12px; }
-.action-btn{ background:var(--nav-active); color:#fff; }
-.action-btn:hover{ background:#282c52; }
-
-.status{
-  margin-top:15px;
-  font-weight:bold;
-  color:var(--nav-active);
-}
-
-/* A save that did not happen, reported on the same line as one that did. */
-.status.error{ color:var(--brand); }
-
-/* ── Page header (the same block on every admin page, button or no button) ── */
-.page-head{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin-bottom:28px}
-.page-title h1{font-size:30px;margin-bottom:8px}
-.page-title p{font-size:14px;color:var(--muted);max-width:620px}
-.create-btn{flex:none;display:inline-flex;align-items:center;gap:8px;background:var(--nav-active);color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px;font:inherit;font-size:13px;font-weight:800;border:none;cursor:pointer}
-.create-btn:hover{background:#282c52}
-.create-btn svg{width:16px;height:16px}
-@media(max-width:700px){.page-head{flex-direction:column;gap:16px}}
-
-/* ── Admin shell: sidebar + header (shared across admin pages) ── */
-:root{
-  --brand:#c9000b;
-  --nav-active:#1b1e3a;
-  --text:#101828;
-  --muted:#667085;
-  --line:#eaecf0;
-  --sidebar-w:260px;
-}
-body{padding:0}
-.admin-sidebar{
-  width:var(--sidebar-w);
-  background:#fff;
-  border-right:1px solid var(--line);
-  position:fixed;top:0;left:0;bottom:0;
-  padding:26px 12px 18px;
-  display:flex;flex-direction:column;justify-content:space-between;
-  z-index:100;
-}
-.side-logo{padding:0 6px;margin-bottom:30px}
-.side-logo img{width:150px;max-width:100%;height:auto;display:block}
-
-.side-nav a{
-  display:flex;gap:12px;align-items:center;
-  text-decoration:none;color:var(--muted);
-  padding:11px 12px;border-radius:10px;margin-bottom:4px;
-  font-size:14px;font-weight:600;
-  transition:background .15s,color .15s;
-}
-.side-nav a svg{width:18px;height:18px;flex:none}
-.side-nav a:hover{background:#f6f7f9;color:var(--text)}
-.side-nav a.active{background:var(--nav-active);color:#fff}
-.side-user{
-  width:100%;font:inherit;text-align:left;background:#fff;
-  border:1px solid var(--line);border-radius:12px;padding:10px;
-  display:flex;gap:10px;align-items:center;cursor:pointer;
-  transition:background .15s,border-color .15s;
-}
-.side-user:hover{background:#fafbfc;border-color:#d7dae0}
-.side-avatar{
-  width:36px;height:36px;border-radius:50%;
-  background:#dce3ff;color:#3745a4;
-  display:flex;align-items:center;justify-content:center;
-  font-weight:800;font-size:13px;flex:none;
-}
-.side-meta{flex:1;min-width:0}
-.side-meta strong{display:block;font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.side-meta span{font-size:11px;color:#98a2b3}
-.side-dots{color:#98a2b3;flex:none}
-
-.admin-main{margin-left:var(--sidebar-w);width:calc(100% - var(--sidebar-w))}
-.admin-content{padding:35px}
-
-/* ── Collapsible sidebar ── */
-:root.sidebar-collapsed{--sidebar-w:78px}
-.admin-sidebar,.admin-main{transition:width .18s ease,margin-left .18s ease}
-:root.sidebar-collapsed .admin-sidebar{padding:26px 4px 18px}
-:root.sidebar-collapsed .side-logo{padding:0}
-:root.sidebar-collapsed .side-logo img{display:none}
-
-:root.sidebar-collapsed .side-nav a{justify-content:center;padding:12px 0}
-:root.sidebar-collapsed .side-nav a span{display:none}
-/* The account card is the only entry point to logout — collapse it, never hide it. */
-:root.sidebar-collapsed .side-user{justify-content:center;padding:8px}
-:root.sidebar-collapsed .side-meta,:root.sidebar-collapsed .side-dots{display:none}
-@media(max-width:950px){
-
-  .admin-content{padding:24px 18px}
-}
-
-
-/* ── Shell refresh: the collapse control lives in the sidebar head ── */
-.side-head{
-  display:flex;align-items:center;justify-content:space-between;gap:8px;
-  min-height:36px;margin-bottom:26px;padding:0 2px;
-}
-.side-logo{padding:0;margin:0;flex:1;min-width:0}
-.side-logo img{width:132px;max-width:100%;height:auto;display:block}
-
-.side-toggle{
-  width:34px;height:34px;flex:none;border-radius:9px;border:none;
-  background:transparent;color:var(--muted);cursor:pointer;
-  display:flex;align-items:center;justify-content:center;
-  transition:background .15s,color .15s;
-}
-.side-toggle:hover{background:#f2f4f8;color:var(--text)}
-.side-toggle svg{width:18px;height:18px}
-
-/* Collapsed to 78px the wordmark is illegible, so the head keeps only the toggle. */
-:root.sidebar-collapsed .side-head{justify-content:center;margin-bottom:22px}
-:root.sidebar-collapsed .side-logo{display:none}
-
-/* Tighter nav rows: the active/hover pill was heavier than the label needs. */
-.side-nav a{gap:10px;padding:8px 10px;border-radius:9px;margin-bottom:2px}
-.side-nav a svg{width:17px;height:17px}
-:root.sidebar-collapsed .side-nav a{
-  width:38px;height:38px;padding:0;margin:0 auto 4px;
-  border-radius:10px;justify-content:center;
-}
-
-
-@media(max-width:950px){
-  /* Force-collapsed below this width, so the head has nothing left to show. */
-  .side-head{display:none}
-}
-.panel-body input,
-.panel-body select {
-  width: 100%;
-  padding: 14px;
-  border: 1px solid #ddd;
-  border-radius: 10px;
-  font-size: 15px;
-  background: #fff;
-  box-sizing: border-box;
-  margin-bottom: 15px;
-}
-/* Available Admins */
-.admin-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.admin-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 20px;
-    padding: 16px;
-    border: 1px solid #eaecf0;
-    border-radius: 12px;
-    background: #fff;
-}
-
-.admin-info {
-    min-width: 0;
-}
-
-.admin-info strong {
-    display: block;
-    font-size: 15px;
-    margin-bottom: 5px;
-    color: #101828;
-}
-
-.admin-info span {
-    display: block;
-    font-size: 13px;
-    color: #667085;
-    margin-bottom: 5px;
-}
-
-.admin-role {
-    display: inline-block !important;
-    width: fit-content;
-    padding: 4px 9px;
-    border-radius: 20px;
-    background: #eef0f6;
-    color: #1b1e3a !important;
-    font-size: 11px !important;
-    font-weight: 700;
-}
-
-.remove-admin-btn {
-    flex: none;
-    border: 1px solid #f0d2d4;
-    background: #fff;
-    color: #c9000b;
-    padding: 9px 14px;
-    border-radius: 9px;
-    font-weight: 700;
-    cursor: pointer;
-}
-
-.remove-admin-btn:hover {
-    background: #fff5f5;
-}
-
-/* Deactivate looks like the old remove button (destructive-ish, but reversible).
-   Activate is the calmer, positive action. */
-.deactivate-admin-btn {
-    flex: none;
-    border: 1px solid #f0d2d4;
-    background: #fff;
-    color: #c9000b;
-    padding: 9px 14px;
-    border-radius: 9px;
-    font-weight: 700;
-    cursor: pointer;
-}
-
-.deactivate-admin-btn:hover {
-    background: #fff5f5;
-}
-
-.activate-admin-btn {
-    flex: none;
-    border: 1px solid #bfe8cf;
-    background: #fff;
-    color: #1a9a53;
-    padding: 9px 14px;
-    border-radius: 9px;
-    font-weight: 700;
-    cursor: pointer;
-}
-
-.activate-admin-btn:hover {
-    background: #f2fbf5;
-}
-
-.admin-status {
-    display: inline-block;
-    font-size: 11px;
-    font-weight: 800;
-    padding: 3px 10px;
-    border-radius: 20px;
-    margin-top: 4px;
-}
-
-.admin-status.is-active {
-    background: #e8faef;
-    color: #20a95a;
-}
-
-.admin-status.is-inactive {
-    background: #f2f4f7;
-    color: #667085;
-}
-
-/* Same look as the Owner Assignments box on clients-management.html,
-   reused here for Distribute Admins. */
-.assignment-box {
-    padding: 24px;
-}
-
-.assignment-box label {
-    display: block;
-    font-size: 15px;
-    font-weight: 800;
-    margin-bottom: 10px;
-}
-
-.assignment-box select {
-    width: 100%;
-    height: 56px;
-    border: 1px solid #dfe3ea;
-    background: #f8fafc;
-    border-radius: 14px;
-    padding: 0 18px;
-    font-size: 15px;
-    outline: none;
-}
-
-.assignment-box select:focus {
-    border-color: #1b1e3a;
-    box-shadow: 0 0 0 4px rgba(27,30,58,.10);
-}
-
-.no-admins {
-    padding: 20px;
-    text-align: center;
-    color: #667085;
-    border: 1px dashed #d0d5dd;
-    border-radius: 12px;
-}
-
-/* ── Pagination: the list never shows more than ADMINS_PAGE_SIZE rows ── */
-.pager {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
-    margin-top: 16px;
-    padding-top: 16px;
-    border-top: 1px solid #eef1f5;
-}
-
-.pager[hidden] { display: none; }
-
-.pager-info {
-    font-size: 13px;
-    font-weight: 600;
-    color: #667085;
-}
-
-.pager-pages {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-}
-
-.pager button {
-    min-width: 36px;
-    height: 36px;
-    padding: 0 12px;
-    border: 1px solid #dfe3ea;
-    background: #fff;
-    border-radius: 9px;
-    font: inherit;
-    font-size: 13px;
-    font-weight: 700;
-    color: #101828;
-    cursor: pointer;
-}
-
-.pager button:hover:not(:disabled) { background: #f6f7f9; }
-
-.pager button.current {
-    background: #1b1e3a;
-    border-color: #1b1e3a;
-    color: #fff;
-}
-
-.pager button:disabled {
-    opacity: .45;
-    cursor: not-allowed;
-}
-
-/* ── Login Page Slideshow ── */
-.slide-thumb {
-    flex: none;
-    width: 110px;
-    height: 66px;
-    object-fit: cover;
-    border-radius: 9px;
-    background: #eef1f5;
-    display: block;
-}
-
-.slide-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex: none;
-}
-
-.slide-move {
-    flex: none;
-    width: 34px;
-    height: 34px;
-    padding: 0;
-    border: 1px solid #dfe3ea;
-    background: #fff;
-    border-radius: 9px;
-    font: inherit;
-    font-size: 15px;
-    font-weight: 700;
-    color: #101828;
-    cursor: pointer;
-}
-
-.slide-move:disabled {
-    opacity: .4;
-    cursor: not-allowed;
-}
-
-/* The control that opens the Add dialog, and the count beside it that says
-   why it is disabled once five slides exist. */
-.slide-add-bar {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    flex-wrap: wrap;
-    margin-top: 18px;
-}
-
-.slide-add-bar .primary:disabled {
-    opacity: .45;
-    cursor: not-allowed;
-}
-
-.slide-add-bar .small {
-    color: #667085;
-}
-
-/* ── The Add-a-slide dialog ──
-   Reuses the account popup's shell (.acct-modal / .acct-box / .acct-head) so
-   there is one dialog look on the page, with a taller box and a scrolling
-   body because this one holds a form rather than three lines. */
-.slide-box {
-    max-width: 520px;
-    max-height: 88vh;
-    display: flex;
-    flex-direction: column;
-}
-
-.slide-modal-body {
-    padding: 22px 24px;
-    overflow-y: auto;
-}
-
-/* The fields moved out of .panel-body, which is where they were getting their
-   size and border from, so that rule is repeated here for the dialog. */
-.slide-modal-body input {
-    width: 100%;
-    padding: 14px;
-    border: 1px solid #ddd;
-    border-radius: 10px;
-    font-size: 15px;
-    background: #fff;
-    box-sizing: border-box;
-    margin-bottom: 15px;
-}
-
-/* The first label sits directly under the dialog header, which already
-   provides the gap. */
-.slide-modal-body label:first-child {
-    margin-top: 0;
-}
-
-.slide-modal-foot {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    padding: 16px 24px 20px;
-    border-top: 1px solid #eef1f5;
-}
-
-.slide-cancel {
-    border: 1px solid #dfe3ea;
-    background: #fff;
-    color: #101828;
-    padding: 12px 18px;
-    border-radius: 10px;
-    font: inherit;
-    font-weight: 700;
-    cursor: pointer;
-}
-
-.slide-cancel:hover {
-    background: #f6f7f9;
-}
-
-/* Save text was carrying its sizing in a style attribute, which the phone
-   rules below could not override without !important. */
-.slide-save {
-    width: auto;
-    padding: 0 12px;
-}
-
-/* ── A saved slide on a phone ──
-   The desktop row is thumbnail | two inputs | four buttons across one line,
-   which at 390px leaves every part of it too narrow to use. Stacked, it reads
-   in the order it is edited: the picture, its two lines of text, then what can
-   be done to it - the same shape as the Add dialog. */
-@media (max-width: 768px) {
-
-    #slidesList .admin-row {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 12px;
-    }
-
-    /* Wide enough to judge the crop, which is the whole point of the
-       thumbnail; the pencil that swaps the image sits over it as before. */
-    #slidesList .slide-thumb-wrap {
-        width: 100%;
-        height: 160px;
-    }
-
-    #slidesList .admin-info {
-        width: 100%;
-    }
-
-    #slidesList .slide-actions {
-        flex-wrap: wrap;
-    }
-
-    /* The arrows stay square; Save text and Remove share whatever is left, so
-       both keep a tappable width instead of shrinking to their labels. */
-    #slidesList .slide-save,
-    #slidesList .remove-admin-btn {
-        flex: 1 1 0;
-        min-width: 104px;
-        height: 34px;
-        padding: 0 12px;
-    }
-}
-
-/* The upload control matches the one on the content creation page, so an
-   admin who has posted content already knows how this works. */
-.dropzone {
-    border: 2px dashed #d5dbe6;
-    border-radius: 14px;
-    background: #fbfcfe;
-    padding: 26px 16px;
-    text-align: center;
-    cursor: pointer;
-    transition: border-color .15s, background .15s;
-}
-
-.dropzone:hover,
-.dropzone.dragging { border-color: #1b1e3a; background: #f5f6fa; }
-
-.dropzone svg { width: 24px; height: 24px; color: #667085; margin-bottom: 10px; }
-.dropzone strong { display: block; font-size: 13px; margin-bottom: 4px; }
-.dropzone span { font-size: 11px; color: #98a2b3; }
-
-.dropzone.is-disabled {
-    opacity: .5;
-    cursor: not-allowed;
-    pointer-events: none;
-}
-
-.media-preview { display: none; position: relative; }
-.media-preview.show { display: block; }
-
-.media-preview .thumb {
-    aspect-ratio: 16/9;
-    background: #f1f3f7 center/cover no-repeat;
-    border-radius: 12px;
-}
-
-/* A logo is not a photo: show all of it on a plain field rather than
-   cropping it to fill the box the way a slide image is cropped. */
-.media-preview .thumb.logo-thumb {
-    aspect-ratio: 5/2;
-    background: #fff center/contain no-repeat;
-    border: 1px solid #e6e9f0;
-}
-
-/* The logo already in use, on the same field as the upload preview so the
-   two read as before-and-after rather than as two different controls. */
-.current-logo {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    aspect-ratio: 5/2;
-    max-width: 320px;
-    padding: 16px;
-    margin-bottom: 22px;
-    background: #fff;
-    border: 1px solid #e6e9f0;
-    border-radius: 12px;
-}
-
-.current-logo img {
-    max-width: 100%;
-    max-height: 100%;
-    width: auto;
-    height: auto;
-    display: block;
-    object-fit: contain;
-}
-
-/* No logo uploaded yet - display:block above would otherwise beat [hidden]. */
-.current-logo img[hidden] {
-    display: none;
-}
-
-.media-preview .remove {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    width: 28px;
-    height: 28px;
-    border: none;
-    border-radius: 50%;
-    background: rgba(16, 24, 40, .75);
-    color: #fff;
-    font-size: 16px;
-    line-height: 1;
-    cursor: pointer;
-}
-
-.media-error {
-    display: none;
-    font-size: 12px;
-    color: #e11d48;
-    font-weight: 700;
-    margin-top: 10px;
-}
-
-.media-error.show { display: block; }
-
-/* Thumbnail of a saved slide, with the change-image button sitting over it. */
-.slide-thumb-wrap {
-    position: relative;
-    flex: none;
-    width: 110px;
-    height: 66px;
-    border-radius: 9px;
-    overflow: hidden;
-}
-
-.slide-thumb-wrap .slide-thumb { width: 100%; height: 100%; border-radius: 0; }
-
-.slide-change {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    padding: 0;
-    border: none;
-    background: rgba(16, 24, 40, .55);
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    opacity: 0;
-    transition: opacity .15s;
-}
-
-.slide-change svg { width: 20px; height: 20px; }
-
-/* Always visible on touch, where there is no hover to reveal it. */
-.slide-thumb-wrap:hover .slide-change,
-.slide-change:focus-visible { opacity: 1; }
-
-@media (hover: none) {
-    .slide-change { opacity: 1; background: rgba(16, 24, 40, .35); }
-}
-/* ── Unread badge on the Notifications nav item ──
-   Collapsed, the sidebar hides labels, so the count degrades to a dot on
-   the icon - the same affordance the old topbar bell had. */
-.side-nav a{position:relative}
-.nav-badge{
-  margin-left:auto;font-style:normal;font-size:11px;font-weight:800;line-height:1;
-  min-width:18px;padding:3px 6px;border-radius:9px;
-  background:var(--brand);color:#fff;text-align:center;
-}
-.nav-badge[hidden]{display:none}
-.side-nav a.active .nav-badge{background:#fff;color:var(--nav-active)}
-:root.sidebar-collapsed .nav-badge{
-  position:absolute;top:4px;right:8px;margin:0;
-  width:8px;height:8px;min-width:0;padding:0;border-radius:50%;
-  font-size:0;border:2px solid #fff;
-}
-/* ── Dropdown arrow ──
-   Chrome pins the native select arrow to the right border and ignores
-   padding-right, so it is replaced with one that can be placed. The extra
-   selectors match the class rules that set `background` as a shorthand -
-   without them, those rules would reset this image away. */
-select,
-.panel-body select,
-.assignment-box select,
-select.client-filter{
-  -webkit-appearance:none;
-  -moz-appearance:none;
-  appearance:none;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23667085' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;
-  background-position:right 14px center;
-  background-size:12px;
-  padding-right:38px;
-}
-
-/* Reset-by-email block inside the Files password panel. */
-.reset-lead{margin:0 0 18px;font-size:13.5px;line-height:1.65;color:#667085}
-
-/* Role dropdown inside an Available Admins row. Sized to sit where the plain
-   role label used to, so the row height does not jump. */
-.admin-role-select{
-  display:inline-block;
-  margin:4px 0;
-  padding:5px 28px 5px 10px;
-  border:1px solid #dfe3ea;
-  border-radius:8px;
-  background:#fff;
-  font-size:12px;
-  font-weight:700;
-  color:#101828;
-  cursor:pointer;
-}
-.admin-role-select:focus{outline:none;border-color:#1b1e3a}
-.admin-role-select:disabled{opacity:.55;cursor:default}
-</style>
-
-<script>
-// Runs before paint so the collapsed state never flashes open on load.
-(function () {
-  var root = document.documentElement;
-  var KEY = "wz_sidebar_collapsed";
-  var MOBILE = 950;
-  var DRAWER = 768;   // below this the sidebar is a drawer, never a rail
-  function prefersCollapsed(){ return localStorage.getItem(KEY) === "1"; }
-  function apply(){ root.classList.toggle("sidebar-collapsed", window.innerWidth > DRAWER && (window.innerWidth <= MOBILE || prefersCollapsed())); }
-  window.toggleSidebar = function(){
-    if (window.innerWidth <= MOBILE) return; // forced collapsed, nothing to toggle
-    localStorage.setItem(KEY, prefersCollapsed() ? "0" : "1");
-    apply();
-  };
-  apply();
-  window.addEventListener("resize", apply);
-})();
-
-// Sidebar account card -> popup. Admins have no editable profile record, so this
-// is identity + logout only; system config lives on settings.html.
-function openAccount(){ document.getElementById("acctModal").classList.add("show"); }
-function closeAccount(){ document.getElementById("acctModal").classList.remove("show"); }
-// Shared role -> label mapping, also used when rendering the admins list below.
-function adminRoleLabel(role){
-  switch(role){
-    case "owner": return "Owner";
-    case "super_admin": return "Super Admin";
-    case "account_manager": return "Account Manager";
-    case "seo_admin": return "Admin";
-    default: return "";
-  }
-}
-document.addEventListener("DOMContentLoaded", function () {
-  var a = {};
-  try { a = JSON.parse(localStorage.getItem("admin_user") || "{}"); } catch (e) {}
-  var name = a.name || "Admin";
-  var label = adminRoleLabel(a.role);
-  var initial = name.charAt(0).toUpperCase();
-  function set(id, v){ var el = document.getElementById(id); if (el) el.textContent = v; }
-  set("adminName", name);  set("adminRole", label);  set("adminAvatar", initial);
-  set("acctRole", label);
-});
-
-</script>
-<link rel="stylesheet" href="assets/shell.css?v=5" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings</title>
+
+    <link rel="stylesheet" href="settings.css">
+    <script>
+        // Runs before paint so the collapsed state never flashes open on load.
+        (function () {
+            var root = document.documentElement;
+            var KEY = "wz_sidebar_collapsed";
+            var MOBILE = 950;
+            var DRAWER = 768;   // below this the sidebar is a drawer, never a rail
+            function prefersCollapsed() { return localStorage.getItem(KEY) === "1"; }
+            function apply() { root.classList.toggle("sidebar-collapsed", window.innerWidth > DRAWER && (window.innerWidth <= MOBILE || prefersCollapsed())); }
+            window.toggleSidebar = function () {
+                if (window.innerWidth <= MOBILE) return; // forced collapsed, nothing to toggle
+                localStorage.setItem(KEY, prefersCollapsed() ? "0" : "1");
+                apply();
+            };
+            apply();
+            window.addEventListener("resize", apply);
+        })();
+
+        // Sidebar account card -> popup. Admins have no editable profile record, so this
+        // is identity + logout only; system config lives on settings.html.
+        function openAccount() { document.getElementById("acctModal").classList.add("show"); }
+        function closeAccount() { document.getElementById("acctModal").classList.remove("show"); }
+        // Shared role -> label mapping, also used when rendering the admins list below.
+        function adminRoleLabel(role) {
+            switch (role) {
+                case "owner": return "Owner";
+                case "super_admin": return "Super Admin";
+                case "account_manager": return "Account Manager";
+                case "seo_admin": return "Admin";
+                default: return "";
+            }
+        }
+        document.addEventListener("DOMContentLoaded", function () {
+            var a = {};
+            try { a = JSON.parse(localStorage.getItem("admin_user") || "{}"); } catch (e) { }
+            var name = a.name || "Admin";
+            var label = adminRoleLabel(a.role);
+            var initial = name.charAt(0).toUpperCase();
+            function set(id, v) { var el = document.getElementById(id); if (el) el.textContent = v; }
+            set("adminName", name); set("adminRole", label); set("adminAvatar", initial);
+            set("acctRole", label);
+        });
+
+    </script>
+    <link rel="stylesheet" href="assets/shell.css?v=5" />
 </head>
 
 <body>
 
-<aside class="admin-sidebar">
-  <div>
-    <div class="side-head">
-      <div class="side-logo">
-        <img src="logo.png" alt="Logo" onerror="this.remove()">
-      </div>
-      <button class="side-toggle" type="button" onclick="toggleSidebar()" title="Toggle sidebar" aria-label="Toggle sidebar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M9.5 4v16"/></svg>
-      </button>
-    </div>
-    <nav class="side-nav">
-      <a href="admin.html" title="Forms">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-        <span>Forms</span>
-      </a>
-      <a href="admin-content.html" title="Content">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2.5"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
-        <span>Content</span>
-      </a>
-      <a href="project-management.html" title="Project Management">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-        <span>Project Management</span>
-      </a>
-      <a href="inquiries.html" title="Inquiries">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-        <span>Inquiries</span>
-      </a>
-      <a href="clients-management.html" id="clientsManagementLink" title="Clients Management">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        <span>Clients Management</span>
-      </a>
-      <a href="sources-files.html" title="Files">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-        <span>Files</span>
-      </a>
-      <a href="admin-calendar.html" title="Calendar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        <span>Calendar</span>
-      </a>
-      <a href="admin-notifications.html" title="Notifications">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 6-3 7-3 7h18s-3-1-3-7"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
-        <span>Notifications</span>
-        <em class="nav-badge" id="notifBadge" hidden></em>
-      </a>
-      <a href="settings.html" class="active" title="Settings">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-        <span>Settings</span>
-      </a>
-    </nav>
-  </div>
+    <aside class="admin-sidebar">
+        <div>
+            <div class="side-head">
+                <div class="side-logo">
+                    <img src="logo.png" alt="Logo" onerror="this.remove()">
+                </div>
+                <button class="side-toggle" type="button" onclick="toggleSidebar()" title="Toggle sidebar"
+                    aria-label="Toggle sidebar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <rect x="3" y="4" width="18" height="16" rx="2.5" />
+                        <path d="M9.5 4v16" />
+                    </svg>
+                </button>
+            </div>
+            <nav class="side-nav">
+                <a href="admin.html" title="Forms">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M9 11l3 3L22 4" />
+                        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                    </svg>
+                    <span>Forms</span>
+                </a>
+                <a href="admin-content.html" title="Content">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2.5" />
+                        <path d="M3 9h18" />
+                        <path d="M9 21V9" />
+                    </svg>
+                    <span>Content</span>
+                </a>
+                <a href="project-management.html" title="Project Management">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <rect x="2" y="7" width="20" height="14" rx="2" />
+                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+                    </svg>
+                    <span>Project Management</span>
+                </a>
+                <a href="inquiries.html" title="Inquiries">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path
+                            d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+                    </svg>
+                    <span>Inquiries</span>
+                </a>
+                <a href="clients-management.html" id="clientsManagementLink" title="Clients Management">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                    </svg>
+                    <span>Clients Management</span>
+                </a>
+                <a href="sources-files.html" title="Files">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                    </svg>
+                    <span>Files</span>
+                </a>
+                <a href="admin-calendar.html" title="Calendar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                        <line x1="16" y1="2" x2="16" y2="6" />
+                        <line x1="8" y1="2" x2="8" y2="6" />
+                        <line x1="3" y1="10" x2="21" y2="10" />
+                    </svg>
+                    <span>Calendar</span>
+                </a>
+                <a href="admin-notifications.html" title="Notifications">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M18 8a6 6 0 1 0-12 0c0 6-3 7-3 7h18s-3-1-3-7" />
+                        <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+                    </svg>
+                    <span>Notifications</span>
+                    <em class="nav-badge" id="notifBadge" hidden></em>
+                </a>
+                <a href="settings.html" class="active" title="Settings">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="3" />
+                        <path
+                            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                    </svg>
+                    <span>Settings</span>
+                </a>
+            </nav>
+        </div>
 
-  <button class="side-user" type="button" onclick="openAccount()" title="Account">
-    <div class="side-avatar" id="adminAvatar">A</div>
-    <div class="side-meta">
-      <strong id="adminName">Admin</strong>
-      <span id="adminRole"></span>
-    </div>
-    <svg class="side-dots" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
-  </button>
-</aside>
+        <button class="side-user" type="button" onclick="openAccount()" title="Account">
+            <div class="side-avatar" id="adminAvatar">A</div>
+            <div class="side-meta">
+                <strong id="adminName">Admin</strong>
+                <span id="adminRole"></span>
+            </div>
+            <svg class="side-dots" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="12" cy="5" r="1.6" />
+                <circle cx="12" cy="12" r="1.6" />
+                <circle cx="12" cy="19" r="1.6" />
+            </svg>
+        </button>
+    </aside>
 
-<div class="admin-main">
-  <div class="admin-content">
+    <div class="admin-main">
+        <div class="admin-content">
 
-    <div class="page-head">
-      <div class="page-title">
-        <h1>Settings</h1>
-        <p>Passwords, branding and admin accounts for the platform.</p>
-      </div>
-    </div>
+            <div class="page-head">
+                <div class="page-title">
+                    <h1>Settings</h1>
+                    <p>Passwords, branding and admin accounts for the platform.</p>
+                </div>
+            </div>
 
-<!-- Branding comes first: the logo and the login slideshow are what anybody
+            <!-- Branding comes first: the logo and the login slideshow are what anybody
      visiting the site can actually see. The password and the account panels
      below are administration. -->
 
-<!-- Logo Panel -->
-<div id="logoSection" style="display:none;">
-<div class="panel">
-  <div class="panel-head">
-    <h1>Website Logo</h1>
-    <p>Current logo used across the admin panel.</p>
-  </div>
-  <div class="panel-body">
-    <label style="margin-top:0;">Current logo</label>
+            <!-- Logo Panel -->
+            <div id="logoSection" style="display:none;">
+                <div class="panel">
+                    <div class="panel-head">
+                        <h1>Website Logo</h1>
+                        <p>Current logo used across the admin panel.</p>
+                    </div>
+                    <div class="panel-body">
+                        <label style="margin-top:0;">Current logo</label>
 
-    <!-- A logo is usually white-on-transparent, so it needs a field to sit on
+                        <!-- A logo is usually white-on-transparent, so it needs a field to sit on
          rather than the panel's own white. Until a logo is uploaded there is
          nothing to show, so the image hides itself. -->
-    <div class="current-logo">
-      <img id="currentLogo" src="logo.png" alt="Current logo"
-           onerror="this.hidden=true">
-    </div>
+                        <div class="current-logo">
+                            <img id="currentLogo" src="logo.png" alt="Current logo" onerror="this.hidden=true">
+                        </div>
 
-    <label for="logoFile">Logo</label>
+                        <label for="logoFile">Logo</label>
 
-    <!-- Same upload control as the slideshow below, so both panels behave
+                        <!-- Same upload control as the slideshow below, so both panels behave
          identically: click or drop, then a preview replaces the box. -->
-    <div class="dropzone" id="logoDropzone" role="button" tabindex="0"
-         onclick="document.getElementById('logoFile').click()"
-         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('logoFile').click();}">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-      <strong>Upload logo</strong>
-      <span>PNG, JPG or SVG &middot; max size 3 MB</span>
-    </div>
+                        <div class="dropzone" id="logoDropzone" role="button" tabindex="0"
+                            onclick="document.getElementById('logoFile').click()"
+                            onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('logoFile').click();}">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                <polyline points="17 8 12 3 7 8" />
+                                <line x1="12" y1="3" x2="12" y2="15" />
+                            </svg>
+                            <strong>Upload logo</strong>
+                            <span>PNG, JPG or SVG &middot; max size 3 MB</span>
+                        </div>
 
-    <div class="media-preview" id="logoPreview">
-      <div class="thumb logo-thumb" id="logoThumb"></div>
-      <button class="remove" type="button" onclick="clearLogoMedia()" title="Remove logo">&times;</button>
-    </div>
+                        <div class="media-preview" id="logoPreview">
+                            <div class="thumb logo-thumb" id="logoThumb"></div>
+                            <button class="remove" type="button" onclick="clearLogoMedia()"
+                                title="Remove logo">&times;</button>
+                        </div>
 
-    <input type="file" id="logoFile" accept=".png,.jpg,.jpeg,.svg" hidden>
+                        <input type="file" id="logoFile" accept=".png,.jpg,.jpeg,.svg" hidden>
 
-    <div class="media-error" id="logoMediaError"></div>
+                        <div class="media-error" id="logoMediaError"></div>
 
-    <button class="primary" onclick="uploadLogo()" style="margin-top:15px;">Update Logo</button>
+                        <button class="primary" onclick="uploadLogo()" style="margin-top:15px;">Update Logo</button>
 
-    <div id="logoStatus" class="status"></div>
-  </div>
-</div>
+                        <div id="logoStatus" class="status"></div>
+                    </div>
+                </div>
 
-<!-- The address behind the logo. Same panel group as the logo because it is
+                <!-- The address behind the logo. Same panel group as the logo because it is
      the same thing to a visitor: a public page shows the logo, and clicking it
      is how they get to the website. Leaving it empty leaves the logo as a
      plain image. -->
-<div class="panel">
-  <div class="panel-head">
-    <h1>Website Address</h1>
-    <p>Where the logo takes a visitor when they click it, on the public inquiry page.</p>
-  </div>
-  <div class="panel-body">
-    <label for="websiteUrl" style="margin-top:0;">Website URL</label>
-    <input type="url" id="websiteUrl" placeholder="https://wzone.london"
-           autocomplete="off" spellcheck="false">
+                <div class="panel">
+                    <div class="panel-head">
+                        <h1>Website Address</h1>
+                        <p>Where the logo takes a visitor when they click it, on the public inquiry page.</p>
+                    </div>
+                    <div class="panel-body">
+                        <label for="websiteUrl" style="margin-top:0;">Website URL</label>
+                        <input type="url" id="websiteUrl" placeholder="https://wzone.london" autocomplete="off"
+                            spellcheck="false">
 
-    <button class="primary" onclick="saveWebsiteUrl()" style="margin-top:15px;">Save Website URL</button>
+                        <button class="primary" onclick="saveWebsiteUrl()" style="margin-top:15px;">Save Website
+                            URL</button>
 
-    <div id="websiteStatus" class="status"></div>
-  </div>
-</div>
-</div>
+                        <div id="websiteStatus" class="status"></div>
+                    </div>
+                </div>
+            </div>
 
-<!-- Login Page Slideshow -->
-<div id="slideshowSection" style="display:none;">
-<div class="panel">
-  <div class="panel-head">
-    <h1>Login Page Slideshow</h1>
-    <p>Up to 5 images shown beside the sign-in form. Top of the list shows first.</p>
-  </div>
-  <div class="panel-body">
-    <div id="slidesList" class="admin-list">
-      <div class="no-admins">Loading slides...</div>
-    </div>
+            <!-- Login Page Slideshow -->
+            <div id="slideshowSection" style="display:none;">
+                <div class="panel">
+                    <div class="panel-head">
+                        <h1>Login Page Slideshow</h1>
+                        <p>Up to 5 images shown beside the sign-in form. Top of the list shows first.</p>
+                    </div>
+                    <div class="panel-body">
+                        <div id="slidesList" class="admin-list">
+                            <div class="no-admins">Loading slides...</div>
+                        </div>
 
-    <!-- Adding a slide is four fields and a dropzone, which was more of the
+                        <!-- Adding a slide is four fields and a dropzone, which was more of the
          panel than the list it sits under. It lives in a dialog now, so this
          is only ever the list plus the one control that opens it. -->
-    <div class="slide-add-bar">
-      <button class="primary" type="button" id="openAddSlideBtn"
-              onclick="openAddSlide()" style="margin-top:0;">Add Slide</button>
-      <span class="small" id="slideCount"></span>
-    </div>
+                        <div class="slide-add-bar">
+                            <button class="primary" type="button" id="openAddSlideBtn" onclick="openAddSlide()"
+                                style="margin-top:0;">Add Slide</button>
+                            <span class="small" id="slideCount"></span>
+                        </div>
 
-    <!-- Removing, reordering and saving text all report here; the dialog has
+                        <!-- Removing, reordering and saving text all report here; the dialog has
          its own line for the upload it owns. -->
-    <div id="slideStatus" class="status"></div>
-  </div>
-</div>
+                        <div id="slideStatus" class="status"></div>
+                    </div>
+                </div>
 
-<!-- Add-a-slide dialog. Sits inside #slideshowSection so a non-owner never
+                <!-- Add-a-slide dialog. Sits inside #slideshowSection so a non-owner never
      has it, and above the page script so the dropzone wiring finds it. -->
-<div class="acct-modal" id="slideModal">
-  <div class="acct-box slide-box">
+                <div class="acct-modal" id="slideModal">
+                    <div class="acct-box slide-box">
 
-    <div class="acct-head">
-      <h2>Add Slide</h2>
-      <button type="button" onclick="closeAddSlide()" aria-label="Close">&times;</button>
-    </div>
+                        <div class="acct-head">
+                            <h2>Add Slide</h2>
+                            <button type="button" onclick="closeAddSlide()" aria-label="Close">&times;</button>
+                        </div>
 
-    <div class="slide-modal-body">
+                        <div class="slide-modal-body">
 
-      <label for="slideFile">Image</label>
+                            <label for="slideFile">Image</label>
 
-      <div class="dropzone" id="slideDropzone" role="button" tabindex="0"
-           onclick="document.getElementById('slideFile').click()"
-           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('slideFile').click();}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        <strong>Upload image</strong>
-        <span>Max size 3 MB &middot; 1200 &times; 1600 px recommended</span>
-      </div>
+                            <div class="dropzone" id="slideDropzone" role="button" tabindex="0"
+                                onclick="document.getElementById('slideFile').click()"
+                                onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('slideFile').click();}">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                    <polyline points="17 8 12 3 7 8" />
+                                    <line x1="12" y1="3" x2="12" y2="15" />
+                                </svg>
+                                <strong>Upload image</strong>
+                                <span>Max size 3 MB &middot; 1200 &times; 1600 px recommended</span>
+                            </div>
 
-      <div class="media-preview" id="slidePreview">
-        <div class="thumb" id="slideThumb"></div>
-        <button class="remove" type="button" onclick="clearSlideMedia()" title="Remove image">&times;</button>
-      </div>
+                            <div class="media-preview" id="slidePreview">
+                                <div class="thumb" id="slideThumb"></div>
+                                <button class="remove" type="button" onclick="clearSlideMedia()"
+                                    title="Remove image">&times;</button>
+                            </div>
 
-      <input type="file" id="slideFile" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+                            <input type="file" id="slideFile" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
 
-      <div class="media-error" id="slideMediaError"></div>
+                            <div class="media-error" id="slideMediaError"></div>
 
-      <label for="slideTitle">Title</label>
-      <input type="text" id="slideTitle" placeholder="Headline shown over the image" maxlength="120">
+                            <label for="slideTitle">Title</label>
+                            <input type="text" id="slideTitle" placeholder="Headline shown over the image"
+                                maxlength="120">
 
-      <label for="slideSubtitle">Subtitle</label>
-      <input type="text" id="slideSubtitle" placeholder="One supporting line" maxlength="255">
+                            <label for="slideSubtitle">Subtitle</label>
+                            <input type="text" id="slideSubtitle" placeholder="One supporting line" maxlength="255">
 
-      <div class="small" id="slideHint">JPG, PNG, WEBP or GIF. Max 3 MB. The login panel is a tall half-screen column, so portrait images fill it best &mdash; 1200 &times; 1600 px recommended, 600 &times; 800 px minimum.</div>
+                            <div class="small" id="slideHint">JPG, PNG, WEBP or GIF. Max 3 MB. The login panel is a tall
+                                half-screen column, so portrait images fill it best &mdash; 1200 &times; 1600 px
+                                recommended, 600 &times; 800 px minimum.</div>
 
-      <div id="slideAddStatus" class="status"></div>
-    </div>
+                            <div id="slideAddStatus" class="status"></div>
+                        </div>
 
-    <div class="slide-modal-foot">
-      <button class="slide-cancel" type="button" onclick="closeAddSlide()">Cancel</button>
-      <button class="primary" id="addSlideBtn" onclick="uploadSlide()" style="margin-top:0;">Add Slide</button>
-    </div>
+                        <div class="slide-modal-foot">
+                            <button class="slide-cancel" type="button" onclick="closeAddSlide()">Cancel</button>
+                            <button class="primary" id="addSlideBtn" onclick="uploadSlide()" style="margin-top:0;">Add
+                                Slide</button>
+                        </div>
 
-  </div>
-</div>
-</div>
+                    </div>
+                </div>
+            </div>
 
-<!-- AI assistants connected through the W|ZONE MCP server. Every admin has
+            <!-- AI assistants connected through the W|ZONE MCP server. Every admin has
      their own connections; the owner also gets the client-access switch and
      the portal-wide AI activity on the same page. -->
-<div class="panel">
-  <div class="panel-head">
-    <h1>Connected apps</h1>
-    <p>AI assistants you've allowed to use your W|ZONE account. The owner also controls whether clients may connect one, and sees recent AI activity.</p>
-  </div>
-  <div class="panel-body">
-    <a class="primary" href="connected-apps.html" style="display:inline-flex;align-items:center;padding:0 18px;height:44px;border-radius:12px;text-decoration:none;">Manage connected apps</a>
-  </div>
-</div>
+            <div class="panel">
+                <div class="panel-head">
+                    <h1>Connected apps</h1>
+                    <p>AI assistants you've allowed to use your W|ZONE account. The owner also controls whether clients
+                        may connect one, and sees recent AI activity.</p>
+                </div>
+                <div class="panel-body">
+                    <a class="primary" href="connected-apps.html"
+                        style="display:inline-flex;align-items:center;padding:0 18px;height:44px;border-radius:12px;text-decoration:none;">Manage
+                        connected apps</a>
+                </div>
+            </div>
 
-<!-- Password Panel. The id is the anchor the Files password box
+            <!-- Password Panel. The id is the anchor the Files password box
      links to, so "Reset it from Settings" lands here rather than at the top
      of the page. -->
-<div class="panel" id="sources-password">
-  <div class="panel-head">
-    <h1>Files Password</h1>
-    <p>The password that opens your Files page. It is yours alone — other admins have their own.</p>
-  </div>
-  <div class="panel-body">
+            <div class="panel" id="sources-password">
+                <div class="panel-head">
+                    <h1>Files Password</h1>
+                    <p>The password that opens your Files page. It is yours alone — other admins have their own.</p>
+                </div>
+                <div class="panel-body">
 
-    <!-- Email is the only way to change this password. There is no form to
+                    <!-- Email is the only way to change this password. There is no form to
          type a new one into here: the link goes to the address on this admin's
          own row, so a borrowed screen cannot be used to take the page over. -->
-    <p class="reset-lead">
-      We will email a reset link to <strong id="sourcesEmail">your sign-in address</strong>.
-      Open it to choose a new password. The link expires after 30 minutes.
-    </p>
+                    <p class="reset-lead">
+                        We will email a reset link to <strong id="sourcesEmail">your sign-in address</strong>.
+                        Open it to choose a new password. The link expires after 30 minutes.
+                    </p>
 
-    <button class="primary" type="button" onclick="sendSourcesReset()">Email me a reset link</button>
+                    <button class="primary" type="button" onclick="sendSourcesReset()">Email me a reset link</button>
 
-    <div id="sourcesResetStatus" class="status"></div>
+                    <div id="sourcesResetStatus" class="status"></div>
 
-  </div>
-</div>
-
-<div id="addAdminSection">
-<div class="panel">
-  <div class="panel-head">
-    <h1>Add Admin</h1>
-    <p>Create a new admin account with specific role.</p>
-  </div>
-
-  <div class="panel-body">
-    
-    <label>Name</label>
-    <input type="text" id="name" placeholder="Enter name">
-
-    <label>Email</label>
-    <input type="email" id="email" placeholder="Enter email">
-
-    <label>Password</label>
-    <input type="password" id="password" placeholder="Enter password">
-
-    <label>Role</label>
-    <select id="role">
-      <option value="seo_admin">Admin</option>
-      <option value="super_admin">Super Admin</option>
-      <option value="account_manager">Account Manager</option>
-    </select>
-
-    <button class="primary" onclick="addUser()">Add</button>
-
-  </div>
-</div>
-</div>
-<div id="distributeAdminsSection" style="display:none;">
-<div class="panel">
-  <div class="panel-head">
-    <h1>Owner Assignments to Team Management</h1>
-    <p>Choose which Admin accounts each Super Admin or Account Manager can manage.</p>
-  </div>
-
-  <div class="assignment-box">
-    <label>Select Super Admin / Account Manager</label>
-    <select id="distributeManagerSelect" onchange="renderDistribution()">
-      <option value="">Loading...</option>
-    </select>
-
-    <div id="distributeList" style="margin-top:20px;"></div>
-
-    <button class="action-btn btn" onclick="saveDistribution()" style="margin-top:20px;padding:12px 18px;">
-      Save Assignments
-    </button>
-
-    <div id="distributeStatus" style="margin-top:12px;color:#667085;"></div>
-  </div>
-</div>
-</div>
-<div id="availableAdminsSection" style="display:none;">
-    <div class="panel">
-        <div class="panel-head">
-            <h1>Available Admins</h1>
-            <p id="availableAdminsDesc">Manage Admins, Super Admins and Account Managers.</p>
-        </div>
-
-        <div class="panel-body">
-            <div id="adminsList" class="admin-list">
-                <div class="no-admins">
-                    Loading admins...
                 </div>
             </div>
 
-            <div class="pager" id="adminsPager" hidden>
-                <span class="pager-info" id="adminsPagerInfo"></span>
-                <div class="pager-pages" id="adminsPagerPages"></div>
+            <div id="addAdminSection">
+                <div class="panel">
+                    <div class="panel-head">
+                        <h1>Add Admin</h1>
+                        <p>Create a new admin account with specific role.</p>
+                    </div>
+
+                    <div class="panel-body">
+
+                        <label>Name</label>
+                        <input type="text" id="name" placeholder="Enter name">
+
+                        <label>Email</label>
+                        <input type="email" id="email" placeholder="Enter email">
+
+                        <label>Password</label>
+                        <input type="password" id="password" placeholder="Enter password">
+
+                        <label>Role</label>
+                        <select id="role">
+                            <option value="seo_admin">Admin</option>
+                            <option value="super_admin">Super Admin</option>
+                            <option value="account_manager">Account Manager</option>
+                        </select>
+
+                        <button class="primary" onclick="addUser()">Add</button>
+
+                    </div>
+                </div>
+            </div>
+            <div id="distributeAdminsSection" style="display:none;">
+                <div class="panel">
+                    <div class="panel-head">
+                        <h1>Owner Assignments to Team Management</h1>
+                        <p>Choose which Admin accounts each Super Admin or Account Manager can manage.</p>
+                    </div>
+
+                    <div class="assignment-box">
+                        <label>Select Super Admin / Account Manager</label>
+                        <select id="distributeManagerSelect" onchange="renderDistribution()">
+                            <option value="">Loading...</option>
+                        </select>
+
+                        <div id="distributeList" style="margin-top:20px;"></div>
+
+                        <button class="action-btn btn" onclick="saveDistribution()"
+                            style="margin-top:20px;padding:12px 18px;">
+                            Save Assignments
+                        </button>
+
+                        <div id="distributeStatus" style="margin-top:12px;color:#667085;"></div>
+                    </div>
+                </div>
+            </div>
+            <div id="availableAdminsSection" style="display:none;">
+                <div class="panel">
+                    <div class="panel-head">
+                        <h1>Available Admins</h1>
+                        <p id="availableAdminsDesc">Manage Admins, Super Admins and Account Managers.</p>
+                    </div>
+
+                    <div class="panel-body">
+                        <div id="adminsList" class="admin-list">
+                            <div class="no-admins">
+                                Loading admins...
+                            </div>
+                        </div>
+
+                        <div class="pager" id="adminsPager" hidden>
+                            <span class="pager-info" id="adminsPagerInfo"></span>
+                            <div class="pager-pages" id="adminsPagerPages"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ACCOUNT POPUP (opened from the sidebar card) -->
+    <div class="acct-modal" id="acctModal">
+        <div class="acct-box" role="dialog" aria-modal="true" aria-labelledby="acctTitle">
+            <div class="acct-head">
+                <h2 id="acctTitle">Account</h2>
+                <button type="button" onclick="closeAccount()" aria-label="Close">&times;</button>
+            </div>
+            <div class="acct-body">
+                <div class="acct-who">
+                    <span class="acct-label">Your role</span>
+                    <strong class="acct-role" id="acctRole"></strong>
+                </div>
+                <button class="acct-logout" type="button" onclick="logoutAdmin()">&#8617; Log out</button>
             </div>
         </div>
     </div>
-</div>
-<script>
-// ✅ تعريفات مرة واحدة بس
-let adminToken = localStorage.getItem("admin_token");
-let adminUser = JSON.parse(localStorage.getItem("admin_user") || "{}");
 
-// ✅ حماية الصفحة
-if (!adminToken || !adminUser.role) {
-  window.location.href = "admin-login.html";
-}
 
-// Clients Management is open to every admin, so the sidebar no longer hides it.
-// Add Admin, Distribute Admins and Available Admins are all owner-only.
-if (adminUser.role === "owner") {
+    <script src="settings.js"></script>
+    <script src="assets/notifications.js?v=1"></script>
+    <script src="assets/confirm.js?v=1"></script>
+    <script src="assets/shell.js?v=4"></script>
+    <script src="assets/sources-lock.js?v=1"></script>
+    <script src="assets/role-nav.js?v=2"></script>
 
-    const addAdmin = document.getElementById("addAdminSection");
-    const distributeAdmins = document.getElementById("distributeAdminsSection");
-    const availableAdmins = document.getElementById("availableAdminsSection");
-
-    if (addAdmin) addAdmin.style.display = "block";
-    if (distributeAdmins) distributeAdmins.style.display = "block";
-    if (availableAdmins) availableAdmins.style.display = "block";
-
-    loadAdmins();
-    loadDistribution();
-
-} else {
-
-    const addAdmin = document.getElementById("addAdminSection");
-    const distributeAdmins = document.getElementById("distributeAdminsSection");
-    const availableAdmins = document.getElementById("availableAdminsSection");
-
-    if (addAdmin) addAdmin.style.display = "none";
-    if (distributeAdmins) distributeAdmins.style.display = "none";
-    if (availableAdmins) availableAdmins.style.display = "none";
-}
-
-// Website Logo and Login Page Slideshow are owner-only settings.
-if (adminUser.role === "owner") {
-    const logoSection = document.getElementById("logoSection");
-    const slideshowSection = document.getElementById("slideshowSection");
-
-    if (logoSection) logoSection.style.display = "block";
-    if (slideshowSection) slideshowSection.style.display = "block";
-
-    paintCurrentLogo();
-    loadWebsiteUrl();
-    loadSlides();
-}
-
-/* ── The website address ──────────────────────────────────────────────────
-   Read back exactly as it was typed, so editing it starts from what is
-   saved rather than from a normalised version of it. api/settings.php is
-   what adds the scheme for the pages that follow the link. */
-async function loadWebsiteUrl() {
-    const field = document.getElementById("websiteUrl");
-    if (!field) return;
-
-    try {
-        const res = await fetch("api/settings.php", {
-            headers: { Authorization: "Bearer " + adminToken }
-        });
-
-        const data = await res.json();
-
-        if (data.success) field.value = data.websiteUrl || "";
-
-    } catch (error) {
-        // Leave the field empty: saving still works, it just does not start
-        // from the stored value.
-    }
-}
-
-async function saveWebsiteUrl() {
-    const field = document.getElementById("websiteUrl");
-    const status = document.getElementById("websiteStatus");
-
-    status.className = "status";
-    status.innerText = "Saving...";
-
-    try {
-        const res = await fetch("api/settings.php", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: "Bearer " + adminToken
-            },
-            body: JSON.stringify({
-                action: "save_website",
-                website_url: field.value.trim()
-            })
-        });
-
-        const data = await res.json();
-
-        status.className = data.success ? "status" : "status error";
-        status.innerText = data.message || (data.success ? "Saved." : "Could not save.");
-
-    } catch (error) {
-        status.className = "status error";
-        status.innerText = "Connection error. Please try again.";
-    }
-}
-
-/* Cache-busts the preview of the logo in use. The onerror is reinstalled on
-   every paint because the handler clears itself once it has swapped in the
-   fallback - without that, the first upload after a miss would leave the
-   placeholder showing instead of the new logo. */
-function paintCurrentLogo() {
-    const img = document.getElementById("currentLogo");
-    if (!img) return;
-
-    // No logo uploaded yet: show nothing rather than another company's.
-    img.onerror = function () {
-        this.hidden = true;
-    };
-
-    img.hidden = false;
-    img.src = "logo.png?" + Date.now();
-}
-
-// ✅ تسجيل الخروج
-function logoutAdmin() {
-  localStorage.removeItem("admin_token");
-  localStorage.removeItem("admin_user");
-  location.href = "admin-login.html";
-}
-
-// ✅ تغيير الباسورد
-/* ── Files: reset by email ──────────────────────────────────────
-   For the admin who cannot type the current password. There is no address
-   field on purpose: the link goes to the one on their own admin row, so
-   someone at a borrowed screen can send the mail but not receive it. */
-
-async function sendSourcesReset(){
-  const status = document.getElementById("sourcesResetStatus");
-
-  status.innerText = "Sending...";
-
-  try{
-    const res = await fetch("api/sources-lock.php",{
-      method:"POST",
-      headers:{
-        "Content-Type":"application/json",
-        "Authorization":"Bearer " + adminToken
-      },
-      body:JSON.stringify({ action:"forgot" })
-    });
-
-    const data = await res.json();
-    status.innerText = data.message;
-
-  }catch(err){
-    status.innerText = "Connection error.";
-  }
-}
-
-/* Shows the admin which address the link would go to. */
-(async function showSourcesEmail(){
-  try{
-    const res = await fetch("api/sources-lock.php",{
-      headers:{ "Authorization":"Bearer " + adminToken }
-    });
-
-    const data = await res.json();
-
-    if(data.success && data.email){
-      document.getElementById("sourcesEmail").innerText = data.email;
-    }
-  }catch(err){}
-})();
-
-/* ── The logo upload box ──────────────────────────────────────────────────
-   Same control as the slideshow dropzone below: click or drop, then a
-   preview replaces the box. Dragging never touches the file input, so the
-   chosen file is held here rather than read back off <input type="file">. */
-
-const MAX_LOGO_MEDIA = 3 * 1024 * 1024;
-const LOGO_EXTENSIONS = ["png", "jpg", "jpeg", "svg"];
-
-let pendingLogoFile = null;
-
-const logoDropzone = document.getElementById("logoDropzone");
-
-if (logoDropzone) {
-
-    document.getElementById("logoFile").addEventListener("change", event => {
-        if (event.target.files[0]) handleLogoMedia(event.target.files[0]);
-    });
-
-    ["dragenter", "dragover"].forEach(type => {
-        logoDropzone.addEventListener(type, event => {
-            event.preventDefault();
-            logoDropzone.classList.add("dragging");
-        });
-    });
-
-    ["dragleave", "drop"].forEach(type => {
-        logoDropzone.addEventListener(type, event => {
-            event.preventDefault();
-            logoDropzone.classList.remove("dragging");
-        });
-    });
-
-    logoDropzone.addEventListener("drop", event => {
-        const file = event.dataTransfer.files[0];
-        if (file) handleLogoMedia(file);
-    });
-}
-
-function handleLogoMedia(file) {
-    const error = document.getElementById("logoMediaError");
-
-    const fail = message => {
-        error.innerText = message;
-        error.classList.add("show");
-    };
-
-    // Matches the extension list in api/upload-logo.php.
-    const ext = (file.name.split(".").pop() || "").toLowerCase();
-
-    if (!LOGO_EXTENSIONS.includes(ext)) {
-        fail("Only PNG, JPG, JPEG or SVG logos are allowed.");
-        return;
-    }
-
-    if (file.size > MAX_LOGO_MEDIA) {
-        fail("That logo is over 3 MB. Pick a smaller one.");
-        return;
-    }
-
-    const reader = new FileReader();
-
-    reader.onerror = () => fail("That logo could not be read.");
-
-    reader.onload = () => {
-        error.classList.remove("show");
-        pendingLogoFile = file;
-
-        document.getElementById("logoThumb").style.backgroundImage =
-            `url('${reader.result}')`;
-        document.getElementById("logoPreview").classList.add("show");
-        logoDropzone.style.display = "none";
-    };
-
-    reader.readAsDataURL(file);
-}
-
-function clearLogoMedia() {
-    pendingLogoFile = null;
-
-    document.getElementById("logoFile").value = "";
-    document.getElementById("logoThumb").style.backgroundImage = "";
-    document.getElementById("logoPreview").classList.remove("show");
-    document.getElementById("logoMediaError").classList.remove("show");
-    logoDropzone.style.display = "";
-}
-
-// ✅ رفع اللوجو
-async function uploadLogo() {
-  const status = document.getElementById("logoStatus");
-  const file = pendingLogoFile;
-
-  if (!file) {
-    alert("Please select a logo file first.");
-    return;
-  }
-
-  status.innerText = "Uploading...";
-
-  const form = new FormData();
-  form.append("logo", file);
-
-  try {
-    const res = await fetch("api/upload-logo.php", {
-      method: "POST",
-      headers: {
-        "Authorization": "Bearer " + adminToken
-      },
-      body: form
-    });
-
-    const data = await res.json();
-    status.innerText = data.message;
-
-    if (data.success) {
-      paintCurrentLogo();
-
-      const bust = "logo.png?" + new Date().getTime();
-      document.querySelectorAll(".side-logo img").forEach(img => {
-        img.src = bust;
-      });
-      clearLogoMedia();
-    }
-  } catch (err) {
-    status.innerText = "An error occurred while uploading.";
-  }
-}
-
-/* ── Login Page Slideshow ─────────────────────────────────────────────────
-   Rows are the slides in display order. The five-slide cap is enforced by
-   the server; disabling the button here is only so nobody uploads a file
-   that is going to be refused. */
-
-let allSlides = [];
-const MAX_SLIDES = 5;
-const MAX_SLIDE_MEDIA = 3 * 1024 * 1024;
-
-// Kept in step with LOGIN_SLIDE_MIN_WIDTH/HEIGHT in api/db.php, which is what
-// uploadSlideImage() enforces. Portrait, to match the column the slide fills.
-const MIN_SLIDE_WIDTH = 600;
-const MIN_SLIDE_HEIGHT = 800;
-
-// Only guidance - nothing rejects an image for being under these. Portrait,
-// because the login slideshow is a full-height half-width column and a 16:9
-// image gets centre-cropped down to roughly half its width to cover it.
-const REC_SLIDE_WIDTH = 1200;
-const REC_SLIDE_HEIGHT = 1600;
-
-async function loadSlides() {
-    const list = document.getElementById("slidesList");
-
-    if (!list) return;
-
-    try {
-        const res = await fetch("api/admin-login-slides.php", {
-            headers: {
-                "Authorization": "Bearer " + adminToken
-            }
-        });
-
-        const data = await res.json();
-
-        if (!res.ok || !data.success) {
-            allSlides = [];
-            list.innerHTML = `
-                <div class="no-admins">
-                    ${escapeHtml(data.message || "Failed to load slides.")}
-                </div>
-            `;
-            updateSlideControls();
-            return;
-        }
-
-        allSlides = data.slides || [];
-        renderSlidesList();
-
-    } catch (err) {
-        console.error("Load slides error:", err);
-
-        allSlides = [];
-        list.innerHTML = `
-            <div class="no-admins">
-                Network or server error.
-            </div>
-        `;
-        updateSlideControls();
-    }
-}
-
-function renderSlidesList() {
-    const list = document.getElementById("slidesList");
-
-    if (!list) return;
-
-    if (!allSlides.length) {
-        list.innerHTML = `
-            <div class="no-admins">
-                No slides yet. The login page shows the centred sign-in form.
-            </div>
-        `;
-    } else {
-        list.innerHTML = allSlides.map((slide, index) => `
-            <div class="admin-row" id="slide-row-${slide.id}">
-
-                <div class="slide-thumb-wrap">
-                    <img class="slide-thumb" src="${escapeHtml(slide.image_path)}" alt="">
-
-                    <button type="button" class="slide-change"
-                            title="Change image" aria-label="Change image"
-                            onclick="document.getElementById('slide-file-${slide.id}').click()">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
-                    </button>
-
-                    <input type="file" id="slide-file-${slide.id}" hidden
-                           accept="image/jpeg,image/png,image/webp,image/gif"
-                           onchange="replaceSlideImage(${slide.id}, this)">
-                </div>
-
-                <div class="admin-info" style="flex:1;">
-                    <input type="text" id="slide-title-${slide.id}" maxlength="120"
-                           placeholder="Title"
-                           value="${escapeHtml(slide.title || "")}"
-                           style="margin-bottom:8px;">
-                    <input type="text" id="slide-subtitle-${slide.id}" maxlength="255"
-                           placeholder="Subtitle"
-                           value="${escapeHtml(slide.subtitle || "")}"
-                           style="margin-bottom:0;">
-                </div>
-
-                <div class="slide-actions">
-                    <button type="button" class="slide-move" title="Move up" aria-label="Move up"
-                            onclick="moveSlide(${index}, -1)" ${index === 0 ? "disabled" : ""}>↑</button>
-
-                    <button type="button" class="slide-move" title="Move down" aria-label="Move down"
-                            onclick="moveSlide(${index}, 1)" ${index === allSlides.length - 1 ? "disabled" : ""}>↓</button>
-
-                    <button type="button" class="slide-move slide-save"
-                            onclick="saveSlideText(${slide.id})">Save text</button>
-
-                    <button type="button" class="remove-admin-btn"
-                            onclick="deleteSlide(${slide.id})">Remove</button>
-                </div>
-
-            </div>
-        `).join("");
-    }
-
-    updateSlideControls();
-}
-
-function updateSlideControls() {
-    const hint = document.getElementById("slideHint");
-    const file = document.getElementById("slideFile");
-    const dropzone = document.getElementById("slideDropzone");
-    const addBtn = document.getElementById("addSlideBtn");
-    const openBtn = document.getElementById("openAddSlideBtn");
-    const count = document.getElementById("slideCount");
-
-    const full = allSlides.length >= MAX_SLIDES;
-
-    if (file) file.disabled = full;
-    if (addBtn) addBtn.disabled = full;
-
-    // The dialog is the only way in now, so the cap has to be visible on the
-    // button that opens it - not just on the controls inside.
-    if (openBtn) openBtn.disabled = full;
-
-    // The input is hidden now, so disabling it alone would still leave the
-    // dropzone looking clickable.
-    if (dropzone) dropzone.classList.toggle("is-disabled", full);
-
-    if (count) {
-        count.innerText = full
-            ? `Maximum of ${MAX_SLIDES} slides reached. Remove one to add another.`
-            : `${allSlides.length} of ${MAX_SLIDES} slides.`;
-    }
-
-    if (hint) {
-        hint.innerText = full
-            ? `Maximum of ${MAX_SLIDES} slides reached. Remove one to add another.`
-            : "JPG, PNG, WEBP or GIF. Max 3 MB. The login panel is a tall "
-                + "half-screen column, so portrait images fill it best — "
-                + `${REC_SLIDE_WIDTH} × ${REC_SLIDE_HEIGHT} px recommended, `
-                + `${MIN_SLIDE_WIDTH} × ${MIN_SLIDE_HEIGHT} px minimum.`;
-    }
-}
-
-/* ── Opening and closing the Add dialog ────────────────────────────────────
-   Every field in it belongs to one upload, so it opens empty rather than
-   holding whatever was typed and abandoned last time. */
-
-function openAddSlide() {
-    if (allSlides.length >= MAX_SLIDES) return;
-
-    clearSlideMedia();
-    document.getElementById("slideTitle").value = "";
-    document.getElementById("slideSubtitle").value = "";
-    document.getElementById("slideAddStatus").innerText = "";
-
-    document.getElementById("slideModal").classList.add("show");
-    document.getElementById("slideDropzone").focus();
-}
-
-function closeAddSlide() {
-    document.getElementById("slideModal").classList.remove("show");
-}
-
-// Escape closes it, the same as the × in the header.
-document.addEventListener("keydown", function (event) {
-    if (event.key !== "Escape") return;
-
-    const modal = document.getElementById("slideModal");
-    if (modal && modal.classList.contains("show")) closeAddSlide();
-});
-
-/* ── The Add-a-slide dropzone ─────────────────────────────────────────────
-   Same control as the Media Assets box on admin-content-form.html: a click
-   or drop target that swaps itself for a preview once a file is picked.
-   Dragging never touches the file input, so the chosen file is held here
-   rather than read back off <input type="file"> at upload time. */
-
-let pendingSlideFile = null;
-
-const slideDropzone = document.getElementById("slideDropzone");
-
-if (slideDropzone) {
-
-    document.getElementById("slideFile").addEventListener("change", event => {
-        if (event.target.files[0]) handleSlideMedia(event.target.files[0]);
-    });
-
-    ["dragenter", "dragover"].forEach(type => {
-        slideDropzone.addEventListener(type, event => {
-            event.preventDefault();
-            slideDropzone.classList.add("dragging");
-        });
-    });
-
-    ["dragleave", "drop"].forEach(type => {
-        slideDropzone.addEventListener(type, event => {
-            event.preventDefault();
-            slideDropzone.classList.remove("dragging");
-        });
-    });
-
-    slideDropzone.addEventListener("drop", event => {
-        const file = event.dataTransfer.files[0];
-        if (file) handleSlideMedia(file);
-    });
-}
-
-/* Reads the file once and hands back both the data URL for the preview and
-   the decoded size, so the dimension check does not cost a second read. */
-function readSlideImage(file) {
-    return new Promise((resolve, reject) => {
-
-        const reader = new FileReader();
-
-        reader.onerror = () => reject(new Error("unreadable"));
-
-        reader.onload = () => {
-            const image = new Image();
-
-            image.onerror = () => reject(new Error("undecodable"));
-            image.onload = () => resolve({
-                url: reader.result,
-                width: image.naturalWidth,
-                height: image.naturalHeight
-            });
-
-            image.src = reader.result;
-        };
-
-        reader.readAsDataURL(file);
-    });
-}
-
-async function handleSlideMedia(file) {
-    const error = document.getElementById("slideMediaError");
-
-    const fail = message => {
-        error.innerText = message;
-        error.classList.add("show");
-    };
-
-    if (!file.type.startsWith("image/")) {
-        fail("Only image files are allowed.");
-        return;
-    }
-
-    if (file.size > MAX_SLIDE_MEDIA) {
-        fail("That image is over 3 MB. Pick a smaller one.");
-        return;
-    }
-
-    let image;
-
-    try {
-        image = await readSlideImage(file);
-    } catch (err) {
-        fail("That image could not be read.");
-        return;
-    }
-
-    // The slideshow fills half a desktop screen, so anything small is going
-    // to be stretched. The server enforces the same floor.
-    if (image.width < MIN_SLIDE_WIDTH || image.height < MIN_SLIDE_HEIGHT) {
-        fail(
-            `That image is ${image.width} × ${image.height} px. `
-            + `The minimum is ${MIN_SLIDE_WIDTH} × ${MIN_SLIDE_HEIGHT} px.`
-        );
-        return;
-    }
-
-    error.classList.remove("show");
-    pendingSlideFile = file;
-
-    document.getElementById("slideThumb").style.backgroundImage =
-        `url('${image.url}')`;
-    document.getElementById("slidePreview").classList.add("show");
-    slideDropzone.style.display = "none";
-}
-
-function clearSlideMedia() {
-    pendingSlideFile = null;
-
-    document.getElementById("slideFile").value = "";
-    document.getElementById("slideThumb").style.backgroundImage = "";
-    document.getElementById("slidePreview").classList.remove("show");
-    document.getElementById("slideMediaError").classList.remove("show");
-    slideDropzone.style.display = "";
-}
-
-/* ── Change the image on a slide already saved ─────────────────────────────
-   The pencil over a thumbnail. Only the file changes - title, subtitle and
-   position stay exactly where they were. */
-
-async function replaceSlideImage(id, input) {
-    const file = input.files[0];
-
-    if (!file) return;
-
-    const status = document.getElementById("slideStatus");
-
-    // Clearing it now means picking the same file twice in a row still fires
-    // a change event, and a failed swap leaves nothing stale behind.
-    input.value = "";
-
-    if (file.size > MAX_SLIDE_MEDIA) {
-        status.innerText = "That image is over 3 MB. Pick a smaller one.";
-        return;
-    }
-
-    // Same floor as the Add box above, so a swap cannot slip a small image
-    // past the check the new-slide path applies.
-    try {
-        const image = await readSlideImage(file);
-
-        if (image.width < MIN_SLIDE_WIDTH || image.height < MIN_SLIDE_HEIGHT) {
-            status.innerText =
-                `That image is ${image.width} × ${image.height} px. `
-                + `The minimum is ${MIN_SLIDE_WIDTH} × ${MIN_SLIDE_HEIGHT} px.`;
-            return;
-        }
-    } catch (err) {
-        status.innerText = "That image could not be read.";
-        return;
-    }
-
-    status.innerText = "Replacing image...";
-
-    const form = new FormData();
-    form.append("action", "replace");
-    form.append("id", id);
-    form.append("slide", file);
-
-    try {
-        const res = await fetch("api/admin-login-slides.php", {
-            method: "POST",
-            headers: {
-                "Authorization": "Bearer " + adminToken
-            },
-            body: form
-        });
-
-        const data = await res.json();
-        status.innerText = data.message;
-
-        await loadSlides();
-
-    } catch (err) {
-        status.innerText = "Network or server error.";
-    }
-}
-
-async function uploadSlide() {
-
-    /* Two status lines now. Progress and anything that went wrong belong in
-       the dialog, where the fields that caused it still are; the result of a
-       finished upload belongs in the panel, because the dialog closes. */
-    const status = document.getElementById("slideAddStatus");
-    const panelStatus = document.getElementById("slideStatus");
-    const addBtn = document.getElementById("addSlideBtn");
-
-    // Held by handleSlideMedia() - a dropped file never reaches the input.
-    const file = pendingSlideFile;
-
-    if (!file) {
-        status.innerText = "Choose an image first.";
-        return;
-    }
-
-    status.innerText = "Uploading...";
-    if (addBtn) addBtn.disabled = true;
-
-    const form = new FormData();
-    form.append("slide", file);
-    form.append("title", document.getElementById("slideTitle").value);
-    form.append("subtitle", document.getElementById("slideSubtitle").value);
-
-    try {
-        const res = await fetch("api/admin-login-slides.php", {
-            method: "POST",
-            headers: {
-                "Authorization": "Bearer " + adminToken
-            },
-            body: form
-        });
-
-        const data = await res.json();
-
-        if (data.success) {
-            clearSlideMedia();
-            document.getElementById("slideTitle").value = "";
-            document.getElementById("slideSubtitle").value = "";
-
-            closeAddSlide();
-            panelStatus.innerText = data.message;
-        } else {
-            status.innerText = data.message;
-        }
-
-        // Re-enables or re-disables the buttons off the new count, so a failed
-        // upload leaves Add usable and a fifth slide leaves it disabled.
-        await loadSlides();
-
-    } catch (err) {
-        status.innerText = "An error occurred while uploading.";
-        if (addBtn) addBtn.disabled = false;
-    }
-}
-
-async function saveSlideText(id) {
-    const status = document.getElementById("slideStatus");
-
-    status.innerText = "Saving...";
-
-    try {
-        const res = await fetch("api/admin-login-slides.php", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": "Bearer " + adminToken
-            },
-            body: JSON.stringify({
-                action: "update",
-                id: id,
-                title: document.getElementById("slide-title-" + id).value,
-                subtitle: document.getElementById("slide-subtitle-" + id).value
-            })
-        });
-
-        const data = await res.json();
-        status.innerText = data.message;
-
-        if (data.success) {
-            const slide = allSlides.find(item => item.id === id);
-
-            if (slide) {
-                slide.title = document.getElementById("slide-title-" + id).value.trim();
-                slide.subtitle = document.getElementById("slide-subtitle-" + id).value.trim();
-            }
-        } else {
-            loadSlides();
-        }
-
-    } catch (err) {
-        status.innerText = "Network or server error.";
-    }
-}
-
-async function deleteSlide(id) {
-    const ok = await askConfirm({
-        title : "Remove slide",
-        text  : "This slide will be removed from the login page.",
-        action: "Remove slide",
-        word  : "DELETE"
-    });
-    if (!ok) return;
-
-    const status = document.getElementById("slideStatus");
-
-    status.innerText = "Removing...";
-
-    try {
-        const res = await fetch("api/admin-login-slides.php?id=" + id, {
-            method: "DELETE",
-            headers: {
-                "Authorization": "Bearer " + adminToken
-            }
-        });
-
-        const data = await res.json();
-        status.innerText = data.message;
-
-        await loadSlides();
-
-    } catch (err) {
-        status.innerText = "Network or server error.";
-    }
-}
-
-function moveSlide(index, delta) {
-    const target = index + delta;
-
-    if (target < 0 || target >= allSlides.length) return;
-
-    // Swap and repaint first - the arrows should feel instant - then persist.
-    const moved = allSlides[index];
-    allSlides[index] = allSlides[target];
-    allSlides[target] = moved;
-
-    renderSlidesList();
-    saveSlideOrder();
-}
-
-async function saveSlideOrder() {
-    const status = document.getElementById("slideStatus");
-    const buttons = document.querySelectorAll("#slidesList .slide-move");
-
-    buttons.forEach(button => button.disabled = true);
-    status.innerText = "Saving order...";
-
-    try {
-        const res = await fetch("api/admin-login-slides.php", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": "Bearer " + adminToken
-            },
-            body: JSON.stringify({
-                action: "reorder",
-                order: allSlides.map(slide => slide.id)
-            })
-        });
-
-        const data = await res.json();
-        status.innerText = data.message;
-
-        if (!data.success) {
-            // Another tab changed the list. Take the server's version.
-            alert(data.message || "Could not save the slide order.");
-            await loadSlides();
-            return;
-        }
-
-        renderSlidesList();
-
-    } catch (err) {
-        status.innerText = "Network or server error.";
-        alert("Could not save the slide order.");
-        await loadSlides();
-    }
-}
-
-async function addUser() {
-  try {
-    const res = await fetch("api/add-user.php", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer " + adminToken
-      },
-      body: JSON.stringify({
-        name: document.getElementById("name").value,
-        email: document.getElementById("email").value,
-        password: document.getElementById("password").value,
-        role: document.getElementById("role").value
-      })
-    });
-
-    // 👇 مهم جدا
-    const text = await res.text();
-    console.log("RAW RESPONSE:", text);
-
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch (e) {
-      alert("Email already exists, try another one ❌");
-      return;
-    }
-
-    alert(data.message || "Done");
-
-  } catch (err) {
-    console.error(err);
-    alert("Network or server error ❌");
-  }
-}
-let allAdmins = [];
-
-// Eight rows to a page; the rest live behind the pager under the list.
-const ADMINS_PAGE_SIZE = 8;
-let adminsPage = 1;
-
-function hideAdminsPager() {
-    const pager = document.getElementById("adminsPager");
-    if (pager) pager.hidden = true;
-}
-
-async function loadAdmins() {
-    const list = document.getElementById("adminsList");
-
-    if (!list) return;
-
-    list.innerHTML = `
-        <div class="no-admins">
-            Loading admins...
-        </div>
-    `;
-
-    try {
-        const res = await fetch("api/get-admins.php", {
-            method: "GET",
-            headers: {
-                "Authorization": "Bearer " + adminToken
-            }
-        });
-
-        const data = await res.json();
-
-        if (!res.ok || !data.success) {
-            allAdmins = [];
-            hideAdminsPager();
-
-            list.innerHTML = `
-                <div class="no-admins">
-                    ${escapeHtml(data.message || "Failed to load admins.")}
-                </div>
-            `;
-            return;
-        }
-
-        allAdmins = data.admins || [];
-
-        // Keep the page we were on - removing an admin should not send us back
-        // to page 1. renderAdmins() clamps it if the page no longer exists.
-        renderAdmins();
-
-    } catch (err) {
-
-        console.error("Load admins error:", err);
-
-        allAdmins = [];
-        hideAdminsPager();
-
-        list.innerHTML = `
-            <div class="no-admins">
-                Network or server error.
-            </div>
-        `;
-    }
-}
-
-/* The role cell.
-
-   For the owner it is a dropdown - promoting and demoting between Admin,
-   Super Admin and Account Manager happens here, and api/admin-role.php writes
-   it to the admins table, which is what every other page and endpoint reads.
-   For anyone else, and for the owner's own row, it stays a plain label. */
-
-const ASSIGNABLE_ROLES = ["seo_admin", "super_admin", "account_manager"];
-
-function adminRoleControl(admin){
-    const isOwnerRow = admin.role === "owner";
-    const canEdit = adminUser.role === "owner" && !isOwnerRow;
-
-    if(!canEdit){
-        return `<span class="admin-role">${adminRoleLabel(admin.role)}</span>`;
-    }
-
-    return `
-        <select class="admin-role-select" data-current="${escapeHtml(admin.role)}"
-                onchange="changeAdminRole(${admin.id}, this)">
-            ${ASSIGNABLE_ROLES.map(role => `
-                <option value="${role}" ${role === admin.role ? "selected" : ""}>
-                    ${adminRoleLabel(role)}
-                </option>
-            `).join("")}
-        </select>
-    `;
-}
-
-async function changeAdminRole(adminId, select){
-    const newRole = select.value;
-    const previous = select.dataset.current;
-
-    if(newRole === previous) return;
-
-    const label = adminRoleLabel(newRole);
-
-    const ok = await askConfirm({
-        title : "Change role",
-        text  : `This person becomes ${label}. They will be signed out and pick up the new role next time they log in.`,
-        action: "Change role",
-        icon  : "warn"
-    });
-
-    if(!ok){
-        select.value = previous;
-        return;
-    }
-
-    select.disabled = true;
-
-    try{
-        const res = await fetch("api/admin-role.php", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: "Bearer " + adminToken
-            },
-            body: JSON.stringify({ admin_id: adminId, role: newRole })
-        });
-
-        const data = await res.json();
-
-        if(!data.success){
-            alert(data.message);
-            select.value = previous;
-            select.disabled = false;
-            return;
-        }
-
-        select.dataset.current = newRole;
-        select.disabled = false;
-
-        // The dropdown above depends on who holds which role, so both lists
-        // are rebuilt rather than only the row that changed.
-        loadAdmins();
-        loadDistribution();
-
-    }catch(error){
-        alert("Connection error.");
-        select.value = previous;
-        select.disabled = false;
-    }
-}
-
-function renderAdmins() {
-    const list = document.getElementById("adminsList");
-
-    if (!list) return;
-
-    if (!allAdmins.length) {
-        hideAdminsPager();
-
-        list.innerHTML = `
-            <div class="no-admins">
-                No admins available.
-            </div>
-        `;
-        return;
-    }
-
-    const totalPages = Math.max(1, Math.ceil(allAdmins.length / ADMINS_PAGE_SIZE));
-
-    if (adminsPage > totalPages) adminsPage = totalPages;
-
-    const start = (adminsPage - 1) * ADMINS_PAGE_SIZE;
-    const pageAdmins = allAdmins.slice(start, start + ADMINS_PAGE_SIZE);
-
-    list.innerHTML = pageAdmins.map(admin => {
-        const isActive = Number(admin.active) === 1;
-
-        return `
-        <div class="admin-row" id="admin-row-${admin.id}">
-
-            <div class="admin-info">
-                <strong>${escapeHtml(admin.name)}</strong>
-                <span>${escapeHtml(admin.email)}</span>
-                ${adminRoleControl(admin)}
-                <span class="admin-status ${isActive ? "is-active" : "is-inactive"}">
-                    ${isActive ? "Active" : "Inactive"}
-                </span>
-            </div>
-
-            ${
-                isActive
-                ? `<button
-                    type="button"
-                    class="deactivate-admin-btn"
-                    onclick="setAdminActive(${admin.id}, '${escapeHtml(admin.name)}', false)"
-                  >
-                    Deactivate
-                  </button>`
-                : `<button
-                    type="button"
-                    class="activate-admin-btn"
-                    onclick="setAdminActive(${admin.id}, '${escapeHtml(admin.name)}', true)"
-                  >
-                    Activate
-                  </button>`
-            }
-
-        </div>
-        `;
-    }).join("");
-
-    renderAdminsPager(allAdmins.length, totalPages, start, pageAdmins.length);
-}
-
-function renderAdminsPager(total, totalPages, start, shown) {
-    const pager = document.getElementById("adminsPager");
-
-    if (!pager) return;
-
-    if (total <= ADMINS_PAGE_SIZE) {
-        pager.hidden = true;
-        return;
-    }
-
-    pager.hidden = false;
-
-    document.getElementById("adminsPagerInfo").innerText =
-        `Showing ${start + 1}–${start + shown} of ${total}`;
-
-    const pages = Array.from({length: totalPages}, (unused, index) => index + 1);
-
-    document.getElementById("adminsPagerPages").innerHTML = `
-        <button type="button" onclick="goToAdminsPage(${adminsPage - 1})" ${adminsPage === 1 ? "disabled" : ""}>Prev</button>
-        ${pages.map(page => `
-            <button type="button" class="${page === adminsPage ? "current" : ""}"
-                    onclick="goToAdminsPage(${page})">${page}</button>
-        `).join("")}
-        <button type="button" onclick="goToAdminsPage(${adminsPage + 1})" ${adminsPage === totalPages ? "disabled" : ""}>Next</button>
-    `;
-}
-
-function goToAdminsPage(page) {
-    adminsPage = page;
-    renderAdmins();
-
-    document.getElementById("adminsList").scrollIntoView({behavior:"smooth", block:"center"});
-}
-async function setAdminActive(id, name, makeActive) {
-
-    const confirmed = await askConfirm({
-        title : makeActive ? "Reactivate admin" : "Deactivate admin",
-        text  : makeActive
-            ? `"${name}" will be able to log in again.`
-            : `"${name}" won't be able to log in, but nothing about their account is deleted.`,
-        action: makeActive ? "Reactivate" : "Deactivate",
-        icon  : "warn"
-    });
-
-    if (!confirmed) return;
-
-    try {
-
-        const res = await fetch("api/settings.php", {
-            method: "POST",
-
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": "Bearer " + adminToken
-            },
-
-            body: JSON.stringify({
-                action: "toggle_admin_status",
-                id: id,
-                active: makeActive ? 1 : 0
-            })
-        });
-
-        const data = await res.json();
-
-        if (!res.ok || !data.success) {
-            alert(data.message || "Failed to update admin status.");
-            return;
-        }
-
-        alert(data.message || (makeActive ? "Admin activated." : "Admin deactivated."));
-
-        // Reload list
-        loadAdmins();
-
-    } catch (err) {
-
-        console.error("Toggle admin status error:", err);
-
-        alert("Network or server error ❌");
-    }
-}
-// ---- Distribute Admins panel: owner -> super_admin/account_manager ----
-// Same pattern as the Owner Assignments panel on clients-management.html,
-// just handing off Admin accounts instead of clients.
-let distributeManagers = [];
-let distributePool = [];
-let distributeAssignments = {};
-
-async function loadDistribution(){
-    const select = document.getElementById("distributeManagerSelect");
-    if (!select) return;
-
-    try{
-        const res = await fetch("api/admin-manager-assignments.php", {
-            headers: { Authorization: "Bearer " + adminToken }
-        });
-
-        const data = await res.json();
-
-        if(!data.success){
-            select.innerHTML = `<option value="">${escapeHtml(data.message || "Unable to load")}</option>`;
-            return;
-        }
-
-        distributeManagers = data.targetAdmins || [];
-        distributePool = data.admins || [];
-        distributeAssignments = data.assignments || {};
-
-        if(!distributeManagers.length){
-            select.innerHTML = `<option value="">No super admins or account managers found.</option>`;
-            return;
-        }
-
-        select.innerHTML = `
-            <option value="">Select Super Admin / Account Manager</option>
-            ${distributeManagers.map(mgr => `
-                <option value="${mgr.id}">${escapeHtml(mgr.name)} - ${escapeHtml(mgr.email)} (${adminRoleLabel(mgr.role)})</option>
-            `).join("")}
-        `;
-
-    }catch(error){
-        select.innerHTML = `<option value="">Connection error</option>`;
-    }
-}
-
-/* Who can be handed to whom.
-
-   An account manager sits above the super admins, so their list is both:
-   the super admins and the plain admins. A super admin only ever gets plain
-   admins - they cannot be given another super admin, or each other.
-
-   The super admins are already on the page inside distributeManagers (it is
-   the same dropdown list), so no extra request is needed to build this. */
-
-function distributeRoleOf(adminId){
-    const match = distributeManagers.find(mgr => String(mgr.id) === String(adminId));
-    return match ? match.role : "";
-}
-
-function distributePoolFor(managerId){
-    const role = distributeRoleOf(managerId);
-
-    if(role !== "account_manager"){
-        return distributePool;
-    }
-
-    // Super admins first, then the plain admins beneath them.
-    const superAdmins = distributeManagers.filter(mgr =>
-        mgr.role === "super_admin" && String(mgr.id) !== String(managerId)
-    );
-
-    return superAdmins.concat(distributePool);
-}
-
-function renderDistribution(){
-    const managerId = document.getElementById("distributeManagerSelect").value;
-    const box = document.getElementById("distributeList");
-
-    if(!managerId){
-        box.innerHTML = "";
-        return;
-    }
-
-    const pool = distributePoolFor(managerId);
-
-    if(!pool.length){
-        box.innerHTML = `<div class="empty">No accounts available to assign to this person.</div>`;
-        return;
-    }
-
-    const assigned = distributeAssignments[managerId] || [];
-
-    box.innerHTML = pool.map(adm => `
-        <label style="
-            display:flex;
-            justify-content:space-between;
-            align-items:center;
-            border:1px solid #eef1f5;
-            border-radius:12px;
-            padding:12px 16px;
-            margin-bottom:10px;
-            background:#fff;
-        ">
-            <div>
-                <strong>${escapeHtml(adm.name)}</strong><br>
-                <span style="color:#667085;font-size:12px;">${escapeHtml(adm.email)} &middot; ${escapeHtml(adminRoleLabel(adm.role))}</span>
-            </div>
-
-            <input
-                type="checkbox"
-                value="${escapeHtml(adm.id)}"
-                ${assigned.includes(Number(adm.id)) ? "checked" : ""}
-                style="width:18px;height:18px;"
-            >
-        </label>
-    `).join("");
-}
-
-async function saveDistribution(){
-    const managerId = document.getElementById("distributeManagerSelect").value;
-    const status = document.getElementById("distributeStatus");
-
-    if(!managerId){
-        status.innerText = "Please make a selection.";
-        return;
-    }
-
-    const adminIds = Array.from(
-        document.querySelectorAll("#distributeList input[type='checkbox']:checked")
-    ).map(input => input.value);
-
-    status.innerText = "Saving...";
-
-    try{
-        const res = await fetch("api/admin-manager-assignments.php", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: "Bearer " + adminToken
-            },
-            body: JSON.stringify({
-                managerId,
-                adminIds
-            })
-        });
-
-        const data = await res.json();
-        status.innerText = data.message;
-
-        if(data.success){
-            distributeAssignments[managerId] = adminIds.map(id => Number(id));
-        }
-
-    }catch(error){
-        status.innerText = "Connection error.";
-    }
-}
-
-
-function escapeHtml(value) {
-    return String(value ?? "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
-async function loadSettings() {
-  try {
-    const res = await fetch("api/settings.php", {
-      headers: {
-        "Authorization": "Bearer " + adminToken
-      }
-    });
-
-    const response = await res.json();
-
-    if (response.role === "super_admin") {
-      document.getElementById("superAdminSection").style.display = "block";
-    }
-
-  } catch (err) {
-    console.log("Error loading settings");
-  }
-}
-
-window.onload = loadSettings;
-</script>
-
-  </div>
-</div>
-
-<!-- ACCOUNT POPUP (opened from the sidebar card) -->
-<div class="acct-modal" id="acctModal">
-  <div class="acct-box" role="dialog" aria-modal="true" aria-labelledby="acctTitle">
-    <div class="acct-head">
-      <h2 id="acctTitle">Account</h2>
-      <button type="button" onclick="closeAccount()" aria-label="Close">&times;</button>
-    </div>
-    <div class="acct-body">
-      <div class="acct-who">
-        <span class="acct-label">Your role</span>
-        <strong class="acct-role" id="acctRole"></strong>
-      </div>
-      <button class="acct-logout" type="button" onclick="logoutAdmin()">&#8617; Log out</button>
-    </div>
-  </div>
-</div>
-
-
-<script src="assets/notifications.js?v=1"></script>
-<script src="assets/confirm.js?v=1"></script>
-<script src="assets/shell.js?v=4"></script>
-<script src="assets/sources-lock.js?v=1"></script>
-<script src="assets/role-nav.js?v=2"></script>
-<script>
-/* The calendar belongs to the roles that deal with clients. A plain seo_admin
-   works on content, so the link comes out of their sidebar. api/calendar.php
-   and the page itself refuse the role too - this only hides a dead link. */
-(function () {
-  var CALENDAR_ROLES = ["owner", "super_admin", "account_manager"];
-
-  var role = "";
-  try {
-    role = (JSON.parse(localStorage.getItem("admin_user") || "{}") || {}).role || "";
-  } catch (e) {}
-
-  if (!role || CALENDAR_ROLES.indexOf(role) !== -1) return;
-
-  document.querySelectorAll('a[href*="admin-calendar.html"]')
-    .forEach(function (link) { link.remove(); });
-})();
-</script>
 </body>
+
 </html>

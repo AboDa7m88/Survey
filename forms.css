@@ -1,0 +1,967 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: Arial, sans-serif;
+}
+
+:root {
+    --brand: #c9000b;
+    --nav-active: #1b1e3a;
+    --text: #101828;
+    --muted: #667085;
+    --line: #eaecf0;
+    --sidebar-w: 260px;
+}
+
+body {
+    background: #f7f8fc;
+    color: var(--text);
+}
+
+.app {
+    display: flex;
+    min-height: 100vh;
+}
+
+/* ── Sidebar ── */
+.sidebar {
+    width: var(--sidebar-w);
+    background: #fff;
+    border-right: 1px solid var(--line);
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    padding: 26px 12px 18px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.logo {
+    padding: 0 6px;
+    margin-bottom: 30px;
+}
+
+.logo img {
+    width: 150px;
+    max-width: 100%;
+    height: auto;
+    display: block;
+}
+
+.nav a {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    text-decoration: none;
+    color: var(--muted);
+    padding: 11px 12px;
+    border-radius: 10px;
+    margin-bottom: 4px;
+    font-size: 14px;
+    font-weight: 600;
+    transition: background 0.15s, color 0.15s;
+}
+
+.nav a svg {
+    width: 18px;
+    height: 18px;
+    flex: none;
+}
+
+.nav a:hover {
+    background: #f6f7f9;
+    color: var(--text);
+}
+
+.nav a.active {
+    background: var(--nav-active);
+    color: #fff;
+}
+
+.user-card {
+    width: 100%;
+    font: inherit;
+    text-align: left;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.user-card:hover {
+    background: #fafbfc;
+    border-color: #d7dae0;
+}
+
+.avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #dce3ff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 13px;
+    color: #3745a4;
+    background-size: cover;
+    background-position: center;
+    flex: none;
+}
+
+.user-meta {
+    flex: 1;
+    min-width: 0;
+}
+
+.user-meta h4 {
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.user-meta p {
+    font-size: 11px;
+    color: #98a2b3;
+}
+
+.user-dots {
+    color: #98a2b3;
+    flex: none;
+}
+
+/* ── Main / header ── */
+.main {
+    margin-left: var(--sidebar-w);
+    width: calc(100% - var(--sidebar-w));
+}
+
+.content {
+    padding: 34px 44px;
+}
+
+.welcome h1 {
+    font-size: 30px;
+    margin-bottom: 8px;
+}
+
+.welcome p {
+    font-size: 14px;
+    color: #667085;
+    margin-bottom: 28px;
+}
+
+.stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 30px;
+    margin-bottom: 34px;
+}
+
+.stat {
+    background: #fff;
+    border-radius: 16px;
+    padding: 24px;
+    display: flex;
+    gap: 18px;
+    align-items: center;
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.04);
+    cursor: pointer;
+}
+
+.icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    background: #eef0f6;
+    color: var(--nav-active);
+}
+
+.stat:nth-child(2) .icon {
+    background: #f2f4ff;
+    color: #6670d8;
+}
+
+.stat:nth-child(3) .icon {
+    background: #effaf3;
+    color: #2fbf6b;
+}
+
+.stat p {
+    font-size: 13px;
+    color: #667085;
+    margin-bottom: 6px;
+}
+
+.stat h2 {
+    font-size: 26px;
+}
+
+.panel {
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+    margin-bottom: 34px;
+}
+
+.panel-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 22px 26px;
+}
+
+.panel-head h3 {
+    font-size: 17px;
+}
+
+.panel-head a {
+    font-size: 13px;
+    color: var(--nav-active);
+    text-decoration: none;
+    font-weight: 700;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th {
+    background: #f8fafc;
+    text-align: left;
+    font-size: 12px;
+    color: #667085;
+    padding: 14px 26px;
+}
+
+td {
+    border-top: 1px solid #eef1f5;
+    padding: 15px 26px;
+    font-size: 13px;
+}
+
+.badge {
+    padding: 5px 13px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.waiting {
+    background: #e7f0ff;
+    color: #3478f6;
+}
+
+.responded {
+    background: #e8faef;
+    color: #20a95a;
+}
+
+.closed {
+    background: #e9eef7;
+    color: #64748b;
+}
+
+.rejected {
+    background: #ffe8e8;
+    color: #c9000b;
+}
+
+.view {
+    color: var(--nav-active);
+    text-decoration: none;
+    font-weight: 700;
+}
+
+/* The stat cards are filter buttons now. */
+button.stat {
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    border: 2px solid transparent;
+    transition: border-color 0.15s;
+}
+
+button.stat:hover {
+    border-color: #e4e7ec;
+}
+
+button.stat.active {
+    border-color: var(--nav-active);
+}
+
+td.empty {
+    text-align: center;
+    color: #888;
+}
+
+.row-action {
+    text-align: right;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+/* Phone only: the icon that stands in for the text link. */
+.eye-btn {
+    display: none;
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    background: #fff;
+    color: #475467;
+    align-items: center;
+    justify-content: center;
+}
+
+.eye-btn:hover {
+    background: #f6f7f9;
+}
+
+.eye-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* ── Latest content: the same card the Content page uses, three wide ── */
+.latest-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.latest-head h3 {
+    font-size: 17px;
+}
+
+.latest-head a {
+    font-size: 13px;
+    color: var(--nav-active);
+    text-decoration: none;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.latest-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+}
+
+.latest-card {
+    display: block;
+    background: #fff;
+    border-radius: 14px;
+    padding: 8px;
+    box-shadow: 0 6px 18px rgba(16, 24, 40, 0.06);
+    border: 2px solid transparent;
+    color: inherit;
+    text-decoration: none;
+    transition: border-color 0.15s, transform 0.15s;
+}
+
+.latest-card:hover {
+    transform: translateY(-2px);
+    border-color: #e4e7ec;
+}
+
+.latest-img {
+    background: #f1f3f7 center / cover no-repeat;
+    aspect-ratio: 16 / 10;
+    border-radius: 10px;
+}
+
+.latest-body {
+    padding: 12px 8px 8px;
+    min-width: 0;
+}
+
+.latest-eyebrow {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+
+.latest-body h4 {
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.4;
+    color: var(--muted);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.latest-date {
+    display: block;
+    margin-top: 8px;
+    font-size: 11px;
+    color: #98a2b3;
+}
+
+.latest-empty {
+    grid-column: 1 / -1;
+    background: #fff;
+    border-radius: 14px;
+    padding: 28px;
+    text-align: center;
+    color: #888;
+    font-size: 13px;
+}
+
+.form-row {
+    display: flex;
+    gap: 15px;
+    padding: 20px 26px;
+    align-items: flex-end;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.form-group label {
+    font-size: 12px;
+    font-weight: bold;
+    color: #667085;
+}
+
+.form-group input {
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    outline: none;
+}
+
+.btn-primary {
+    background: var(--nav-active);
+    color: #fff;
+    border: none;
+    padding: 11px 18px;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 20px;
+}
+
+.modal.show {
+    display: flex;
+}
+
+.modal-box {
+    width: 100%;
+    max-width: 500px;
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+    overflow: hidden;
+}
+
+.modal-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 22px 26px;
+    border-bottom: 1px solid #eee;
+}
+
+.modal-head button {
+    border: none;
+    background: var(--nav-active);
+    color: white;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    font-size: 22px;
+    cursor: pointer;
+}
+
+/* ── Collapsible sidebar ── */
+:root.sidebar-collapsed {
+    --sidebar-w: 78px;
+}
+
+.sidebar,
+.main {
+    transition: width 0.18s ease, margin-left 0.18s ease;
+}
+
+:root.sidebar-collapsed .sidebar {
+    padding: 26px 4px 18px;
+}
+
+:root.sidebar-collapsed .logo {
+    padding: 0;
+}
+
+:root.sidebar-collapsed .logo img {
+    display: none;
+}
+
+:root.sidebar-collapsed .nav a {
+    justify-content: center;
+    padding: 12px 0;
+}
+
+:root.sidebar-collapsed .nav a span {
+    display: none;
+}
+
+/* The account card is the only route to profile and logout — collapse it, never hide it. */
+:root.sidebar-collapsed .user-card {
+    justify-content: center;
+    padding: 8px;
+}
+
+:root.sidebar-collapsed .user-meta,
+:root.sidebar-collapsed .user-dots {
+    display: none;
+}
+
+/* ── Responsive ── */
+@media (max-width: 950px) {
+
+    .stats {
+        grid-template-columns: 1fr;
+        gap: 18px;
+    }
+
+    .content {
+        padding: 24px 18px;
+    }
+}
+
+/* Phone only: how many forms the list is showing, beside its heading. */
+.forms-count {
+    display: none;
+    font-size: 12px;
+    color: #98a2b3;
+    white-space: nowrap;
+}
+
+/*
+      | Phone: as the design draws it. The three filter tiles sit side by side,
+      | and each form is a two-line row - its name, "Sent:" and the date under
+      | it - with the status pill and an eye button opposite, the table's own
+      | cells rearranged on a grid. Latest content goes two-up. The page title
+      | is sized by shell.css with every other page's. The ids beat shell.css's
+      | .wz-tablewrap nowrap rule without !important.
+      */
+@media (max-width: 768px) {
+    .stats {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        margin-bottom: 24px;
+    }
+
+    .stat {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+        padding: 15px;
+        border-radius: 16px;
+    }
+
+    .stat .icon {
+        display: none;
+    }
+
+    .stat p {
+        font-size: 12px;
+        margin-bottom: 4px;
+    }
+
+    .stat h2 {
+        font-size: 26px;
+        line-height: 32px;
+    }
+
+    .panel {
+        border-radius: 20px;
+        margin-bottom: 24px;
+        padding: 0 17px 4px;
+    }
+
+    .panel-head {
+        gap: 12px;
+        padding: 17px 0 13px;
+        border-bottom: 1px solid #eef1f5;
+    }
+
+    .panel-head h3 {
+        flex: 1;
+        font-size: 17px;
+    }
+
+    .forms-count {
+        display: inline;
+    }
+
+    #formsTable,
+    #formsTable tbody {
+        display: block;
+        min-width: 0;
+    }
+
+    #formsTable thead {
+        display: none;
+    }
+
+    #formsTable tr {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        grid-template-areas:
+            "name status eye"
+            "sent status eye";
+        column-gap: 10px;
+        align-items: center;
+        padding: 14px 0;
+    }
+
+    #formsTable tr+tr {
+        border-top: 1px solid #eef1f5;
+    }
+
+    #formsTable td {
+        display: block;
+        padding: 0;
+        border: none;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    #formsTable td:nth-child(1) {
+        grid-area: name;
+        font-size: 15px;
+        line-height: 20px;
+    }
+
+    #formsTable td:nth-child(2) {
+        grid-area: sent;
+        margin-top: 2px;
+        font-size: 12px;
+        color: #98a2b3;
+    }
+
+    #formsTable td:nth-child(2)::before {
+        content: "Sent: ";
+    }
+
+    #formsTable td:nth-child(3) {
+        grid-area: status;
+    }
+
+    #formsTable td:nth-child(4) {
+        grid-area: eye;
+    }
+
+    #formsTable .badge {
+        display: inline-block;
+        white-space: nowrap;
+        padding: 4px 12px;
+    }
+
+    /* The one-cell rows - loading, empty - stay a plain line of text. */
+    #formsTable tr:has(> td.empty) {
+        display: block;
+    }
+
+    #formsTable td.empty {
+        padding: 22px 0;
+    }
+
+    #formsTable td.empty::before {
+        content: none;
+    }
+
+    .row-action .view {
+        display: none;
+    }
+
+    .row-action .eye-btn {
+        display: inline-flex;
+        width: 32px;
+        height: 32px;
+        border: none;
+        border-radius: 8px;
+    }
+
+    /* Two cards side by side, picture above the text - so the third
+           would sit alone on a row of its own, and is left to content.html. */
+    .latest-head h3 {
+        font-size: 17px;
+    }
+
+    .latest-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 14px;
+    }
+
+    .latest-card:nth-child(n + 3) {
+        display: none;
+    }
+
+    .latest-card {
+        padding: 13px;
+        border-radius: 16px;
+    }
+
+    .latest-img {
+        aspect-ratio: 4 / 3;
+        border-radius: 10px;
+    }
+
+    .latest-body {
+        padding: 10px 0 0;
+    }
+
+    .latest-body h4 {
+        font-size: 13px;
+        color: var(--text);
+    }
+}
+
+/* Tablet: two-up would orphan the third card, so stay at three but tighter. */
+@media (min-width: 769px) and (max-width: 1100px) {
+    .latest-grid {
+        gap: 12px;
+    }
+}
+
+/* ── Shell refresh: the collapse control lives in the sidebar head ── */
+.side-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 36px;
+    margin-bottom: 26px;
+    padding: 0 2px;
+}
+
+.logo {
+    padding: 0;
+    margin: 0;
+    flex: 1;
+    min-width: 0
+}
+
+.logo img {
+    width: 132px;
+    max-width: 100%;
+    height: auto;
+    display: block
+}
+
+.sidebar-toggle {
+    width: 34px;
+    height: 34px;
+    flex: none;
+    border-radius: 9px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .15s, color .15s;
+}
+
+.sidebar-toggle:hover {
+    background: #f2f4f8;
+    color: var(--text)
+}
+
+.sidebar-toggle svg {
+    width: 18px;
+    height: 18px
+}
+
+/* Collapsed to 78px the wordmark is illegible, so the head keeps only the toggle. */
+:root.sidebar-collapsed .side-head {
+    justify-content: center;
+    margin-bottom: 22px
+}
+
+:root.sidebar-collapsed .logo {
+    display: none
+}
+
+/* Tighter nav rows: the active/hover pill was heavier than the label needs. */
+.nav a {
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 9px;
+    margin-bottom: 2px
+}
+
+.nav a svg {
+    width: 17px;
+    height: 17px
+}
+
+:root.sidebar-collapsed .nav a {
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    margin: 0 auto 4px;
+    border-radius: 10px;
+    justify-content: center;
+}
+
+/* The account card opens a dropup; it is the only route to profile and logout. */
+.account {
+    position: relative
+}
+
+.account-menu {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 0;
+    min-width: 200px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: 0 16px 40px rgba(16, 24, 40, .14);
+    padding: 6px;
+    display: none;
+    z-index: 200;
+}
+
+.account.open .account-menu {
+    display: block
+}
+
+.account-menu a,
+.account-menu button {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: none;
+    background: transparent;
+    border-radius: 9px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.account-menu a:hover,
+.account-menu button:hover {
+    background: #f6f7f9
+}
+
+.account-menu svg {
+    width: 16px;
+    height: 16px;
+    flex: none;
+    color: var(--muted)
+}
+
+.account-menu .danger,
+.account-menu .danger svg {
+    color: var(--brand)
+}
+
+.account-menu .danger:hover {
+    background: #fff5f5
+}
+
+
+@media(max-width:950px) {
+
+    /* Force-collapsed below this width, so the head has nothing left to show. */
+    .side-head {
+        display: none
+    }
+}
+
+/* ── Unread badge on the Notifications nav item ──
+   Collapsed, the sidebar hides labels, so the count degrades to a dot on
+   the icon - the same affordance the old topbar bell had. */
+.nav a {
+    position: relative
+}
+
+.nav-badge {
+    margin-left: auto;
+    font-style: normal;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1;
+    min-width: 18px;
+    padding: 3px 6px;
+    border-radius: 9px;
+    background: var(--brand);
+    color: #fff;
+    text-align: center;
+}
+
+.nav-badge[hidden] {
+    display: none
+}
+
+.nav a.active .nav-badge {
+    background: #fff;
+    color: var(--nav-active)
+}
+
+:root.sidebar-collapsed .nav-badge {
+    position: absolute;
+    top: 4px;
+    right: 8px;
+    margin: 0;
+    width: 8px;
+    height: 8px;
+    min-width: 0;
+    padding: 0;
+    border-radius: 50%;
+    font-size: 0;
+    border: 2px solid #fff;
+}

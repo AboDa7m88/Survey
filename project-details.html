@@ -1,1558 +1,356 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Admin - Project Details</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box;font-family:Arial,"Segoe UI",Tahoma,sans-serif}
-body{background:#f6f7fb;color:#101828}
-.panel{background:#fff;border-radius:18px;box-shadow:0 14px 30px rgba(0,0,0,.05);overflow:hidden}
-.empty{background:#fff;border-radius:18px;padding:30px;color:var(--muted);text-align:center}
+<html lang="en">
 
-/* ── Empty states ──────────────────────────────────────────────────────────
-   A table header sitting above nothing, or one grey line of text, tells a
-   first-time user nothing about what to do next. These carry an icon, a
-   sentence of guidance and the action itself. */
-.empty-state{background:#fff;border-radius:18px;padding:52px 30px;text-align:center;box-shadow:0 14px 30px rgba(0,0,0,.05)}
-.empty-state[hidden]{display:none}
-.empty-state .icon{width:56px;height:56px;margin:0 auto 18px;border-radius:16px;background:#f2f4f8;color:#98a2b3;display:flex;align-items:center;justify-content:center}
-.empty-state .icon svg{width:26px;height:26px}
-.empty-state h3{font-size:16px;font-weight:800;margin-bottom:8px}
-.empty-state p{font-size:13px;color:var(--muted);max-width:420px;margin:0 auto 20px;line-height:1.7}
-.empty-state .create-btn,.empty-state .btn{display:inline-flex}
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin - Project Details</title>
 
+  <link rel="stylesheet" href="project-details.css">
 
+  <script>
+    // Runs before paint so the collapsed state never flashes open on load.
+    (function () {
+      var root = document.documentElement;
+      var KEY = "wz_sidebar_collapsed";
+      var MOBILE = 950;
+      var DRAWER = 768;   // below this the sidebar is a drawer, never a rail
+      function prefersCollapsed() { return localStorage.getItem(KEY) === "1"; }
+      function apply() { root.classList.toggle("sidebar-collapsed", window.innerWidth > DRAWER && (window.innerWidth <= MOBILE || prefersCollapsed())); }
+      window.toggleSidebar = function () {
+        if (window.innerWidth <= MOBILE) return; // forced collapsed, nothing to toggle
+        localStorage.setItem(KEY, prefersCollapsed() ? "0" : "1");
+        apply();
+      };
+      apply();
+      window.addEventListener("resize", apply);
+    })();
 
-/* ── Pagination: shared with admin-content.html and clients-management.html ── */
-.pager{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:16px 0}
-.pager[hidden]{display:none}
-.pager-info{font-size:13px;font-weight:600;color:var(--muted)}
-/* On a phone the count wraps onto its own line above the buttons and adds
-   nothing the buttons do not already say, so it comes out and they take the
-   row to themselves. */
-@media(max-width:700px){
-  .pager-info{display:none}
-  .pager{justify-content:center}
-}
-.pager-pages{display:flex;gap:6px;flex-wrap:wrap}
-.pager button{min-width:36px;height:36px;padding:0 12px;border:1px solid #dfe3ea;background:#fff;border-radius:9px;font:inherit;font-size:13px;font-weight:700;color:var(--text);cursor:pointer}
-.pager button:hover:not(:disabled){background:#f6f7f9}
-.pager button.current{background:var(--nav-active);border-color:var(--nav-active);color:#fff}
-.pager button:disabled{opacity:.45;cursor:not-allowed}
+    // Sidebar account card -> popup. Admins have no editable profile record, so this
+    // is identity + logout only; system config lives on settings.html.
+    function openAccount() { document.getElementById("acctModal").classList.add("show"); }
+    function closeAccount() { document.getElementById("acctModal").classList.remove("show"); }
+    document.addEventListener("DOMContentLoaded", function () {
+      var a = {};
+      try { a = JSON.parse(localStorage.getItem("admin_user") || "{}"); } catch (e) { }
+      var name = a.name || "Admin";
+      var label = ({ owner: "Owner", super_admin: "Super Admin", account_manager: "Account Manager", seo_admin: "Admin" })[a.role] || "";
+      var initial = name.charAt(0).toUpperCase();
+      function set(id, v) { var el = document.getElementById(id); if (el) el.textContent = v; }
+      set("adminName", name); set("adminRole", label); set("adminAvatar", initial);
+      set("acctRole", label);
+    });
+  </script>
+  <link rel="stylesheet" href="assets/shell.css?v=5" />
 
-/* ── Back link, above the page title on every sub-page ── */
-.back-link{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;flex:none;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--text);text-decoration:none;transition:background .15s}
-.back-link:hover{background:#f2f4f8}
-.back-link svg{width:17px;height:17px}
+</head>
 
-/* ── Buttons ── */
-.btn{border:none;padding:9px 14px;border-radius:9px;cursor:pointer;font:inherit;font-weight:800;font-size:12px;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none}
-.btn-dark{background:var(--nav-active);color:#fff}
-.btn-dark:hover{background:#282c52}
-.btn-ghost{background:#fff;color:var(--text);border:1px solid #dfe3ea}
-.btn-ghost:hover{background:#f6f7f9}
-.btn-danger{background:#fff;color:var(--brand);border:1px solid #f0d2d4}
-.btn-danger:hover{background:#fff5f5}
-.btn[disabled]{opacity:.5;cursor:not-allowed}
-/* display:inline-flex above beats the browser's [hidden]{display:none}, so a
-   .btn set hidden in script stayed on screen. #clearDayBtn and #editProjectBtn
-   both depend on this. */
-.btn[hidden]{display:none}
-
-/* ── Toast: the only feedback channel these pages have ── */
-.toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);background:var(--nav-active);color:#fff;padding:13px 20px;border-radius:12px;font-size:13px;font-weight:700;box-shadow:0 16px 40px rgba(0,0,0,.22);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:99999;max-width:min(460px,92vw)}
-.toast.show{opacity:1;transform:translate(-50%,0)}
-.toast.bad{background:var(--brand)}
-
-/* ── Page header (the same block on every admin page, button or no button) ── */
-.page-head{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin-bottom:28px}
-.page-title h1{font-size:30px;margin-bottom:8px}
-.page-title p{font-size:14px;color:var(--muted);max-width:620px}
-.create-btn{flex:none;display:inline-flex;align-items:center;gap:8px;background:var(--nav-active);color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px;font:inherit;font-size:13px;font-weight:800;border:none;cursor:pointer}
-.create-btn:hover{background:#282c52}
-.create-btn svg{width:16px;height:16px}
-@media(max-width:700px){.page-head{flex-direction:column;gap:16px}}
-
-/* ── Admin shell: sidebar + header (shared across admin pages) ── */
-:root{
-  --brand:#c9000b;
-  --nav-active:#1b1e3a;
-  --text:#101828;
-  --muted:#667085;
-  --line:#eaecf0;
-  --sidebar-w:260px;
-}
-body{padding:0}
-.admin-sidebar{
-  width:var(--sidebar-w);
-  background:#fff;
-  border-right:1px solid var(--line);
-  position:fixed;top:0;left:0;bottom:0;
-  padding:26px 12px 18px;
-  display:flex;flex-direction:column;justify-content:space-between;
-  z-index:100;
-}
-.side-logo{padding:0 6px;margin-bottom:30px}
-.side-logo img{width:150px;max-width:100%;height:auto;display:block}
-
-.side-nav a{
-  display:flex;gap:12px;align-items:center;
-  text-decoration:none;color:var(--muted);
-  padding:11px 12px;border-radius:10px;margin-bottom:4px;
-  font-size:14px;font-weight:600;
-  transition:background .15s,color .15s;
-}
-.side-nav a svg{width:18px;height:18px;flex:none}
-.side-nav a:hover{background:#f6f7f9;color:var(--text)}
-.side-nav a.active{background:var(--nav-active);color:#fff}
-.side-user{
-  width:100%;font:inherit;text-align:left;background:#fff;
-  border:1px solid var(--line);border-radius:12px;padding:10px;
-  display:flex;gap:10px;align-items:center;cursor:pointer;
-  transition:background .15s,border-color .15s;
-}
-.side-user:hover{background:#fafbfc;border-color:#d7dae0}
-.side-avatar{
-  width:36px;height:36px;border-radius:50%;
-  background:#dce3ff;color:#3745a4;
-  display:flex;align-items:center;justify-content:center;
-  font-weight:800;font-size:13px;flex:none;
-}
-.side-meta{flex:1;min-width:0}
-.side-meta strong{display:block;font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.side-meta span{font-size:11px;color:#98a2b3}
-.side-dots{color:#98a2b3;flex:none}
-
-.admin-main{margin-left:var(--sidebar-w);width:calc(100% - var(--sidebar-w))}
-.admin-content{padding:35px}
-
-/* ── Collapsible sidebar ── */
-:root.sidebar-collapsed{--sidebar-w:78px}
-.admin-sidebar,.admin-main{transition:width .18s ease,margin-left .18s ease}
-:root.sidebar-collapsed .admin-sidebar{padding:26px 4px 18px}
-:root.sidebar-collapsed .side-logo{padding:0}
-:root.sidebar-collapsed .side-logo img{display:none}
-
-:root.sidebar-collapsed .side-nav a{justify-content:center;padding:12px 0}
-:root.sidebar-collapsed .side-nav a span{display:none}
-/* The account card is the only entry point to logout — collapse it, never hide it. */
-:root.sidebar-collapsed .side-user{justify-content:center;padding:8px}
-:root.sidebar-collapsed .side-meta,:root.sidebar-collapsed .side-dots{display:none}
-@media(max-width:950px){
-
-  .admin-content{padding:24px 18px}
-}
-
-
-/* ── Shell refresh: the collapse control lives in the sidebar head ── */
-.side-head{
-  display:flex;align-items:center;justify-content:space-between;gap:8px;
-  min-height:36px;margin-bottom:26px;padding:0 2px;
-}
-.side-logo{padding:0;margin:0;flex:1;min-width:0}
-.side-logo img{width:132px;max-width:100%;height:auto;display:block}
-
-.side-toggle{
-  width:34px;height:34px;flex:none;border-radius:9px;border:none;
-  background:transparent;color:var(--muted);cursor:pointer;
-  display:flex;align-items:center;justify-content:center;
-  transition:background .15s,color .15s;
-}
-.side-toggle:hover{background:#f2f4f8;color:var(--text)}
-.side-toggle svg{width:18px;height:18px}
-
-/* Collapsed to 78px the wordmark is illegible, so the head keeps only the toggle. */
-:root.sidebar-collapsed .side-head{justify-content:center;margin-bottom:22px}
-:root.sidebar-collapsed .side-logo{display:none}
-
-/* Tighter nav rows: the active/hover pill was heavier than the label needs. */
-.side-nav a{gap:10px;padding:8px 10px;border-radius:9px;margin-bottom:2px}
-.side-nav a svg{width:17px;height:17px}
-:root.sidebar-collapsed .side-nav a{
-  width:38px;height:38px;padding:0;margin:0 auto 4px;
-  border-radius:10px;justify-content:center;
-}
-
-
-@media(max-width:950px){
-  /* Force-collapsed below this width, so the head has nothing left to show. */
-  .side-head{display:none}
-}
-/* ── Unread badge on the Notifications nav item ──
-   Collapsed, the sidebar hides labels, so the count degrades to a dot on
-   the icon - the same affordance the old topbar bell had. */
-.side-nav a{position:relative}
-.nav-badge{
-  margin-left:auto;font-style:normal;font-size:11px;font-weight:800;line-height:1;
-  min-width:18px;padding:3px 6px;border-radius:9px;
-  background:var(--brand);color:#fff;text-align:center;
-}
-.nav-badge[hidden]{display:none}
-.side-nav a.active .nav-badge{background:#fff;color:var(--nav-active)}
-:root.sidebar-collapsed .nav-badge{
-  position:absolute;top:4px;right:8px;margin:0;
-  width:8px;height:8px;min-width:0;padding:0;border-radius:50%;
-  font-size:0;border:2px solid #fff;
-}
-/* ── Dropdown arrow ──
-   Chrome pins the native select arrow to the right border and ignores
-   padding-right, so it is replaced with one that can be placed. The extra
-   selectors match the class rules that set `background` as a shorthand -
-   without them, those rules would reset this image away. */
-select,
-.panel-body select,
-.assignment-box select,
-select.client-filter{
-  -webkit-appearance:none;
-  -moz-appearance:none;
-  appearance:none;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23667085' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;
-  background-position:right 14px center;
-  background-size:12px;
-  padding-right:38px;
-}
-
-/* ── Head: back arrow, title, subtitle, actions ── */
-.detail-head{display:flex;align-items:flex-start;gap:16px;margin-bottom:26px}
-.detail-head .page-title{flex:1;min-width:0}
-.detail-head h1{font-size:26px;margin-bottom:6px;word-break:break-word}
-/* Titles carry dir="auto" so Arabic reads right-to-left, which also turned
-   their alignment to the right. The page is left-to-right, so they keep their
-   text direction and align left like every other title here. */
-#projectTitle,#detailTitle,#taskTitle,.card-client,h3[dir="auto"]{text-align:left}
-.detail-head p{font-size:13px;color:var(--muted)}
-/* Edit and New Task, in the corner inquiry-details.html puts its Edit in. The
-   summary tiles that used to open the page are gone - the three numbers on them
-   were start, end and progress, all of which the project panel below already
-   prints in full. */
-.head-actions{display:flex;align-items:center;gap:10px;flex:none}
-.btn-lg{padding:13px 20px;font-size:13px}
-.btn-lg svg{width:15px;height:15px}
-
-/* ── Month grid, lifted from admin-calendar.html ── */
-.cal-card{background:#fff;border-radius:18px;box-shadow:0 14px 30px rgba(0,0,0,.05);padding:22px;margin-bottom:26px}
-.cal-head{display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap}
-.cal-head h2{font-size:17px;flex:none}
-.cal-nav{display:flex;gap:4px}
-.cal-nav button{width:30px;height:30px;border:1px solid var(--line);background:#fff;border-radius:8px;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center}
-.cal-nav button:hover{background:#f6f7f9;color:var(--text)}
-.cal-nav svg{width:14px;height:14px}
-.cal-today{margin-left:auto;border:1px solid var(--line);background:#fff;border-radius:9px;height:32px;padding:0 14px;font:inherit;font-size:12px;font-weight:800;color:var(--text);cursor:pointer}
-.cal-today:hover{background:#f6f7f9}
-/* Seven columns at every width, the way admin-calendar.html does it: a
-   weekday grid cannot reflow, so the cells shrink rather than the month
-   sliding sideways in a scroll box. */
-.cal-scroll{overflow:visible}
-.calendar-grid{
-  display:grid;grid-template-columns:repeat(7,1fr);min-width:0;
-  border-top:1px solid var(--line);border-left:1px solid var(--line);
-  border-radius:12px;overflow:hidden;
-}
-.day-header{
-  background:#f8fafc;padding:12px;font-size:12px;font-weight:700;color:#64748b;
-  border-right:1px solid var(--line);border-bottom:1px solid var(--line);text-align:center;
-}
-.day-cell{
-  min-height:110px;padding:8px;
-  border-right:1px solid var(--line);border-bottom:1px solid var(--line);
-  background:#fff;font-size:12px;font-weight:600;color:#64748b;
-  display:flex;flex-direction:column;gap:4px;
-  cursor:pointer;transition:background .12s;text-align:left;
-}
-.day-cell:hover{background:#f8fafc}
-.day-cell:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--nav-active)}
-/* Padding from the neighbouring month: there to keep the columns under their
-   weekday, so it is not a day you can pick. */
-.day-cell.other-month{background:#fdfdfd;color:#cbd5e1;cursor:default}
-/* The project's own dates, tinted so the timeline is visible at a glance. */
-.day-cell.in-range{background:#fcfcff}
-.day-cell.today-cell{background:#f0f9ff}
-.day-cell.today-cell > span{background:#0284c7;color:#fff;padding:2px 6px;border-radius:12px;width:max-content}
-/* Same marker admin-calendar.html uses for the day its panel is describing. */
-.day-cell.selected-cell{box-shadow:inset 0 0 0 2px var(--nav-active);background:#f5f6fa}
-
-/* ── A task, in the day it is scheduled for ──
-   The grid used to carry one dot per task, which told you a day was busy and
-   nothing else - so reading the month meant clicking every day that had a dot.
-   The task is named in the cell now, and the colour is the same reading the
-   cards below give: amber while it is outstanding, green once it is published. */
-.event-card{
-  padding:5px 6px;border-radius:6px;font-size:10.5px;font-weight:600;
-  line-height:1.3;overflow:hidden;
-}
-.event-card b{
-  display:block;font-weight:700;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-}
-.event-card small{font-weight:600;opacity:.8}
-.event-card.pending{background:#fef3c7;border:1px solid #fde68a;color:#b45309}
-.event-card.done{background:#e8faef;border:1px solid #b8e7c8;color:#17803d}
-
-/* A day can hold more tasks than a cell can show without stretching the whole
-   row. Three, then a count - the day is clickable, and clicking it lists all
-   of them in the grid below. */
-.event-more{font-size:10px;font-weight:800;color:var(--muted);padding-left:2px}
-
-/* ── Task cards, on admin-content.html's grid ── */
-.section-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px}
-/* display:flex beats the browser's [hidden]{display:none}, so #taskDetailHead
-   sat above an empty slot on every load until a card was clicked. */
-.section-head[hidden]{display:none}
-/* flex:1 with min-width:0 so a long heading ("Tasks on Sep 4, 2026") wraps
-   inside its own column instead of pushing the buttons off the row. */
-.section-head h2{font-size:18px;flex:1;min-width:0}
-/* The buttons never shrink: a squashed "Show all tasks" is unreadable long
-   before the heading beside it runs out of room. */
-.section-head > .btn{flex:none}
-/* "Show all tasks" only appears while the calendar has a day selected, so the
-   pair has to sit together on the right rather than each taking an end. */
-.section-actions{display:flex;align-items:center;gap:10px;flex:none}
-/* The page-header create button is sized to sit beside a 26px h1. Beside an
-   18px section heading it comes down to the size of the ghost button next to
-   it - including a transparent border, because .btn draws one and two boxes
-   built differently do not line up however the padding is tuned. */
-.section-actions .create-btn{padding:9px 16px;font-size:12px;border:1px solid transparent}
-.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
-/* overflow stays visible: the three-dot menu opens downwards out of the card,
-   and clipping it to the card was hiding two of its three items. The image
-   rounds its own top corners instead, which is all the clip was doing here. */
-.card{background:#fff;border-radius:16px;box-shadow:0 12px 26px rgba(0,0,0,.05);display:flex;flex-direction:column}
-/* One fixed size for every task card image, whatever the orientation. The
-   orientation still decides how the picture is framed inside the box, but it
-   no longer changes the size of the box - a taller image on one card used to
-   push its title and buttons out of line with the rest of the row. */
-.card-img{position:relative;width:100%;height:170px;border-radius:16px 16px 0 0;overflow:hidden;background:#eef1f5 center/cover no-repeat}
-.card-img .ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#aeb6c4}
-.card-img .ph svg{width:30px;height:30px}
-/* No image is the ordinary case, not a failure: a calm tint rather than a bare
-   grey slab, and the box keeps its size so the card grid stays uniform. */
-.card-img.empty{background:linear-gradient(135deg,#f5f7fa 0%,#e8edf4 100%)}
-.card-img.empty .ph{color:#c3cad7}
-/* The badge answers one question only - has this been published to the client
-   yet. Whether the work behind it is finished is a different question with a
-   different answer, and it has its own line at the foot of the card. Reading
-   both off one chip meant a completed task stopped saying it was published. */
-.badge{position:absolute;top:10px;right:10px;padding:5px 10px;border-radius:20px;font-size:10px;font-weight:800;letter-spacing:.4px;text-transform:uppercase}
-.badge.published{background:#e8faef;color:#20a95a}
-.badge.draft{background:#eef1f5;color:#667085}
-.badge.scheduled{background:#fff3e5;color:#d97706}
-
-.card-body{padding:14px 16px;flex:1;display:flex;flex-direction:column;gap:4px}
-.card-client{font-size:10px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--muted)}
-.card-body h3{font-size:14px;font-weight:700;word-break:break-word}
-.card-when{font-size:11px;color:var(--muted);margin-top:6px}
-/* Two lines of the description, so a card says what the task is without having
-   to be opened, and every card in the row still ends at the same height. */
-.card-desc{
-  font-size:12px;line-height:1.6;color:var(--muted);margin-top:4px;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
-  overflow:hidden;word-break:break-word;
-}
-
-/* The text and the menu share a row, so the three dots sit against the title
-   and description rather than under them. */
-.card-head{display:flex;align-items:flex-start;gap:8px}
-.card-head-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
-
-/* ── Progress, at the foot and on its own ──
-   Published is about the client seeing it; this is about the work being done.
-   Keeping them apart is the whole point of the row. */
-.card-foot{
-  display:flex;align-items:center;gap:8px;
-  padding:12px 16px;margin-top:auto;border-top:1px solid #eef1f5;
-}
-.prog{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:800;letter-spacing:.3px}
-.prog i{width:8px;height:8px;border-radius:50%;background:currentColor;flex:none}
-.prog.done{color:#20a95a}
-.prog.doing{color:#d97706}
-
-/* ── Cards open the panel below ────────────────────────────────────────────
-   Clicking a card opens that task in the panel at the foot of the page. The
-   trigger is an empty button stretched over the whole card rather than a
-   wrapper around the content, because the three-dot menu now lives inside that
-   content and a button cannot be nested in a button. The menu is lifted above
-   it on z-index so its own clicks land on it. */
-.card{position:relative}
-.card-open{
-  position:absolute;inset:0;z-index:1;
-  width:100%;padding:0;border:none;background:none;
-  font:inherit;color:inherit;cursor:pointer;
-}
-.card-open:focus-visible{outline:2px solid var(--nav-active);outline-offset:-2px;border-radius:16px}
-.card-menu{position:relative;z-index:2}
-.card:hover .card-img{filter:brightness(.97)}
-.card.selected{box-shadow:0 0 0 2px var(--nav-active),0 12px 26px rgba(0,0,0,.05)}
-
-/* ── The three-dot menu, on the task cards and nowhere else on this page ── */
-.kebab-wrap{position:relative;display:inline-block}
-.kebab{
-  width:30px;height:30px;border:1px solid #dfe3ea;background:#fff;border-radius:8px;
-  color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;
-}
-.kebab:hover{background:#f6f7f9;color:var(--text)}
-.kebab svg{width:15px;height:15px}
-.kebab-menu{
-  display:none;position:absolute;right:0;top:calc(100% + 6px);z-index:70;
-  min-width:172px;background:#fff;border:1px solid #dfe3ea;border-radius:12px;
-  box-shadow:0 16px 40px rgba(16,24,40,.16);padding:6px;
-}
-.kebab-wrap.open .kebab-menu{display:block}
-.kebab-wrap.open .kebab{background:#f2f4f8;color:var(--text)}
-.kebab-menu a,.kebab-menu button{
-  width:100%;font:inherit;background:none;border:none;cursor:pointer;
-  display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:8px;
-  font-size:13px;font-weight:700;color:var(--text);text-decoration:none;white-space:nowrap;
-}
-.kebab-menu a:hover,.kebab-menu button:hover{background:#f2f4f8}
-.kebab-menu svg{width:15px;height:15px;flex:none;color:var(--muted)}
-/* The one item that destroys something reads as such, and is divided off so it
-   is not the neighbour of Edit by accident. */
-.kebab-menu .danger{color:var(--brand);margin-top:5px;padding-top:12px;border-top:1px solid #eef1f5;border-radius:0}
-.kebab-menu .danger svg{color:var(--brand)}
-.kebab-menu .danger:hover{background:#fff5f5}
-
-
-/* ── Project Details panel, on admin-content.html's .detail block ──
-   It no longer shares a slot with the task panel: the project is the fixed
-   header block at the top of the page, and a task opens its own panel at the
-   foot. Two things that describe different subjects should not take turns in
-   one box. */
-.detail{background:#fff;border-radius:18px;padding:26px;box-shadow:0 14px 30px rgba(0,0,0,.04);margin-top:12px}
-#projectPanel{margin-top:0;margin-bottom:26px}
-/* Progress came off the tiles with them, so it lands in the meta grid as a
-   field with the bar underneath its own number. */
-.field .bar{height:6px;border-radius:4px;background:#eef1f5;margin-top:8px;overflow:hidden;max-width:260px}
-.field .bar i{display:block;height:100%;background:var(--nav-active);border-radius:4px}
-
-/* A grid cell like the fields beside it: bottom-aligned so the button sits
-   level with the progress bar, and starting at the column's own left edge so
-   it lines up under Status rather than drifting off to the panel's corner. */
-.panel-actions{display:flex;gap:10px;align-items:flex-end;justify-content:flex-start}
-/* An admin who cannot edit gets no empty cell holding the space. */
-.panel-actions:has(.btn[hidden]){display:none}
-.detail-img{width:100%;max-height:320px;border-radius:14px;background:#eef1f5 center/cover no-repeat;aspect-ratio:16/7;margin-bottom:22px;display:flex;align-items:center;justify-content:center;color:#aeb6c4}
-.detail-img svg{width:40px;height:40px}
-/* A project with no image hides the block outright rather than showing a
-   320px empty rectangle above the title. Nothing else needs it to be there. */
-.detail-img[hidden]{display:none}
-.detail h3{font-size:19px;margin-bottom:18px}
-.detail .desc-label,.field span{display:block;font-size:11px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
-.detail .desc{font-size:13px;line-height:1.7;color:#475467;margin-bottom:26px;white-space:pre-wrap}
-/* Two columns, the pairing the design asks for: client beside timeline,
-   manager beside status. Four across put each label over a sliver of text. */
-.detail-meta{display:grid;grid-template-columns:repeat(2,1fr);gap:24px 40px}
-/* Scheduled, Published and Progress answer "when, is it out, is it done" - the
-   three readings of the same task, so they belong on one line together with
-   Added by and Link underneath. */
-#taskPanel .detail-meta{grid-template-columns:repeat(3,1fr)}
-.field strong{display:block;font-size:13px;font-weight:700;word-break:break-word}
-.field .link{color:#2563eb}
-
-/* ── Delete confirmation ───────────────────────────────────────────────────
-   window.confirm() gives a destructive action the same one-click dismissal as
-   any other alert, and on a list page the browser chrome never says which row
-   is about to go. This says what is being deleted, and gates the button behind
-   a word that has to be typed out. */
-.confirm-modal{position:fixed;inset:0;background:rgba(16,24,40,.55);display:none;align-items:center;justify-content:center;z-index:99998;padding:20px}
-.confirm-modal.show{display:flex}
-.confirm-box{width:100%;max-width:440px;background:#fff;border-radius:20px;box-shadow:0 24px 70px rgba(16,24,40,.28);padding:28px}
-.confirm-icon{width:52px;height:52px;border-radius:14px;background:#fdecec;color:var(--brand);display:flex;align-items:center;justify-content:center;margin-bottom:18px}
-.confirm-icon svg{width:26px;height:26px}
-.confirm-box h2{font-size:18px;margin-bottom:8px}
-.confirm-box .confirm-text{font-size:13px;line-height:1.7;color:var(--muted);margin-bottom:20px;word-break:break-word}
-.confirm-ack{display:block;margin-bottom:22px}
-.confirm-ack span{display:block;font-size:11px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
-.confirm-ack span b{color:var(--brand);font-weight:800;letter-spacing:.8px}
-.confirm-ack input{width:100%;height:46px;border:1px solid #dfe3ea;border-radius:11px;padding:0 13px;font:inherit;font-size:14px;font-weight:700;letter-spacing:.5px;color:var(--text);background-color:#fff}
-.confirm-ack input::placeholder{font-weight:600;letter-spacing:0;color:#aeb6c4}
-.confirm-ack input:focus{outline:none;border-color:var(--nav-active);box-shadow:0 0 0 3px rgba(27,30,58,.08)}
-/* Green only once it matches, so the button turning on is not the first sign
-   the word was typed correctly. */
-.confirm-ack input.ok{border-color:#20a95a;box-shadow:0 0 0 3px rgba(32,169,90,.10)}
-.confirm-actions{display:flex;gap:10px;justify-content:flex-end}
-.confirm-actions .btn{padding:12px 18px;font-size:13px}
-/* Solid red, unlike the outlined .btn-danger on the cards: this is the button
-   that actually destroys something. */
-.btn-danger-solid{background:var(--brand);color:#fff}
-.btn-danger-solid:hover:not([disabled]){background:#a80009}
-@media(max-width:520px){
-  .confirm-box{padding:22px}
-  .confirm-actions{flex-direction:column-reverse}
-  .confirm-actions .btn{width:100%}
-}
-
-@media(max-width:1100px){.grid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:768px){
-  .grid{grid-template-columns:1fr}
-  .detail-meta,#taskPanel .detail-meta{grid-template-columns:1fr}
-  .panel-actions{justify-content:stretch;margin-top:4px}
-  .panel-actions .btn{width:100%}
-  /* Same treatment as admin-calendar.html at this width: seven columns still
-     fit a phone, but a named task does not fit a column that narrow - so the
-     cards collapse into the dots they used to be everywhere, keeping their
-     colour. The full list is the grid below, which is one tap away. */
-  .cal-card{padding:14px 10px}
-  .day-header{padding:8px 2px;font-size:10px}
-  .day-cell{
-    min-height:58px;padding:5px 4px;
-    flex-direction:row;flex-wrap:wrap;align-content:flex-start;gap:3px;
-  }
-  .day-cell > span{width:100%;text-align:center}
-  .day-cell .event-card{
-    width:7px;height:7px;padding:0;border-radius:50%;
-    font-size:0;line-height:0;overflow:hidden;
-  }
-  .day-cell .event-card *{display:none}
-  .event-more{display:none}
-  .cal-head h2{font-size:15px}
-  .detail{padding:20px}
-}
-@media(max-width:700px){
-  .detail-head{flex-wrap:wrap}
-  /* The header stacks here, so its button takes the row rather than sitting
-     as a small tab against the right edge. .create-btn as well as .btn: New
-     Task carries the former, and the rule used to name only the latter. */
-  .head-actions{width:100%}
-  .head-actions .btn,.head-actions .create-btn{flex:1;justify-content:center}
-  /* Only the gap tightens - the row itself is kept, so the heading and its
-     buttons stay on one line. */
-  .section-head{gap:12px}
-}
-
-/* Narrow enough that the buttons have to give something up too, so they lose
-   padding rather than the row losing its shape. */
-@media(max-width:520px){
-  .section-head{gap:10px;align-items:flex-start}
-  .section-head h2{font-size:16px;padding-top:3px}
-  .section-actions{gap:8px}
-  .section-head > .btn,
-  .section-actions .btn,
-  .section-actions .create-btn{padding:8px 12px;font-size:11px}
-}
-</style>
-
-<script>
-// Runs before paint so the collapsed state never flashes open on load.
-(function () {
-  var root = document.documentElement;
-  var KEY = "wz_sidebar_collapsed";
-  var MOBILE = 950;
-  var DRAWER = 768;   // below this the sidebar is a drawer, never a rail
-  function prefersCollapsed(){ return localStorage.getItem(KEY) === "1"; }
-  function apply(){ root.classList.toggle("sidebar-collapsed", window.innerWidth > DRAWER && (window.innerWidth <= MOBILE || prefersCollapsed())); }
-  window.toggleSidebar = function(){
-    if (window.innerWidth <= MOBILE) return; // forced collapsed, nothing to toggle
-    localStorage.setItem(KEY, prefersCollapsed() ? "0" : "1");
-    apply();
-  };
-  apply();
-  window.addEventListener("resize", apply);
-})();
-
-// Sidebar account card -> popup. Admins have no editable profile record, so this
-// is identity + logout only; system config lives on settings.html.
-function openAccount(){ document.getElementById("acctModal").classList.add("show"); }
-function closeAccount(){ document.getElementById("acctModal").classList.remove("show"); }
-document.addEventListener("DOMContentLoaded", function () {
-  var a = {};
-  try { a = JSON.parse(localStorage.getItem("admin_user") || "{}"); } catch (e) {}
-  var name = a.name || "Admin";
-  var label = ({ owner: "Owner", super_admin: "Super Admin", account_manager: "Account Manager", seo_admin: "Admin" })[a.role] || "";
-  var initial = name.charAt(0).toUpperCase();
-  function set(id, v){ var el = document.getElementById(id); if (el) el.textContent = v; }
-  set("adminName", name);  set("adminRole", label);  set("adminAvatar", initial);
-  set("acctRole", label);
-});
-</script><link rel="stylesheet" href="assets/shell.css?v=5" />
-
-</head><body>
-<aside class="admin-sidebar">
-  <div>
-    <div class="side-head">
-      <div class="side-logo">
-        <img src="logo.png" alt="Logo" onerror="this.remove()">
+<body>
+  <aside class="admin-sidebar">
+    <div>
+      <div class="side-head">
+        <div class="side-logo">
+          <img src="logo.png" alt="Logo" onerror="this.remove()">
+        </div>
+        <button class="side-toggle" type="button" onclick="toggleSidebar()" title="Toggle sidebar"
+          aria-label="Toggle sidebar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="16" rx="2.5" />
+            <path d="M9.5 4v16" />
+          </svg>
+        </button>
       </div>
-      <button class="side-toggle" type="button" onclick="toggleSidebar()" title="Toggle sidebar" aria-label="Toggle sidebar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M9.5 4v16"/></svg>
-      </button>
-    </div>
-    <nav class="side-nav">
-      <a href="admin.html" title="Forms">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-        <span>Forms</span>
-      </a>
-      <a href="admin-content.html" title="Content">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2.5"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
-        <span>Content</span>
-      </a>
-      <a href="project-management.html" class="active" title="Project Management">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-        <span>Project Management</span>
-      </a>
-      <a href="inquiries.html" title="Inquiries">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-        <span>Inquiries</span>
-      </a>
-      <a href="clients-management.html" title="Clients Management">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        <span>Clients Management</span>
-      </a>
-      <a href="sources-files.html" title="Files">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-        <span>Files</span>
-      </a>
-      <a href="admin-calendar.html" title="Calendar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        <span>Calendar</span>
-      </a>
-      <a href="admin-notifications.html" title="Notifications">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 6-3 7-3 7h18s-3-1-3-7"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
-        <span>Notifications</span>
-        <em class="nav-badge" id="notifBadge" hidden></em>
-      </a>
-      <a href="settings.html" title="Settings">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-        <span>Settings</span>
-      </a>
-    </nav>
-  </div>
-
-  <button class="side-user" type="button" onclick="openAccount()" title="Account">
-    <div class="side-avatar" id="adminAvatar">A</div>
-    <div class="side-meta">
-      <strong id="adminName">Admin</strong>
-      <span id="adminRole"></span>
-    </div>
-    <svg class="side-dots" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
-  </button>
-</aside>
-
-<div class="admin-main">
-  <div class="admin-content">
-
-    <div class="detail-head">
-      <a class="back-link" href="project-management.html" title="Back to projects" aria-label="Back to projects">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg>
-      </a>
-      <div class="page-title">
-        <h1 id="projectTitle" dir="auto">Loading...</h1>
-        <p id="projectSubtitle">&nbsp;</p>
-      </div>
-      <div class="head-actions">
-        <a class="create-btn" id="newTaskBtn" href="#" hidden>New Task</a>
-      </div>
+      <nav class="side-nav">
+        <a href="admin.html" title="Forms">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <path d="M9 11l3 3L22 4" />
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+          </svg>
+          <span>Forms</span>
+        </a>
+        <a href="admin-content.html" title="Content">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2.5" />
+            <path d="M3 9h18" />
+            <path d="M9 21V9" />
+          </svg>
+          <span>Content</span>
+        </a>
+        <a href="project-management.html" class="active" title="Project Management">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <rect x="2" y="7" width="20" height="14" rx="2" />
+            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+          </svg>
+          <span>Project Management</span>
+        </a>
+        <a href="inquiries.html" title="Inquiries">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <path
+              d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+          </svg>
+          <span>Inquiries</span>
+        </a>
+        <a href="clients-management.html" title="Clients Management">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+          <span>Clients Management</span>
+        </a>
+        <a href="sources-files.html" title="Files">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+          </svg>
+          <span>Files</span>
+        </a>
+        <a href="admin-calendar.html" title="Calendar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+            <line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" />
+            <line x1="3" y1="10" x2="21" y2="10" />
+          </svg>
+          <span>Calendar</span>
+        </a>
+        <a href="admin-notifications.html" title="Notifications">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <path d="M18 8a6 6 0 1 0-12 0c0 6-3 7-3 7h18s-3-1-3-7" />
+            <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+          </svg>
+          <span>Notifications</span>
+          <em class="nav-badge" id="notifBadge" hidden></em>
+        </a>
+        <a href="settings.html" title="Settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3" />
+            <path
+              d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+          </svg>
+          <span>Settings</span>
+        </a>
+      </nav>
     </div>
 
-    <div id="notFound" class="empty" hidden>This project does not exist, or is not one of yours.</div>
+    <button class="side-user" type="button" onclick="openAccount()" title="Account">
+      <div class="side-avatar" id="adminAvatar">A</div>
+      <div class="side-meta">
+        <strong id="adminName">Admin</strong>
+        <span id="adminRole"></span>
+      </div>
+      <svg class="side-dots" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <circle cx="12" cy="5" r="1.6" />
+        <circle cx="12" cy="12" r="1.6" />
+        <circle cx="12" cy="19" r="1.6" />
+      </svg>
+    </button>
+  </aside>
 
-    <div id="projectBody" hidden>
+  <div class="admin-main">
+    <div class="admin-content">
 
-      <!-- The project itself, fixed at the top of the page. It used to sit at
+      <div class="detail-head">
+        <a class="back-link" href="project-management.html" title="Back to projects" aria-label="Back to projects">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+            stroke-linejoin="round">
+            <path d="M19 12H5" />
+            <path d="M11 6l-6 6 6 6" />
+          </svg>
+        </a>
+        <div class="page-title">
+          <h1 id="projectTitle" dir="auto">Loading...</h1>
+          <p id="projectSubtitle">&nbsp;</p>
+        </div>
+        <div class="head-actions">
+          <a class="create-btn" id="newTaskBtn" href="#" hidden>New Task</a>
+        </div>
+      </div>
+
+      <div id="notFound" class="empty" hidden>This project does not exist, or is not one of yours.</div>
+
+      <div id="projectBody" hidden>
+
+        <!-- The project itself, fixed at the top of the page. It used to sit at
            the foot sharing a slot with the task panel, which meant opening a
            task hid the thing the task belongs to. -->
-      <div class="section-head">
-        <h2>Project Details</h2>
-      </div>
-
-      <div class="detail" id="projectPanel">
-        <!-- Click to open it full size. See assets/lightbox.js. -->
-        <div class="detail-img" id="detailImg"
-             data-lightbox data-lightbox-alt="Project image">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2.5"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+        <div class="section-head">
+          <h2>Project Details</h2>
         </div>
-        <h3 id="detailTitle" dir="auto">—</h3>
-        <span class="desc-label">Description</span>
-        <p class="desc" id="detailDesc" dir="auto">—</p>
-        <div class="detail-meta">
-          <div class="field"><span>Client</span><strong id="detailClient">—</strong></div>
-          <div class="field"><span>Timeline</span><strong id="detailTimeline">—</strong></div>
-          <div class="field"><span>Manager</span><strong id="detailManager">—</strong></div>
-          <div class="field"><span>Status</span><strong class="link" id="detailStatus">—</strong></div>
-          <div class="field">
-            <span>Progress</span>
-            <strong id="detailProgress">0%</strong>
-            <div class="bar"><i id="detailBar" style="width:0%"></i></div>
-          </div>
 
-          <!-- Editing the project belongs to the panel that describes it, not
+        <div class="detail" id="projectPanel">
+          <!-- Click to open it full size. See assets/lightbox.js. -->
+          <div class="detail-img" id="detailImg" data-lightbox data-lightbox-alt="Project image">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"
+              stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2.5" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <path d="M21 15l-5-5L5 21" />
+            </svg>
+          </div>
+          <h3 id="detailTitle" dir="auto">—</h3>
+          <span class="desc-label">Description</span>
+          <p class="desc" id="detailDesc" dir="auto">—</p>
+          <div class="detail-meta">
+            <div class="field"><span>Client</span><strong id="detailClient">—</strong></div>
+            <div class="field"><span>Timeline</span><strong id="detailTimeline">—</strong></div>
+            <div class="field"><span>Manager</span><strong id="detailManager">—</strong></div>
+            <div class="field"><span>Status</span><strong class="link" id="detailStatus">—</strong></div>
+            <div class="field">
+              <span>Progress</span>
+              <strong id="detailProgress">0%</strong>
+              <div class="bar"><i id="detailBar" style="width:0%"></i></div>
+            </div>
+
+            <!-- Editing the project belongs to the panel that describes it, not
                to a page corner that also carries New Task. It takes the cell
                the last field leaves empty, so it costs the panel no height. -->
-          <div class="panel-actions">
-            <a class="btn btn-ghost btn-lg" id="editProjectBtn" href="#" hidden>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
-              Edit project
-            </a>
+            <div class="panel-actions">
+              <a class="btn btn-ghost btn-lg" id="editProjectBtn" href="#" hidden>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round">
+                  <path d="M12 20h9" />
+                  <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
+                </svg>
+                Edit project
+              </a>
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- The month the tasks are scheduled in. Paging it is pure client
+        <!-- The month the tasks are scheduled in. Paging it is pure client
            state - every task came down with the project. -->
-      <div class="cal-card">
-        <div class="cal-head">
-          <h2 id="calLabel">—</h2>
-          <div class="cal-nav">
-            <button type="button" id="calPrev" aria-label="Previous month"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
-            <button type="button" id="calNext" aria-label="Next month"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
+        <div class="cal-card">
+          <div class="cal-head">
+            <h2 id="calLabel">—</h2>
+            <div class="cal-nav">
+              <button type="button" id="calPrev" aria-label="Previous month"><svg viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M15 6l-6 6 6 6" />
+                </svg></button>
+              <button type="button" id="calNext" aria-label="Next month"><svg viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M9 6l6 6-6 6" />
+                </svg></button>
+            </div>
+            <button class="cal-today" type="button" id="calToday">Today</button>
           </div>
-          <button class="cal-today" type="button" id="calToday">Today</button>
-        </div>
-        <!-- Headers and cells are one grid, as on admin-calendar.html, so the
+          <!-- Headers and cells are one grid, as on admin-calendar.html, so the
              weekday names sit in the same seven columns the days do. Both are
              written by paintCalendar(). -->
-        <div class="cal-scroll">
-          <div class="calendar-grid" id="calBody"></div>
+          <div class="cal-scroll">
+            <div class="calendar-grid" id="calBody"></div>
+          </div>
         </div>
-      </div>
 
-      <div class="section-head">
-        <h2 id="tasksHeading">Tasks</h2>
-        <div class="section-actions">
-          <button class="btn btn-ghost" type="button" id="clearDayBtn" onclick="clearDay()" hidden>Show all tasks</button>
+        <div class="section-head">
+          <h2 id="tasksHeading">Tasks</h2>
+          <div class="section-actions">
+            <button class="btn btn-ghost" type="button" id="clearDayBtn" onclick="clearDay()" hidden>Show all
+              tasks</button>
+          </div>
         </div>
-      </div>
-      <div class="grid" id="taskGrid"></div>
+        <div class="grid" id="taskGrid"></div>
 
-      <div class="pager" id="pager" hidden>
-        <div class="pager-info" id="pagerInfo"></div>
-        <div class="pager-pages" id="pagerPages"></div>
-      </div>
+        <div class="pager" id="pager" hidden>
+          <div class="pager-info" id="pagerInfo"></div>
+          <div class="pager-pages" id="pagerPages"></div>
+        </div>
 
-      <!-- Opened by a card above, and by nothing else: with the project fixed
+        <!-- Opened by a card above, and by nothing else: with the project fixed
            at the top of the page, this slot only ever holds a task. -->
-      <div class="section-head" id="taskDetailHead" style="margin-top:26px" hidden>
-        <h2>Task Details</h2>
-        <button class="btn btn-ghost" type="button" id="closeTaskBtn"
-                onclick="closeTaskPanel()">Close</button>
-      </div>
-
-      <div class="detail" id="taskPanel" hidden>
-        <div class="detail-img" id="taskImg"
-             data-lightbox data-lightbox-alt="Task image">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2.5"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+        <div class="section-head" id="taskDetailHead" style="margin-top:26px" hidden>
+          <h2>Task Details</h2>
+          <button class="btn btn-ghost" type="button" id="closeTaskBtn" onclick="closeTaskPanel()">Close</button>
         </div>
-        <h3 id="taskTitle" dir="auto">—</h3>
-        <span class="desc-label">Description</span>
-        <p class="desc" id="taskDesc" dir="auto">—</p>
-        <div class="detail-meta">
-          <div class="field"><span>Scheduled</span><strong id="taskWhen">—</strong></div>
-          <div class="field"><span>Published</span><strong id="taskStatus">—</strong></div>
-          <div class="field"><span>Progress</span><strong id="taskProgress">—</strong></div>
-          <div class="field"><span>Added by</span><strong id="taskAuthor">—</strong></div>
-          <div class="field"><span>Link</span><strong id="taskLink">—</strong></div>
+
+        <div class="detail" id="taskPanel" hidden>
+          <div class="detail-img" id="taskImg" data-lightbox data-lightbox-alt="Task image">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"
+              stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2.5" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <path d="M21 15l-5-5L5 21" />
+            </svg>
+          </div>
+          <h3 id="taskTitle" dir="auto">—</h3>
+          <span class="desc-label">Description</span>
+          <p class="desc" id="taskDesc" dir="auto">—</p>
+          <div class="detail-meta">
+            <div class="field"><span>Scheduled</span><strong id="taskWhen">—</strong></div>
+            <div class="field"><span>Published</span><strong id="taskStatus">—</strong></div>
+            <div class="field"><span>Progress</span><strong id="taskProgress">—</strong></div>
+            <div class="field"><span>Added by</span><strong id="taskAuthor">—</strong></div>
+            <div class="field"><span>Link</span><strong id="taskLink">—</strong></div>
+          </div>
         </div>
+
       </div>
 
     </div>
-
   </div>
-</div>
 
-<!-- ACCOUNT POPUP (opened from the sidebar card) -->
-<div class="acct-modal" id="acctModal">
-  <div class="acct-box" role="dialog" aria-modal="true" aria-labelledby="acctTitle">
-    <div class="acct-head">
-      <h2 id="acctTitle">Account</h2>
-      <button type="button" onclick="closeAccount()" aria-label="Close">&times;</button>
-    </div>
-    <div class="acct-body">
-      <div class="acct-who">
-        <span class="acct-label">Your role</span>
-        <strong class="acct-role" id="acctRole"></strong>
+  <!-- ACCOUNT POPUP (opened from the sidebar card) -->
+  <div class="acct-modal" id="acctModal">
+    <div class="acct-box" role="dialog" aria-modal="true" aria-labelledby="acctTitle">
+      <div class="acct-head">
+        <h2 id="acctTitle">Account</h2>
+        <button type="button" onclick="closeAccount()" aria-label="Close">&times;</button>
       </div>
-      <button class="acct-logout" type="button" onclick="logoutAdmin()">&#8617; Log out</button>
+      <div class="acct-body">
+        <div class="acct-who">
+          <span class="acct-label">Your role</span>
+          <strong class="acct-role" id="acctRole"></strong>
+        </div>
+        <button class="acct-logout" type="button" onclick="logoutAdmin()">&#8617; Log out</button>
+      </div>
     </div>
   </div>
-</div>
 
-<!-- DELETE CONFIRMATION (replaces window.confirm for destructive actions) -->
-<div class="confirm-modal" id="confirmModal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
-  <div class="confirm-box">
-    <div class="confirm-icon">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
-    </div>
-    <h2 id="confirmTitle">Delete</h2>
-    <p class="confirm-text" id="confirmText"></p>
-    <label class="confirm-ack">
-      <span>Type <b>DELETE</b> to confirm</span>
-      <input type="text" id="confirmAck" placeholder="DELETE"
-             autocomplete="off" autocapitalize="characters" spellcheck="false">
-    </label>
-    <div class="confirm-actions">
-      <button class="btn btn-ghost" type="button" id="confirmCancel">Cancel</button>
-      <button class="btn btn-danger-solid" type="button" id="confirmOk" disabled>Delete</button>
+  <!-- DELETE CONFIRMATION (replaces window.confirm for destructive actions) -->
+  <div class="confirm-modal" id="confirmModal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+    <div class="confirm-box">
+      <div class="confirm-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+          stroke-linejoin="round">
+          <path d="M3 6h18" />
+          <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+          <path d="M10 11v6M14 11v6" />
+        </svg>
+      </div>
+      <h2 id="confirmTitle">Delete</h2>
+      <p class="confirm-text" id="confirmText"></p>
+      <label class="confirm-ack">
+        <span>Type <b>DELETE</b> to confirm</span>
+        <input type="text" id="confirmAck" placeholder="DELETE" autocomplete="off" autocapitalize="characters"
+          spellcheck="false">
+      </label>
+      <div class="confirm-actions">
+        <button class="btn btn-ghost" type="button" id="confirmCancel">Cancel</button>
+        <button class="btn btn-danger-solid" type="button" id="confirmOk" disabled>Delete</button>
+      </div>
     </div>
   </div>
-</div>
 
-<div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script>
-/*
-|------------------------------------------------------------------------------
-| Shared by the four Project Management pages
-|------------------------------------------------------------------------------
-|
-| The same auth guard, escaping and date helpers every admin page needs. Kept
-| inline per page, the way the rest of the portal does it, rather than as a
-| fifth file in assets/.
-|
-*/
+  <script src="project-details.js"></script>
+  <script src="assets/notifications.js?v=1"></script>
+  <script src="assets/shell.js?v=4"></script>
+  <script src="assets/lightbox.js?v=1"></script>
+  <script src="assets/sources-lock.js?v=1"></script>
+  <script src="assets/role-nav.js?v=2"></script>
+</body>
 
-const adminToken = localStorage.getItem("admin_token");
-let   adminUser  = {};
-
-try { adminUser = JSON.parse(localStorage.getItem("admin_user") || "{}"); } catch (e) {}
-
-// Every endpoint checks the token again; this only saves a pointless round trip.
-if (!adminToken || !adminUser.role) {
-  location.replace("admin-login.html");
-}
-
-function logoutAdmin(){
-  localStorage.removeItem("admin_token");
-  localStorage.removeItem("admin_user");
-  sessionStorage.removeItem("sources_token");
-  location.replace("admin-login.html");
-}
-
-/* Everything rendered through a template literal goes through this first -
-   titles and client names are free text an admin typed. */
-function esc(value){
-  return String(value == null ? "" : value).replace(/[&<>"']/g, function (ch) {
-    return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[ch];
-  });
-}
-
-let toastTimer = null;
-
-function toast(message, bad){
-  const box = document.getElementById("toast");
-  if (!box) return;
-  box.textContent = message;
-  box.classList.toggle("bad", !!bad);
-  box.classList.add("show");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(function(){ box.classList.remove("show"); }, 3200);
-}
-
-/* One place that knows the token goes on every request and that a non-JSON
-   body (a PHP fatal, an HTML error page) is a failure and not a crash. */
-async function api(url, options){
-  const config = Object.assign({}, options || {});
-  config.headers = Object.assign({}, config.headers || {}, {
-    Authorization: "Bearer " + adminToken
-  });
-
-  const res  = await fetch(url, config);
-  let   data = null;
-
-  try { data = await res.json(); } catch (e) {}
-
-  if (!data) {
-    return { success:false, message:"The server sent an unreadable response." };
-  }
-
-  return data;
-}
-
-/* "Jul 1, 2026" - the format the mockups use everywhere a date is printed. */
-const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-const MONTHS_LONG  = ["January","February","March","April","May","June",
-                      "July","August","September","October","November","December"];
-
-function fmtDate(value){
-  if (!value) return "—";
-  const parts = String(value).slice(0, 10).split("-");
-  if (parts.length !== 3) return "—";
-  return MONTHS_SHORT[Number(parts[1]) - 1] + " " + Number(parts[2]) + ", " + parts[0];
-}
-
-function todayISO(){
-  const now = new Date();
-  return now.getFullYear() + "-"
-    + String(now.getMonth() + 1).padStart(2, "0") + "-"
-    + String(now.getDate()).padStart(2, "0");
-}
-
-const projectId = new URLSearchParams(location.search).get("id");
-
-const TASK_PAGE_SIZE = 3;
-
-let project = null;
-let tasks   = [];
-let canEdit = false;
-let page    = 1;
-/* The day the task grid below is scoped to, or null for the whole project. */
-let selectedDate = null;
-/* The task showing in the panel at the foot, or null when the project is. */
-let openTaskId = null;
-
-/* The month on screen. Opens on the month the project starts in, not on the
-   real today - a project that ran last quarter should not open on an empty
-   grid. */
-let calYear  = 0;
-let calMonth = 0;
-
-if (!projectId) {
-  location.replace("project-management.html");
-}
-
-async function load(){
-  const data = await api("api/projects.php?id=" + encodeURIComponent(projectId));
-
-  if (!data.success) {
-    document.getElementById("projectTitle").textContent = "Project not found";
-    document.getElementById("projectSubtitle").textContent = data.message || "";
-    document.getElementById("notFound").hidden = false;
-    return;
-  }
-
-  project = data.project;
-  tasks   = data.tasks || [];
-  canEdit = !!data.can_edit;
-
-  document.getElementById("projectBody").hidden = false;
-
-  paintHead();
-
-  const start = new Date(project.start_date + "T00:00:00");
-  calYear  = start.getFullYear();
-  calMonth = start.getMonth();
-
-  paintCalendar();
-  renderTasks();
-  paintDetail();
-}
-
-function paintHead(){
-  document.title = project.title + " - Project Management";
-  document.getElementById("projectTitle").textContent = project.title;
-  document.getElementById("projectSubtitle").textContent =
-    (project.company_name || project.client_name || "No client") + " · " + project.status_label;
-
-  /* Lives in the Tasks section head now, but it is still the project's id it
-     needs, so it is still filled in here. */
-  const button = document.getElementById("newTaskBtn");
-  button.href = "project-task-form.html?project=" + encodeURIComponent(project.id);
-  button.hidden = false;
-
-  /* Same corner, and the same rule, as inquiry-details.html: the button is only
-     there for an admin the API says may edit this project. */
-  const edit = document.getElementById("editProjectBtn");
-  edit.href   = "project-form.html?id=" + encodeURIComponent(project.id);
-  edit.hidden = !canEdit;
-}
-
-const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-/* How many tasks a cell names before it gives up and counts the rest. Three
-   fits the 110px cell without the row growing to match its busiest day. */
-const CAL_MAX_CARDS = 3;
-
-/** "14:30", or nothing when the task has no time against its date. */
-function calTime(task){
-  return task.scheduled_time ? String(task.scheduled_time).slice(0, 5) : "";
-}
-
-/*
-| The month grid. Monday-first, six rows, headers in the same seven columns as
-| the days, with the days that fall inside the project's own dates tinted so
-| the timeline is visible at a glance.
-|
-| Each dated task is named in its cell rather than marked with a dot: the point
-| of a month view is to read the month without opening every day in it. The
-| phone rules in the stylesheet turn the cards back into dots, because a cell
-| one-seventh of a phone wide cannot hold a title.
-*/
-function paintCalendar(){
-  document.getElementById("calLabel").textContent = MONTHS_LONG[calMonth] + " " + calYear;
-
-  const first = new Date(calYear, calMonth, 1);
-
-  // getDay() is Sunday-first; the grid is Monday-first.
-  const lead = (first.getDay() + 6) % 7;
-
-  const cursor = new Date(calYear, calMonth, 1 - lead);
-  const today  = todayISO();
-
-  // Every dated task bucketed by day, so painting a cell is one lookup.
-  const byDay = {};
-
-  tasks.forEach(task => {
-    if (!task.scheduled_date) return;
-    const key = String(task.scheduled_date).slice(0, 10);
-    (byDay[key] = byDay[key] || []).push(task);
-  });
-
-  // Earliest first inside a day, so a cell reads down the day in order.
-  Object.keys(byDay).forEach(key => {
-    byDay[key].sort((a, b) => calTime(a).localeCompare(calTime(b)));
-  });
-
-  let html = WEEKDAYS.map(name => '<div class="day-header">' + name + "</div>").join("");
-
-  for (let week = 0; week < 6; week++) {
-
-    for (let day = 0; day < 7; day++) {
-
-      const iso =
-        cursor.getFullYear() + "-"
-        + String(cursor.getMonth() + 1).padStart(2, "0") + "-"
-        + String(cursor.getDate()).padStart(2, "0");
-
-      const outside  = cursor.getMonth() !== calMonth;
-      const dayTasks = byDay[iso] || [];
-      const count    = dayTasks.length;
-
-      const classes = ["day-cell"];
-
-      if (outside) classes.push("other-month");
-      if (iso === today) classes.push("today-cell");
-      if (iso >= project.start_date && iso <= project.end_date) classes.push("in-range");
-      if (iso === selectedDate) classes.push("selected-cell");
-
-      const cards = dayTasks.slice(0, CAL_MAX_CARDS).map(task => {
-        const time = calTime(task);
-
-        /* Amber while the task is outstanding, green once it is published -
-           the same two readings the cards below the grid give. */
-        return '<div class="event-card ' + (Number(task.is_complete) ? "done" : "pending")
-             + '" title="' + esc(task.title) + (time ? " - " + esc(time) : "") + '">'
-             +   "<b>" + esc(task.title) + "</b>"
-             +   (time ? "<small>" + esc(time) + "</small>" : "")
-             + "</div>";
-      }).join("");
-
-      const more = count > CAL_MAX_CARDS
-        ? '<div class="event-more">+' + (count - CAL_MAX_CARDS) + " more</div>"
-        : "";
-
-      /* Every day of this month is selectable, not only the ones carrying a
-         task - the same as admin-calendar.html, where picking an empty day is
-         how you confirm nothing is booked on it. A padding day from the
-         neighbouring month is not: it is there to keep the columns lined up
-         under their weekday, and picking it would filter the list below to a
-         date this grid is not showing. */
-      html += '<div class="' + classes.join(" ") + '"'
-            + (outside
-                ? ' aria-hidden="true"'
-                : ' role="button" tabindex="0"'
-                  + ' data-date="' + iso + '"'
-                  + ' aria-pressed="' + (iso === selectedDate) + '"'
-                  + ' aria-label="' + esc(fmtDate(iso)) + ", "
-                  +   (count ? count + (count === 1 ? " task" : " tasks") : "no tasks") + '"')
-            + ">"
-            + "<span>" + cursor.getDate() + "</span>"
-            + cards
-            + more
-            + "</div>";
-
-      cursor.setDate(cursor.getDate() + 1);
-    }
-  }
-
-  document.getElementById("calBody").innerHTML = html;
-
-  document.querySelectorAll(".day-cell[data-date]").forEach(cell => {
-    cell.addEventListener("click", () => pickDay(cell.dataset.date));
-    cell.addEventListener("keydown", event => {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        pickDay(cell.dataset.date);
-      }
-    });
-  });
-}
-
-/*
-| Selecting a day scopes the task grid below it to that date - the dots on the
-| calendar and the cards under it are the same tasks, so the calendar acts as a
-| filter over them rather than opening a separate view.
-|
-| Clicking the selected day again clears it, which is the only affordance that
-| does not need a second control explaining itself.
-*/
-function pickDay(iso){
-  selectedDate = (selectedDate === iso) ? null : iso;
-  page = 1;
-  paintCalendar();
-  renderTasks();
-}
-
-function clearDay(){
-  selectedDate = null;
-  page = 1;
-  paintCalendar();
-  renderTasks();
-}
-
-/*
-|------------------------------------------------------------------------------
-| The task panel at the foot of the page
-|------------------------------------------------------------------------------
-|
-| It holds a task and nothing else. The project has its own panel pinned to the
-| top of the page, so opening a task no longer hides the project it belongs to -
-| the two are read together, which is the point of being on this page.
-|
-| Nothing is open by default: the panel and its heading appear when a card is
-| clicked and go away again when it is closed.
-|
-| The panel carries no buttons. Edit and Delete are on the card's own menu, one
-| click from anywhere in the grid, and repeating them at the foot of the page
-| gave the same task two places to be acted on and two places to keep in sync.
-|
-*/
-
-function showTaskPanel(id){
-  const task = tasks.find(t => Number(t.id) === Number(id));
-
-  if (!task) return;
-
-  openTaskId = Number(task.id);
-
-  paintTaskPanel(task);
-
-  document.getElementById("taskDetailHead").hidden = false;
-  document.getElementById("taskPanel").hidden      = false;
-
-  // Re-render so the card that was clicked picks up the selected outline.
-  renderTasks();
-
-  document.getElementById("taskDetailHead")
-    .scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
-function closeTaskPanel(){
-  openTaskId = null;
-
-  document.getElementById("taskDetailHead").hidden = true;
-  document.getElementById("taskPanel").hidden      = true;
-
-  renderTasks();
-}
-
-function paintTaskPanel(task){
-  const image = document.getElementById("taskImg");
-
-  /* Same rule the project panel uses: no image is not something to draw. */
-  if (task.image_path) {
-    image.style.backgroundImage = "url('" + task.image_path + "')";
-    image.innerHTML = "";
-    image.hidden = false;
-  } else {
-    image.hidden = true;
-  }
-
-  document.getElementById("taskTitle").textContent = task.title;
-  document.getElementById("taskDesc").textContent  =
-    task.description || "No description was added.";
-
-  /* The time is optional against a date that is itself optional. */
-  const when = task.scheduled_date
-    ? fmtDate(task.scheduled_date) +
-      (task.scheduled_time ? " at " + String(task.scheduled_time).slice(0, 5) : "")
-    : "No date set";
-
-  document.getElementById("taskWhen").textContent     = when;
-  document.getElementById("taskStatus").textContent   = badgeFor(task).text;
-  document.getElementById("taskProgress").textContent = progressFor(task).text;
-  document.getElementById("taskAuthor").textContent   = task.created_by_name || "—";
-
-  const link = document.getElementById("taskLink");
-
-  /* Only http(s) becomes a clickable link - a `javascript:` or `data:` value
-     stored on the task would otherwise run from a click here. Anything else is
-     shown as the text it is. */
-  if (/^https?:\/\//i.test(task.link || "")) {
-    link.innerHTML = '<a class="link" target="_blank" rel="noopener noreferrer" href="'
-      + esc(task.link) + '">' + esc(task.link) + "</a>";
-  } else {
-    link.textContent = task.link || "—";
-  }
-
-}
-
-/* What the grid below is currently showing. */
-function visibleTasks(){
-  if (!selectedDate) return tasks;
-  return tasks.filter(task =>
-    String(task.scheduled_date || "").slice(0, 10) === selectedDate);
-}
-
-document.getElementById("calPrev").addEventListener("click", function(){
-  calMonth--;
-  if (calMonth < 0) { calMonth = 11; calYear--; }
-  paintCalendar();
-});
-
-document.getElementById("calNext").addEventListener("click", function(){
-  calMonth++;
-  if (calMonth > 11) { calMonth = 0; calYear++; }
-  paintCalendar();
-});
-
-document.getElementById("calToday").addEventListener("click", function(){
-  const now = new Date();
-  calYear  = now.getFullYear();
-  calMonth = now.getMonth();
-  paintCalendar();
-});
-
-/*
-| Two independent readings of a task, and they used to be crushed into one chip.
-|
-| badgeFor answers "can the client see this yet": a draft is not published at
-| all, a published task dated ahead is waiting for its date, and one whose date
-| has arrived is Published. `status` and `is_live` are the two columns behind
-| it.
-|
-| progressFor answers "is the work done", which `is_complete` tracks on its own
-| and which has nothing to do with publishing. Under the old single chip a
-| completed task stopped reporting that it was published, and a published one
-| never said whether it was finished.
-*/
-function badgeFor(task){
-  if (task.status === "draft") return { cls:"draft",     text:"Draft" };
-  if (!Number(task.is_live))   return { cls:"scheduled", text:"Scheduled" };
-  return { cls:"published", text:"Published" };
-}
-
-function progressFor(task){
-  return Number(task.is_complete)
-    ? { cls:"done",  text:"Completed" }
-    : { cls:"doing", text:"In Progress" };
-}
-
-function renderTasks(){
-  const grid  = document.getElementById("taskGrid");
-  const shown = visibleTasks();
-  const total = shown.length;
-  const pages = Math.max(1, Math.ceil(total / TASK_PAGE_SIZE));
-
-  if (page > pages) page = pages;
-
-  // The heading says which day is being shown, and carries the way back out.
-  document.getElementById("tasksHeading").textContent =
-    selectedDate ? "Tasks on " + fmtDate(selectedDate) : "Tasks";
-  document.getElementById("clearDayBtn").hidden = !selectedDate;
-
-  if (!total) {
-    /* A project with no tasks at all needs pointing at the form. A day with
-       none only needs telling, because the tasks are still there behind the
-       filter the calendar just applied. */
-    grid.innerHTML = selectedDate
-      ? '<div class="empty-state" style="grid-column:1/-1">'
-        +   '<div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>'
-        +   "<h3>Nothing scheduled for this day</h3>"
-        +   "<p>No task on this project is dated " + esc(fmtDate(selectedDate)) + ".</p>"
-        +   '<button class="btn btn-ghost" type="button" onclick="clearDay()">Show all tasks</button>'
-        + "</div>"
-      : '<div class="empty-state" style="grid-column:1/-1">'
-        +   '<div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 15h6"/></svg></div>'
-        +   "<h3>No tasks yet</h3>"
-        +   "<p>Tasks are the updates published against this project - what was done, when, and what the client gets to see.</p>"
-        +   '<a class="create-btn" href="project-task-form.html?project='
-        +     encodeURIComponent(project.id) + '">New Task</a>'
-        + "</div>";
-
-    document.getElementById("pager").hidden = true;
-    return;
-  }
-
-  const start = (page - 1) * TASK_PAGE_SIZE;
-  const slice = shown.slice(start, start + TASK_PAGE_SIZE);
-
-  grid.innerHTML = slice.map(task => {
-
-    const badge = badgeFor(task);
-    const prog  = progressFor(task);
-    const when  = task.scheduled_date ? fmtDate(task.scheduled_date) : "No date set";
-
-    const image = task.image_path
-      ? "style=\"background-image:url('" + esc(task.image_path) + "')\""
-      : "";
-
-    const placeholder = task.image_path ? "" :
-      '<span class="ph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2.5"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></span>';
-
-    return ''
-      + '<div class="card ' + (task.orientation === "vertical" ? "is-vertical" : "")
-      +      (Number(task.id) === openTaskId ? " selected" : "") + '">'
-      +   '<div class="card-img ' + (task.image_path ? "" : "empty") + '" ' + image + '>'
-      +     placeholder
-      +     '<span class="badge ' + badge.cls + '">' + badge.text + '</span>'
-      +   '</div>'
-      +   '<div class="card-body">'
-      +     '<div class="card-head">'
-      +       '<div class="card-head-text">'
-      +         '<span class="card-client" dir="auto">' + esc(project.company_name || project.client_name || "") + '</span>'
-      +         '<h3 dir="auto">' + esc(task.title) + '</h3>'
-      +         '<p class="card-desc" dir="auto">' + esc(task.description || "No description was added.") + '</p>'
-      +       '</div>'
-      +       taskMenu(task)
-      +     '</div>'
-      +     '<span class="card-when">' + esc(when)
-      +       (task.created_by_name ? " · " + esc(task.created_by_name) : "")
-      +     '</span>'
-      +   '</div>'
-      /* The state of the work itself, kept away from the publish badge. */
-      +   '<div class="card-foot">'
-      +     '<span class="prog ' + prog.cls + '"><i></i>' + prog.text + '</span>'
-      +   '</div>'
-      /* Last in the markup and stretched over the card behind the menu, so a
-         click anywhere that is not the menu opens the panel below. */
-      +   '<button class="card-open" type="button" onclick="showTaskPanel(' + Number(task.id) + ')"'
-      +          ' aria-label="Show details for ' + esc(task.title) + '"></button>'
-      + '</div>';
-  }).join("");
-
-  wireKebabs();
-  renderPager(total, pages, start, slice.length);
-}
-
-/*
-| The three dots beside a card's title. Everything the card used to spend a
-| two-button row on now lives in here, plus the View details the stretched hit
-| area offers silently - a menu that leaves its own affordance out is a menu
-| people do not find.
-*/
-function taskMenu(task){
-  const editHref = "project-task-form.html?project=" + encodeURIComponent(project.id)
-                 + "&id=" + encodeURIComponent(task.id);
-
-  return ''
-    + '<div class="kebab-wrap card-menu">'
-    +   '<button class="kebab" type="button" aria-haspopup="menu" aria-expanded="false"'
-    +          ' aria-label="More actions for ' + esc(task.title) + '">'
-    +     '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>'
-    +   '</button>'
-    +   '<div class="kebab-menu" role="menu">'
-    +     '<button role="menuitem" type="button" onclick="showTaskPanel(' + Number(task.id) + ')">'
-    +       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 12S5 5 12 5s10.5 7 10.5 7-3.5 7-10.5 7S1.5 12 1.5 12z"/><circle cx="12" cy="12" r="3"/></svg>'
-    +       'View details'
-    +     '</button>'
-    +     '<a role="menuitem" href="' + esc(editHref) + '">'
-    +       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>'
-    +       'Edit'
-    +     '</a>'
-    +     '<button class="danger" role="menuitem" type="button" onclick="removeTask(' + Number(task.id) + ')">'
-    +       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>'
-    +       'Delete'
-    +     '</button>'
-    +   '</div>'
-    + '</div>';
-}
-
-/*
-| The menus are re-bound on every render because the grid is replaced wholesale,
-| and opening one closes any other - two menus open at once is never what was
-| meant.
-*/
-function closeKebabs(){
-  document.querySelectorAll(".kebab-wrap.open").forEach(wrap => {
-    wrap.classList.remove("open");
-    wrap.querySelector(".kebab").setAttribute("aria-expanded", "false");
-  });
-}
-
-function wireKebabs(){
-  document.querySelectorAll(".kebab-wrap").forEach(wrap => {
-    wrap.querySelector(".kebab").addEventListener("click", function (event) {
-      event.stopPropagation();
-      const open = wrap.classList.contains("open");
-      closeKebabs();
-      if (!open) {
-        wrap.classList.add("open");
-        this.setAttribute("aria-expanded", "true");
-      }
-    });
-  });
-}
-
-document.addEventListener("click", closeKebabs);
-document.addEventListener("keydown", function (event) {
-  if (event.key === "Escape") closeKebabs();
-});
-
-function renderPager(total, pages, start, shown){
-  document.getElementById("pagerInfo").textContent =
-    "Showing " + (start + 1) + " to " + (start + shown) + " of " + total +
-    " result" + (total === 1 ? "" : "s");
-
-  const buttons = [];
-
-  buttons.push('<button type="button" onclick="goTo(' + (page - 1) + ')" ' +
-    (page === 1 ? "disabled" : "") + ">Prev</button>");
-
-  for (let n = 1; n <= pages; n++) {
-    buttons.push('<button type="button" class="' + (n === page ? "current" : "") +
-      '" onclick="goTo(' + n + ')">' + n + "</button>");
-  }
-
-  buttons.push('<button type="button" onclick="goTo(' + (page + 1) + ')" ' +
-    (page === pages ? "disabled" : "") + ">Next</button>");
-
-  document.getElementById("pagerPages").innerHTML = buttons.join("");
-  document.getElementById("pager").hidden = false;
-}
-
-function goTo(n){
-  page = n;
-  renderTasks();
-}
-
-async function removeTask(id){
-  const task = tasks.find(t => Number(t.id) === Number(id));
-
-  if (!task) return;
-
-  closeKebabs();
-
-  const ok = await askConfirm({
-    title : "Delete task",
-    text  : '"' + task.title + '" will be removed from this project, along with '
-          + "anything the client has already been shown of it. This cannot be undone.",
-    action: "Delete task"
-  });
-
-  if (!ok) return;
-
-  const data = await api("api/project-tasks.php?id=" + encodeURIComponent(id), { method:"DELETE" });
-
-  toast(data.message, !data.success);
-
-  if (!data.success) return;
-
-  tasks = tasks.filter(t => Number(t.id) !== Number(id));
-
-  // Deleting the last card on the last page would otherwise leave an empty grid.
-  const pages = Math.max(1, Math.ceil(visibleTasks().length / TASK_PAGE_SIZE));
-  if (page > pages) page = pages;
-
-  /* The panel cannot go on describing a task that is no longer there, so it
-     closes. closeTaskPanel renders the grid itself. */
-  if (openTaskId === Number(id)) {
-    closeTaskPanel();
-  } else {
-    renderTasks();
-  }
-
-  paintCalendar();
-}
-
-function paintDetail(){
-  const image = document.getElementById("detailImg");
-
-  /* The image is optional, so its absence is not something to draw. Showing a
-     placeholder here would put a 320px empty rectangle above the title on
-     every project that has not had one uploaded. */
-  if (project.image_path) {
-    image.style.backgroundImage = "url('" + project.image_path + "')";
-    image.innerHTML = "";
-    image.hidden = false;
-  } else {
-    image.hidden = true;
-  }
-
-  document.getElementById("detailTitle").textContent  = project.title;
-  document.getElementById("detailDesc").textContent   = project.description || "No description was added.";
-  document.getElementById("detailClient").textContent = project.company_name || project.client_name || "—";
-  document.getElementById("detailTimeline").textContent =
-    fmtDate(project.start_date) + " – " + fmtDate(project.end_date);
-  document.getElementById("detailManager").textContent = project.account_manager_name || "Unassigned";
-  document.getElementById("detailStatus").textContent  = project.status_label;
-
-  const progress = Number(project.progress || 0);
-  document.getElementById("detailProgress").textContent = progress + "%";
-  document.getElementById("detailBar").style.width      = progress + "%";
-}
-
-/*
-|------------------------------------------------------------------------------
-| Delete confirmation
-|------------------------------------------------------------------------------
-|
-| window.confirm() cannot name the row it is about to destroy and takes a single
-| stray Enter as consent. This resolves a promise instead, and keeps the Delete
-| button disabled until DELETE has been typed into the field, so the consent is
-| a deliberate second action rather than a reflex.
-|
-*/
-
-let confirmResolve = null;
-
-function askConfirm(options){
-  const box    = document.getElementById("confirmModal");
-  const ack    = document.getElementById("confirmAck");
-  const okBtn  = document.getElementById("confirmOk");
-
-  document.getElementById("confirmTitle").textContent = options.title || "Delete";
-  document.getElementById("confirmText").textContent  = options.text  || "";
-  okBtn.textContent = options.action || "Delete";
-
-  // Never inherit the previous answer: every deletion is acknowledged on its own.
-  ack.value      = "";
-  ack.classList.remove("ok");
-  okBtn.disabled = true;
-
-  box.classList.add("show");
-  ack.focus();
-
-  return new Promise(function (resolve) { confirmResolve = resolve; });
-}
-
-function closeConfirm(answer){
-  document.getElementById("confirmModal").classList.remove("show");
-
-  const resolve = confirmResolve;
-  confirmResolve = null;
-
-  if (resolve) resolve(!!answer);
-}
-
-/* Case-insensitive and trimmed: the point is a deliberate second action, not a
-   typing test. Enter in the field is the same as pressing the button, but only
-   once the word is there - otherwise Enter would be exactly the reflex
-   dismissal this box exists to prevent. */
-function ackIsGiven(){
-  return document.getElementById("confirmAck").value.trim().toUpperCase() === "DELETE";
-}
-
-document.getElementById("confirmAck").addEventListener("input", function(){
-  const given = ackIsGiven();
-  this.classList.toggle("ok", given);
-  document.getElementById("confirmOk").disabled = !given;
-});
-
-document.getElementById("confirmAck").addEventListener("keydown", function (event) {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    if (ackIsGiven()) closeConfirm(true);
-  }
-});
-
-document.getElementById("confirmOk").addEventListener("click", function(){
-  if (!this.disabled) closeConfirm(true);
-});
-
-document.getElementById("confirmCancel").addEventListener("click", function(){
-  closeConfirm(false);
-});
-
-// Clicking the backdrop cancels; clicking the box itself must not.
-document.getElementById("confirmModal").addEventListener("click", function(event){
-  if (event.target === this) closeConfirm(false);
-});
-
-document.addEventListener("keydown", function (event) {
-  if (event.key === "Escape" && confirmResolve) closeConfirm(false);
-});
-
-load();
-</script>
-<script src="assets/notifications.js?v=1"></script>
-<script src="assets/shell.js?v=4"></script>
-<script src="assets/lightbox.js?v=1"></script>
-<script src="assets/sources-lock.js?v=1"></script>
-<script src="assets/role-nav.js?v=2"></script>
-</body></html>
+</html>

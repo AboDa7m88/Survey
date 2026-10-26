@@ -1,0 +1,1385 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: Arial, "Segoe UI", Tahoma, sans-serif
+}
+
+:root {
+    --brand: #c9000b;
+    --nav-active: #1b1e3a;
+    --text: #101828;
+    --muted: #667085;
+    --line: #eaecf0;
+    --sidebar-w: 260px
+}
+
+body {
+    background: #f6f7fb;
+    color: var(--text);
+    padding: 0
+}
+
+/* ── Admin shell: sidebar + header (shared across admin pages) ── */
+.admin-sidebar {
+    width: var(--sidebar-w);
+    background: #fff;
+    border-right: 1px solid var(--line);
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    padding: 26px 12px 18px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    z-index: 100
+}
+
+.side-nav a {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    text-decoration: none;
+    color: var(--muted);
+    padding: 8px 10px;
+    border-radius: 9px;
+    margin-bottom: 2px;
+    font-size: 14px;
+    font-weight: 600;
+    transition: background .15s, color .15s
+}
+
+.side-nav a svg {
+    width: 17px;
+    height: 17px;
+    flex: none
+}
+
+.side-nav a:hover {
+    background: #f6f7f9;
+    color: var(--text)
+}
+
+.side-nav a.active {
+    background: var(--nav-active);
+    color: #fff
+}
+
+.side-user {
+    width: 100%;
+    font: inherit;
+    text-align: left;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    cursor: pointer;
+    transition: background .15s, border-color .15s
+}
+
+.side-user:hover {
+    background: #fafbfc;
+    border-color: #d7dae0
+}
+
+.side-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #dce3ff;
+    color: #3745a4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 13px;
+    flex: none
+}
+
+.side-meta {
+    flex: 1;
+    min-width: 0
+}
+
+.side-meta strong {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis
+}
+
+.side-meta span {
+    font-size: 11px;
+    color: #98a2b3
+}
+
+.side-dots {
+    color: #98a2b3;
+    flex: none
+}
+
+.admin-main {
+    margin-left: var(--sidebar-w);
+    width: calc(100% - var(--sidebar-w))
+}
+
+.admin-content {
+    padding: 35px 35px 45px
+}
+
+.side-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 36px;
+    margin-bottom: 26px;
+    padding: 0 2px
+}
+
+.side-logo {
+    padding: 0;
+    margin: 0;
+    flex: 1;
+    min-width: 0
+}
+
+.side-logo img {
+    width: 132px;
+    max-width: 100%;
+    height: auto;
+    display: block
+}
+
+.side-toggle {
+    width: 34px;
+    height: 34px;
+    flex: none;
+    border-radius: 9px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .15s, color .15s
+}
+
+.side-toggle:hover {
+    background: #f2f4f8;
+    color: var(--text)
+}
+
+.side-toggle svg {
+    width: 18px;
+    height: 18px
+}
+
+:root.sidebar-collapsed {
+    --sidebar-w: 78px
+}
+
+.admin-sidebar,
+.admin-main {
+    transition: width .18s ease, margin-left .18s ease
+}
+
+:root.sidebar-collapsed .admin-sidebar {
+    padding: 26px 4px 18px
+}
+
+:root.sidebar-collapsed .side-head {
+    justify-content: center;
+    margin-bottom: 22px
+}
+
+:root.sidebar-collapsed .side-logo {
+    display: none
+}
+
+:root.sidebar-collapsed .side-nav a {
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    margin: 0 auto 4px;
+    border-radius: 10px;
+    justify-content: center
+}
+
+:root.sidebar-collapsed .side-nav a span {
+    display: none
+}
+
+/* The account card is the only entry point to logout — collapse it, never hide it. */
+:root.sidebar-collapsed .side-user {
+    justify-content: center;
+    padding: 8px
+}
+
+:root.sidebar-collapsed .side-meta,
+:root.sidebar-collapsed .side-dots {
+    display: none
+}
+
+
+/* ── Page header ── */
+.page-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 24px;
+    margin-bottom: 28px
+}
+
+.page-title h1 {
+    font-size: 30px;
+    margin-bottom: 8px
+}
+
+.page-title p {
+    font-size: 14px;
+    color: var(--muted);
+    max-width: 620px
+}
+
+/* The arrow sits beside the heading rather than opposite it, the same as
+   project-details.html and inquiry-details.html: one square control, no label,
+   reading as part of the title line. */
+.head-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    min-width: 0
+}
+
+.head-row>div {
+    min-width: 0
+}
+
+.back-link {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--text);
+    text-decoration: none;
+    transition: background .15s;
+}
+
+/* Level with the first line of the heading, not with the top of the block. */
+.head-row>.back-link {
+    margin-top: 0
+}
+
+.back-link:hover {
+    background: #f2f4f8
+}
+
+.back-link svg {
+    width: 17px;
+    height: 17px
+}
+
+/* ── Panels & tables (same vocabulary as clients-management.html) ── */
+.panel {
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 14px 35px rgba(0, 0, 0, .06);
+    overflow: hidden;
+    margin-bottom: 24px
+}
+
+.panel-head {
+    padding: 22px 28px;
+    border-bottom: 1px solid #eef1f5
+}
+
+.panel-head h2 {
+    font-size: 18px;
+    margin-bottom: 4px
+}
+
+.panel-head p {
+    color: var(--muted);
+    font-size: 13px
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse
+}
+
+th {
+    text-align: left;
+    background: #f8fafc;
+    padding: 14px 24px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700
+}
+
+td {
+    padding: 15px 24px;
+    border-top: 1px solid #eef1f5;
+    font-size: 13px;
+    vertical-align: top
+}
+
+td a {
+    color: var(--nav-active);
+    font-weight: 700
+}
+
+.empty {
+    padding: 26px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px
+}
+
+.badge {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 800
+}
+
+.approved {
+    background: #e8faef;
+    color: #20a95a
+}
+
+.pending {
+    background: #fff3e5;
+    color: #d97706
+}
+
+.neutral {
+    background: #f2f4f7;
+    color: #475467
+}
+
+.published {
+    background: #e7f6ec;
+    color: #067647
+}
+
+.draft {
+    background: #f2f4f7;
+    color: #475467
+}
+
+.scheduled {
+    background: #fff4e5;
+    color: #b54708
+}
+
+/* ── Profile header ── */
+/* The decision about this client is taken here, at the top of their profile,
+   rather than back on the list: this page is where you read who they are, so
+   it is where Approve, Reject and Delete belong. */
+.profile-head {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 26px 28px;
+    flex-wrap: wrap
+}
+
+/* The account number, on its own line above the photo. It is how this client is
+   referred to everywhere else in the platform, so it reads first rather than
+   sitting near the bottom of the Details grid. */
+.head-decide {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap
+}
+
+.head-decide .btn {
+    border: none;
+    padding: 11px 16px;
+    border-radius: 10px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer
+}
+
+.head-decide .approve-btn {
+    background: #20a95a;
+    color: #fff
+}
+
+.head-decide .approve-btn:hover {
+    background: #188f4b
+}
+
+.head-decide .reject-btn {
+    background: var(--brand);
+    color: #fff
+}
+
+.head-decide .reject-btn:hover {
+    background: #a80009
+}
+
+.head-decide .delete-btn {
+    background: #fff;
+    color: var(--brand);
+    border: 1px solid #f0d2d4
+}
+
+.head-decide .delete-btn:hover {
+    background: #fff5f5
+}
+
+.head-decide .btn:disabled {
+    opacity: .55;
+    cursor: not-allowed
+}
+
+@media(max-width:700px) {
+    .profile-head {
+        align-items: flex-start
+    }
+
+    .head-decide {
+        width: 100%
+    }
+
+    .head-decide .btn {
+        flex: 1;
+        text-align: center
+    }
+}
+
+.profile-photo {
+    width: 76px;
+    height: 76px;
+    border-radius: 50%;
+    flex: none;
+    background: #dce3ff center/cover no-repeat;
+    color: #3745a4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 28px;
+}
+
+.profile-id {
+    flex: 1;
+    min-width: 0
+}
+
+.profile-id h2 {
+    font-size: 22px;
+    margin-bottom: 4px
+}
+
+/* An Arabic company name reads right to left but stays beside its photo and
+   join date, like the titles on project-details.html. */
+.profile-id h2[dir="auto"] {
+    text-align: left
+}
+
+.profile-id p {
+    color: var(--muted);
+    font-size: 14px;
+    word-break: break-all
+}
+
+/* ── Detail grid ── */
+.fields {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px 32px;
+    padding: 26px 28px
+}
+
+.field h5 {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .7px;
+    color: #98a2b3;
+    text-transform: uppercase;
+    margin-bottom: 8px
+}
+
+.field p {
+    font-size: 14px;
+    line-height: 1.55;
+    word-break: break-word
+}
+
+.field a {
+    color: var(--nav-active);
+    font-weight: 700
+}
+
+.field.wide {
+    grid-column: 1/-1
+}
+
+.field .muted {
+    color: #98a2b3
+}
+
+/* ── WhatsApp ──
+   A number is not the useful thing here - reaching the person is. So when the
+   client has given one it renders as the button it is, and clicking it opens
+   the conversation rather than copying digits out of a paragraph. */
+.wa-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #e8faef;
+    border: 1px solid #b8e7c8;
+    color: #12794a !important;
+    border-radius: 999px;
+    padding: 7px 14px 7px 10px;
+    font-size: 13px;
+    font-weight: 800;
+    text-decoration: none;
+    transition: background .15s, border-color .15s;
+}
+
+.wa-link:hover {
+    background: #d8f5e3;
+    border-color: #94dcae
+}
+
+.wa-link svg {
+    width: 17px;
+    height: 17px;
+    flex: none
+}
+
+/* ── The Details panel while it is being edited ──
+   The panel keeps its three-column grid; each field swaps its paragraph for an
+   input of the same width, so nothing moves when editing starts. */
+.panel-head {
+    position: relative
+}
+
+.head-with-action {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px
+}
+
+.head-with-action>div {
+    flex: 1;
+    min-width: 0
+}
+
+.head-with-action>button {
+    flex: none
+}
+
+.edit-toggle {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    border: 1px solid #dfe3ea;
+    background: #fff;
+    color: var(--text);
+    padding: 9px 14px;
+    border-radius: 10px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.edit-toggle:hover {
+    background: #f6f7f9
+}
+
+.edit-toggle svg {
+    width: 14px;
+    height: 14px
+}
+
+.field input,
+.field textarea {
+    width: 100%;
+    border: 1px solid #dfe3ea;
+    border-radius: 10px;
+    background: #fff;
+    padding: 10px 12px;
+    font: inherit;
+    font-size: 14px;
+    color: var(--text);
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+}
+
+.field textarea {
+    min-height: 88px;
+    resize: vertical;
+    line-height: 1.6
+}
+
+.field input:focus,
+.field textarea:focus {
+    border-color: var(--nav-active);
+    box-shadow: 0 0 0 3px rgba(27, 30, 58, .08)
+}
+
+.field .hint {
+    margin-top: 6px;
+    font-size: 11px;
+    color: #98a2b3
+}
+
+.details-bar {
+    grid-column: 1/-1;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    border-top: 1px solid #eef1f5;
+    padding-top: 20px;
+}
+
+.details-save {
+    border: none;
+    background: var(--nav-active);
+    color: #fff;
+    padding: 10px 18px;
+    border-radius: 10px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.details-save:hover {
+    background: #282c52
+}
+
+.details-save:disabled {
+    opacity: .55;
+    cursor: not-allowed
+}
+
+.details-cancel {
+    border: 1px solid #dfe3ea;
+    background: #fff;
+    color: var(--text);
+    padding: 10px 18px;
+    border-radius: 10px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.details-cancel:hover {
+    background: #f6f7f9
+}
+
+.details-status {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted)
+}
+
+.details-status.error {
+    color: var(--brand)
+}
+
+.details-status.ok {
+    color: #20a95a
+}
+
+/* ── Team ──
+   Three columns laid out like a table - the header row matches th above - so
+   the panel reads the same as the tables under it. On a phone the columns
+   stack, each keeping its own header. */
+.team-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr)
+}
+
+.team-col {
+    min-width: 0;
+    border-left: 1px solid #eef1f5
+}
+
+.team-col:first-child {
+    border-left: none
+}
+
+.team-col-head {
+    background: #f8fafc;
+    padding: 14px 24px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700
+}
+
+.team-col-body {
+    padding: 16px 24px 20px;
+    border-top: 1px solid #eef1f5
+}
+
+.team-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px
+}
+
+.team-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+    background: #f2f4f7;
+    color: var(--text);
+    border-radius: 999px;
+    padding: 7px 12px;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.team-chip span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap
+}
+
+.team-chip.can-remove {
+    padding-right: 6px
+}
+
+.team-chip button {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.team-chip button:hover {
+    background: #fee4e2;
+    color: var(--brand)
+}
+
+.team-chip button:disabled {
+    opacity: .5;
+    cursor: not-allowed
+}
+
+.team-none {
+    font-size: 13px;
+    color: #98a2b3
+}
+
+.team-add {
+    display: block;
+    width: 100%;
+    margin-top: 12px;
+    height: 38px;
+    border: 1px dashed #d0d5dd;
+    border-radius: 10px;
+    background: #fff;
+    padding: 0 12px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    cursor: pointer;
+}
+
+.team-add:focus {
+    outline: none;
+    border-color: var(--nav-active);
+    box-shadow: 0 0 0 3px rgba(27, 30, 58, .08)
+}
+
+.team-add:disabled {
+    opacity: .55;
+    cursor: not-allowed
+}
+
+.team-status {
+    padding: 0 24px 16px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted)
+}
+
+.team-status:empty {
+    display: none
+}
+
+.team-status.error {
+    color: var(--brand)
+}
+
+.team-status.ok {
+    color: #20a95a
+}
+
+@media(max-width:700px) {
+    .team-grid {
+        grid-template-columns: 1fr
+    }
+
+    .team-col {
+        border-left: none
+    }
+
+    .team-col+.team-col {
+        border-top: 1px solid #eef1f5
+    }
+}
+
+/* ── Pending clients ──
+   A registration that has not been approved has no surveys, no appointments and
+   no files, so the panels for them would all read "none yet" - eight empty
+   boxes under the one thing there is to look at. */
+.pending-only {
+    background: #fff4e5;
+    border: 1px solid #ffd9a8;
+    color: #8a4b08;
+    border-radius: 14px;
+    padding: 14px 18px;
+    margin-bottom: 24px;
+    font-size: 13px;
+    line-height: 1.6;
+    font-weight: 600;
+}
+
+/* ── Internal note ──
+   Marked off from the fields around it: everything else in this panel is the
+   client's own words, and this is the only thing on the page written about
+   them rather than by them. */
+.note-field {
+    grid-column: 1/-1;
+    border-top: 1px solid #eef1f5;
+    padding-top: 22px;
+}
+
+.note-field .note-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 10px
+}
+
+.note-field h5 {
+    margin-bottom: 0
+}
+
+.note-field .note-why {
+    font-size: 11px;
+    color: #98a2b3
+}
+
+.note-field textarea {
+    width: 100%;
+    min-height: 104px;
+    resize: vertical;
+    border: 1px solid #dfe3ea;
+    border-radius: 12px;
+    background: #fff;
+    padding: 12px 14px;
+    font: inherit;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text);
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+}
+
+.note-field textarea:focus {
+    border-color: var(--nav-active);
+    box-shadow: 0 0 0 4px rgba(27, 30, 58, .08)
+}
+
+/* Read-only for the roles that may not write one: the note as a paragraph,
+   on the tinted field that says it is not an input. */
+.note-field .note-read {
+    font-size: 14px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+    background: #f8fafc;
+    border: 1px solid #eef1f5;
+    border-radius: 12px;
+    padding: 14px;
+}
+
+.note-field .note-bar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-top: 12px
+}
+
+.note-save {
+    border: none;
+    background: var(--nav-active);
+    color: #fff;
+    padding: 10px 18px;
+    border-radius: 10px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.note-save:hover {
+    background: #282c52
+}
+
+.note-save:disabled {
+    opacity: .55;
+    cursor: not-allowed
+}
+
+.note-status {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted)
+}
+
+.note-status.error {
+    color: var(--brand)
+}
+
+.note-status.ok {
+    color: #20a95a
+}
+
+/* ── Appointments calendar (same vocabulary as admin-calendar.html) ── */
+.cal-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 22px 28px;
+    border-bottom: 1px solid #eef1f5
+}
+
+.cal-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px
+}
+
+.cal-month {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--text);
+    min-width: 170px
+}
+
+.nav-arrow {
+    border: 1px solid var(--line);
+    background: #fff;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 16px;
+    user-select: none
+}
+
+.nav-arrow:hover {
+    background: #f1f5f9
+}
+
+.btn-today {
+    border: 1px solid var(--line);
+    background: #fff;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer
+}
+
+.btn-today:hover {
+    background: #f1f5f9
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    border-top: 1px solid var(--line);
+    border-left: 1px solid var(--line);
+    margin: 22px 28px 28px;
+    border-radius: 12px;
+    overflow: hidden
+}
+
+.day-header {
+    background: #f8fafc;
+    padding: 12px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #64748b;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    text-align: center
+}
+
+.day-cell {
+    min-width: 0;
+    min-height: 104px;
+    padding: 8px;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    background: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    cursor: pointer
+}
+
+.day-cell.other-month {
+    background: #fdfdfd;
+    color: #cbd5e1;
+    cursor: default
+}
+
+.day-cell.today-cell {
+    background: #f0f9ff
+}
+
+/* The day the schedule panel below is describing. */
+.day-cell.selected-cell {
+    box-shadow: inset 0 0 0 2px var(--nav-active)
+}
+
+.day-cell.today-cell>span {
+    background: #0284c7;
+    color: #fff;
+    padding: 2px 6px;
+    border-radius: 12px;
+    width: max-content
+}
+
+/* At most two lines - the title, then the time - each cut with an ellipsis,
+   so a long title never stretches the cell. The full text is the tooltip. */
+.event-card {
+    min-width: 0;
+    overflow: hidden;
+    padding: 6px;
+    border-radius: 6px;
+    font-size: 10.5px;
+    font-weight: 500;
+    line-height: 1.3
+}
+
+.event-card .ev-line {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis
+}
+
+/* A day holds three cards; the rest are behind this, and in the schedule below. */
+.more-events {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--muted);
+    padding: 0 2px
+}
+
+.more-events:hover {
+    color: var(--text)
+}
+
+.event-card.approved {
+    background: #e8faef;
+    border: 1px solid #b8e7c8;
+    color: #17803d
+}
+
+.event-card.pending {
+    background: #fef3c7;
+    border: 1px solid #fde68a;
+    color: #b45309
+}
+
+.event-card.rejected {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #dc2626
+}
+
+/* Content that went live that day (same as dashboard.html). A link to the post,
+   in its own colour so it never reads as a meeting - on a phone it is a purple dot. */
+.event-card.content {
+    display: block;
+    background: #f0ebff;
+    border: 1px solid #ddd2ff;
+    color: #5b3cc4;
+    text-decoration: none
+}
+
+.event-card.content:hover {
+    border-color: #b9a6ff
+}
+
+.schedule-link {
+    color: inherit;
+    text-decoration: none
+}
+
+.schedule-link:hover {
+    text-decoration: underline
+}
+
+.schedule-list {
+    padding: 8px 28px 26px
+}
+
+.schedule-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 0;
+    border-top: 1px solid #f1f3f7
+}
+
+.schedule-row:first-child {
+    border-top: none
+}
+
+.schedule-date {
+    flex: none;
+    width: 46px;
+    text-align: center;
+    border-radius: 10px;
+    background: #f6f7fb;
+    padding: 6px 0
+}
+
+.schedule-date .m {
+    display: block;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .6px;
+    text-transform: uppercase;
+    color: var(--muted)
+}
+
+.schedule-date .d {
+    display: block;
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--text)
+}
+
+.schedule-info {
+    flex: 1;
+    min-width: 0
+}
+
+.schedule-info h4 {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 3px
+}
+
+.schedule-info p {
+    font-size: 12px;
+    color: var(--muted)
+}
+
+.schedule-time {
+    flex: none;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted)
+}
+
+@media(max-width:1100px) {
+    .fields {
+        grid-template-columns: repeat(2, 1fr)
+    }
+}
+
+@media(max-width:950px) {
+
+    /* Force-collapsed below this width, so the head has nothing left to show. */
+    .side-head {
+        display: none
+    }
+
+    .admin-content {
+        padding: 24px 18px 40px
+    }
+
+    .page-head {
+        flex-direction: column;
+        gap: 16px
+    }
+
+    .fields {
+        grid-template-columns: 1fr
+    }
+
+    .panel {
+        overflow-x: auto
+    }
+
+    table {
+        min-width: 640px
+    }
+
+    .cal-head,
+    .schedule-list {
+        padding-left: 18px;
+        padding-right: 18px
+    }
+
+    .calendar-grid {
+        margin: 18px;
+        min-width: 620px
+    }
+
+    .day-cell {
+        min-height: 88px
+    }
+}
+
+/* ── Unread badge on the Notifications nav item ──
+   Collapsed, the sidebar hides labels, so the count degrades to a dot on
+   the icon - the same affordance the old topbar bell had. */
+.side-nav a {
+    position: relative
+}
+
+.nav-badge {
+    margin-left: auto;
+    font-style: normal;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1;
+    min-width: 18px;
+    padding: 3px 6px;
+    border-radius: 9px;
+    background: var(--brand);
+    color: #fff;
+    text-align: center;
+}
+
+.nav-badge[hidden] {
+    display: none
+}
+
+.side-nav a.active .nav-badge {
+    background: #fff;
+    color: var(--nav-active)
+}
+
+:root.sidebar-collapsed .nav-badge {
+    position: absolute;
+    top: 4px;
+    right: 8px;
+    margin: 0;
+    width: 8px;
+    height: 8px;
+    min-width: 0;
+    padding: 0;
+    border-radius: 50%;
+    font-size: 0;
+    border: 2px solid #fff;
+}
+
+/* ── Phone layout ─────────────────────────────────────────────────────────
+   The month grid keeps all seven columns - a calendar that scrolls sideways
+   stops reading as a month - but a 50px cell has no room for event cards, so
+   each collapses to a coloured dot. Tapping a day fills the schedule list
+   below, which is the detail view. */
+
+@media (max-width: 768px) {
+
+    .day-header {
+        padding: 8px 2px;
+        font-size: 10px;
+    }
+
+    /* Row rather than column so the dots flow beside each other under the
+     date, which keeps a full line of its own. */
+    .day-cell {
+        min-height: 56px;
+        padding: 5px;
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-content: flex-start;
+        gap: 3px;
+    }
+
+    .day-cell>span {
+        width: 100%;
+    }
+
+    /* The status classes carry the colour, so the dot still reads as
+     approved, pending or rejected. */
+    .day-cell .event-card {
+        width: 7px;
+        height: 7px;
+        padding: 0;
+        border-radius: 50%;
+        font-size: 0;
+        line-height: 0;
+        overflow: hidden;
+    }
+
+    .day-cell .event-card * {
+        display: none;
+    }
+
+    /* Three dots are the cap here too; the schedule list has the rest. */
+    .day-cell .more-events {
+        display: none;
+    }
+
+    .calendar-grid {
+        margin-left: 18px;
+        margin-right: 18px;
+    }
+}

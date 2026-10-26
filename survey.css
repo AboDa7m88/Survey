@@ -1,0 +1,447 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: Arial, "Segoe UI", Tahoma, sans-serif
+}
+
+body {
+    background: #f6f7fb;
+    color: #101828;
+    min-height: 100vh;
+    padding: 40px 20px;
+}
+
+.container {
+    width: 100%;
+    max-width: 760px;
+    margin: auto;
+}
+
+.back {
+    display: inline-block;
+    margin-bottom: 20px;
+    color: #1b1e3a;
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.card {
+    background: #fff;
+    border-radius: 22px;
+    padding: 34px;
+    box-shadow: 0 14px 35px rgba(0, 0, 0, .06);
+}
+
+h1 {
+    font-size: 28px;
+    margin-bottom: 8px;
+}
+
+.subtitle {
+    color: #667085;
+    margin-bottom: 28px;
+}
+
+/* The admin's blurb for this form. Optional, so it hides itself when empty -
+   and display:block below would otherwise beat the hidden attribute. */
+#surveyDescription {
+    margin-top: -18px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+}
+
+#surveyDescription[hidden] {
+    display: none;
+}
+
+/* dir="auto" lets an Arabic title read right to left, but the heading keeps
+   its place on the left like every other heading on the page - same override
+   as project-details.html. */
+#surveyTitle {
+    text-align: left;
+}
+
+.field {
+    margin-bottom: 22px;
+}
+
+.collapsible-question-card {
+    background: #ffffff;
+    border: 1px solid #dfe3ea;
+    border-radius: 16px;
+    margin-bottom: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, .03);
+    transition: all 0.2s ease;
+}
+
+.collapsible-question-header {
+    padding: 16px 20px;
+    background: #f8fafc;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+    font-weight: 700;
+    font-size: 15px;
+}
+
+.collapsible-question-header:hover {
+    background: #f1f5f9;
+}
+
+.collapsible-question-body {
+    padding: 20px;
+    border-top: 1px solid #eef1f5;
+}
+
+.collapsible-question-card.collapsed .collapsible-question-body {
+    display: none;
+}
+
+.collapsible-toggle-icon {
+    font-size: 12px;
+    color: #667085;
+    transition: transform 0.2s ease;
+}
+
+.collapsible-question-card.collapsed .collapsible-toggle-icon {
+    transform: rotate(-90deg);
+}
+
+label {
+    display: block;
+    font-size: 14px;
+    font-weight: 800;
+    margin-bottom: 9px;
+}
+
+/* Checklist options as a scannable grid; the "None of these…" opt-out takes a
+   row of its own so it reads apart from the real choices. */
+.check-count {
+    margin-bottom: 10px;
+    font-size: 11px;
+    font-weight: 800;
+    color: #98a2b3;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+
+.check-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 8px;
+}
+
+.check-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 0;
+    padding: 10px 12px;
+    font-size: 13.5px;
+    font-weight: 400;
+    line-height: 1.4;
+    color: #344054;
+    background: #f8fafc;
+    border: 1px solid #eaecf0;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: border-color .15s ease, background-color .15s ease;
+}
+
+.check-option:hover {
+    border-color: #b9bfd0;
+}
+
+.check-option:has(input:checked) {
+    border-color: #1b1e3a;
+    background: #f1f2f8;
+    color: #1b1e3a;
+    font-weight: 700;
+}
+
+.check-option.is-none {
+    grid-column: 1 / -1;
+    border-style: dashed;
+    color: #667085;
+}
+
+.check-option input {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    margin: 1px 0 0;
+    padding: 0;
+    accent-color: #1b1e3a;
+    cursor: pointer;
+}
+
+.required {
+    color: #c9000b;
+}
+
+input,
+textarea {
+    width: 100%;
+    border: 1px solid #dfe3ea;
+    background: #f8fafc;
+    border-radius: 14px;
+    padding: 14px 16px;
+    outline: none;
+    font-size: 14px;
+}
+
+textarea {
+    min-height: 115px;
+    resize: vertical;
+}
+
+input:focus,
+textarea:focus {
+    border-color: #1b1e3a;
+    box-shadow: 0 0 0 3px rgba(27, 30, 58, .10);
+}
+
+.error-field {
+    border-color: #c9000b !important;
+}
+
+.status {
+    margin-top: 15px;
+    color: #667085;
+    font-size: 14px;
+}
+
+.status.error {
+    color: #c9000b;
+    font-weight: 800;
+}
+
+.submit {
+    width: 100%;
+    height: 56px;
+    border: none;
+    background: #1b1e3a;
+    color: #fff;
+    border-radius: 14px;
+    font-weight: 800;
+    font-size: 16px;
+    cursor: pointer;
+    margin-top: 15px;
+}
+
+.submit:hover {
+    background: #282c50;
+}
+
+.completed {
+    background: #e8faef;
+    color: #20a95a;
+    padding: 14px;
+    border-radius: 14px;
+    font-weight: 800;
+    margin-bottom: 20px;
+}
+
+.input-area {
+    position: relative;
+}
+
+input,
+textarea {
+    padding-left: 50px;
+}
+
+.mic-btn {
+    position: absolute;
+    left: 14px;
+    top: 14px;
+    border: none;
+    background: transparent;
+    width: 22px;
+    height: 22px;
+    cursor: pointer;
+    font-size: 18px;
+    color: #111;
+}
+
+.mic-btn.recording {
+    color: #c9000b;
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.18);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+.question-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.chip-btn {
+    border: none;
+    background: #eef1f5;
+    color: #101828;
+    padding: 8px 14px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.chip-btn:hover {
+    background: #dfe3ea;
+}
+
+.confirm-box {
+    margin: 20px 0;
+    display: flex;
+    align-items: center;
+}
+
+.confirm-box label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 16px;
+    color: #667085;
+    cursor: pointer;
+}
+
+.confirm-box input[type="checkbox"] {
+    width: 22px;
+    height: 22px;
+    cursor: pointer;
+    accent-color: #1b1e3a;
+}
+
+/* File picker preview */
+.file-field {
+    position: relative;
+}
+
+.file-preview {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: #f8fafc;
+    border: 1px solid #dfe3ea;
+    border-radius: 12px;
+}
+
+.file-preview[hidden] {
+    display: none;
+}
+
+.file-preview img {
+    width: 56px;
+    height: 56px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid #dfe3ea;
+    flex: none;
+    background: #fff;
+}
+
+.file-preview img[hidden] {
+    display: none;
+}
+
+.file-preview .file-name {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+    color: #101828;
+    word-break: break-all;
+}
+
+.file-remove {
+    flex: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1px solid #f0d2d4;
+    background: #fff;
+    color: #c9000b;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.file-remove:hover {
+    background: #fff5f5;
+}
+
+/* Read-only answers on an already-submitted survey */
+.answer-box {
+    background: #f8fafc;
+    border: 1px solid #dfe3ea;
+    border-radius: 14px;
+    padding: 16px;
+    font-size: 14px;
+    color: #101828;
+    line-height: 1.6;
+    /* Paragraph answers keep the line breaks the client typed. */
+    white-space: pre-wrap;
+}
+
+/* Checklist answers: one selected option per row. */
+.answer-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.answer-list li {
+    background: #f8fafc;
+    border: 1px solid #dfe3ea;
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 14px;
+    color: #101828;
+    line-height: 1.5;
+}
+
+.answer-image {
+    display: block;
+    max-width: 100%;
+    max-height: 320px;
+    border-radius: 10px;
+    border: 1px solid #dfe3ea;
+    margin-bottom: 12px;
+    background: #fff;
+}
+
+.answer-file {
+    display: inline-block;
+    font-size: 13px;
+    font-weight: 700;
+    color: #1b1e3a;
+    text-decoration: none;
+    word-break: break-all;
+}
+
+.answer-file:hover {
+    text-decoration: underline;
+}

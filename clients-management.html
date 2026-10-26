@@ -1,698 +1,268 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Admin - Clients Management</title><style>
-*{margin:0;padding:0;box-sizing:border-box;font-family:Arial,sans-serif}body{background:#f6f7fb;color:#101828;padding:35px}.panel{background:#fff;border-radius:20px;box-shadow:0 14px 35px rgba(0,0,0,.06);overflow:hidden}.panel-head{padding:24px 28px;border-bottom:1px solid #eef1f5}.panel-head h1{font-size:24px;margin-bottom:6px}.panel-head p{color:#667085;font-size:14px}table{width:100%;border-collapse:collapse}th{text-align:left;background:#f8fafc;padding:14px 24px;color:#667085;font-size:12px}td{padding:15px 24px;border-top:1px solid #eef1f5;font-size:13px}.badge{padding:6px 12px;border-radius:20px;font-size:11px;font-weight:800}.approved{background:#e8faef;color:#20a95a}.pending{background:#fff3e5;color:#d97706}.actions{display:flex;gap:8px}.btn{border:none;padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:800;font-size:12px}.action-btn{background:#27496E;color:#fff}
-/* View is an anchor, so it needs what the button styling assumes. */
-a.btn{display:inline-flex;align-items:center;text-decoration:none}
-a.action-btn:hover{background:#1f3a58}.empty{padding:30px;text-align:center;color:#667085}@media(max-width:800px){body{padding:18px}table{min-width:760px}.panel{overflow-x:auto}}
-/* ── Pagination: the table never shows more than PAGE_SIZE rows ── */
-.pager{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:16px 24px;border-top:1px solid #eef1f5}
-.pager[hidden]{display:none}
-.pager-info{font-size:13px;font-weight:600;color:#667085}
-.pager-pages{display:flex;gap:6px;flex-wrap:wrap}
-.pager button{min-width:36px;height:36px;padding:0 12px;border:1px solid #dfe3ea;background:#fff;border-radius:9px;font:inherit;font-size:13px;font-weight:700;color:#101828;cursor:pointer}
-.pager button:hover:not(:disabled){background:#f6f7f9}
-.pager button.current{background:var(--nav-active);border-color:var(--nav-active);color:#fff}
-.pager button:disabled{opacity:.45;cursor:not-allowed}
+<html lang="en">
 
-/* ── Page header (the same block on every admin page, button or no button) ── */
-.page-head{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin-bottom:28px}
-.page-title h1{font-size:30px;margin-bottom:8px}
-.page-title p{font-size:14px;color:var(--muted);max-width:620px}
-.create-btn{flex:none;display:inline-flex;align-items:center;gap:8px;background:var(--nav-active);color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px;font:inherit;font-size:13px;font-weight:800;border:none;cursor:pointer}
-.create-btn:hover{background:#282c52}
-.create-btn svg{width:16px;height:16px}
-@media(max-width:700px){.page-head{flex-direction:column;gap:16px}}
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin - Clients Management</title>
+  <link rel="stylesheet" href="clients-management.css">
 
-/* ── Admin shell: sidebar + header (shared across admin pages) ── */
-:root{
-  --brand:#c9000b;
-  --nav-active:#1b1e3a;
-  --text:#101828;
-  --muted:#667085;
-  --line:#eaecf0;
-  --sidebar-w:260px;
-}
-body{padding:0}
-.admin-sidebar{
-  width:var(--sidebar-w);
-  background:#fff;
-  border-right:1px solid var(--line);
-  position:fixed;top:0;left:0;bottom:0;
-  padding:26px 12px 18px;
-  display:flex;flex-direction:column;justify-content:space-between;
-  z-index:100;
-}
-.side-logo{padding:0 6px;margin-bottom:30px}
-.side-logo img{width:150px;max-width:100%;height:auto;display:block}
+  <script>
+    // Runs before paint so the collapsed state never flashes open on load.
+    (function () {
+      var root = document.documentElement;
+      var KEY = "wz_sidebar_collapsed";
+      var MOBILE = 950;
+      var DRAWER = 768;   // below this the sidebar is a drawer, never a rail
+      function prefersCollapsed() { return localStorage.getItem(KEY) === "1"; }
+      function apply() { root.classList.toggle("sidebar-collapsed", window.innerWidth > DRAWER && (window.innerWidth <= MOBILE || prefersCollapsed())); }
+      window.toggleSidebar = function () {
+        if (window.innerWidth <= MOBILE) return; // forced collapsed, nothing to toggle
+        localStorage.setItem(KEY, prefersCollapsed() ? "0" : "1");
+        apply();
+      };
+      apply();
+      window.addEventListener("resize", apply);
+    })();
 
-.side-nav a{
-  display:flex;gap:12px;align-items:center;
-  text-decoration:none;color:var(--muted);
-  padding:11px 12px;border-radius:10px;margin-bottom:4px;
-  font-size:14px;font-weight:600;
-  transition:background .15s,color .15s;
-}
-.side-nav a svg{width:18px;height:18px;flex:none}
-.side-nav a:hover{background:#f6f7f9;color:var(--text)}
-.side-nav a.active{background:var(--nav-active);color:#fff}
-.side-user{
-  width:100%;font:inherit;text-align:left;background:#fff;
-  border:1px solid var(--line);border-radius:12px;padding:10px;
-  display:flex;gap:10px;align-items:center;cursor:pointer;
-  transition:background .15s,border-color .15s;
-}
-.side-user:hover{background:#fafbfc;border-color:#d7dae0}
-.side-avatar{
-  width:36px;height:36px;border-radius:50%;
-  background:#dce3ff;color:#3745a4;
-  display:flex;align-items:center;justify-content:center;
-  font-weight:800;font-size:13px;flex:none;
-}
-.side-meta{flex:1;min-width:0}
-.side-meta strong{display:block;font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.side-meta span{font-size:11px;color:#98a2b3}
-.side-dots{color:#98a2b3;flex:none}
+    // Sidebar account card -> popup. Admins have no editable profile record, so this
+    // is identity + logout only; system config lives on settings.html.
+    function openAccount() { document.getElementById("acctModal").classList.add("show"); }
+    function closeAccount() { document.getElementById("acctModal").classList.remove("show"); }
+    document.addEventListener("DOMContentLoaded", function () {
+      var a = {};
+      try { a = JSON.parse(localStorage.getItem("admin_user") || "{}"); } catch (e) { }
+      var name = a.name || "Admin";
+      var label = ({ owner: "Owner", super_admin: "Super Admin", account_manager: "Account Manager", seo_admin: "Admin" })[a.role] || "";
+      var initial = name.charAt(0).toUpperCase();
+      function set(id, v) { var el = document.getElementById(id); if (el) el.textContent = v; }
+      set("adminName", name); set("adminRole", label); set("adminAvatar", initial);
+      set("acctRole", label);
+    });
+  </script>
+  <link rel="stylesheet" href="assets/shell.css?v=5" />
+  
+</head>
 
-.admin-main{margin-left:var(--sidebar-w);width:calc(100% - var(--sidebar-w))}
-.admin-content{padding:35px}
-
-/* ── Collapsible sidebar ── */
-:root.sidebar-collapsed{--sidebar-w:78px}
-.admin-sidebar,.admin-main{transition:width .18s ease,margin-left .18s ease}
-:root.sidebar-collapsed .admin-sidebar{padding:26px 4px 18px}
-:root.sidebar-collapsed .side-logo{padding:0}
-:root.sidebar-collapsed .side-logo img{display:none}
-
-:root.sidebar-collapsed .side-nav a{justify-content:center;padding:12px 0}
-:root.sidebar-collapsed .side-nav a span{display:none}
-/* The account card is the only entry point to logout — collapse it, never hide it. */
-:root.sidebar-collapsed .side-user{justify-content:center;padding:8px}
-:root.sidebar-collapsed .side-meta,:root.sidebar-collapsed .side-dots{display:none}
-@media(max-width:950px){
-
-  .admin-content{padding:24px 18px}
-}
-
-
-/* ── Shell refresh: the collapse control lives in the sidebar head ── */
-.side-head{
-  display:flex;align-items:center;justify-content:space-between;gap:8px;
-  min-height:36px;margin-bottom:26px;padding:0 2px;
-}
-.side-logo{padding:0;margin:0;flex:1;min-width:0}
-.side-logo img{width:132px;max-width:100%;height:auto;display:block}
-
-.side-toggle{
-  width:34px;height:34px;flex:none;border-radius:9px;border:none;
-  background:transparent;color:var(--muted);cursor:pointer;
-  display:flex;align-items:center;justify-content:center;
-  transition:background .15s,color .15s;
-}
-.side-toggle:hover{background:#f2f4f8;color:var(--text)}
-.side-toggle svg{width:18px;height:18px}
-
-/* Collapsed to 78px the wordmark is illegible, so the head keeps only the toggle. */
-:root.sidebar-collapsed .side-head{justify-content:center;margin-bottom:22px}
-:root.sidebar-collapsed .side-logo{display:none}
-
-/* Tighter nav rows: the active/hover pill was heavier than the label needs. */
-.side-nav a{gap:10px;padding:8px 10px;border-radius:9px;margin-bottom:2px}
-.side-nav a svg{width:17px;height:17px}
-:root.sidebar-collapsed .side-nav a{
-  width:38px;height:38px;padding:0;margin:0 auto 4px;
-  border-radius:10px;justify-content:center;
-}
-
-
-@media(max-width:950px){
-  /* Force-collapsed below this width, so the head has nothing left to show. */
-  .side-head{display:none}
-}
-/* ── Unread badge on the Notifications nav item ──
-   Collapsed, the sidebar hides labels, so the count degrades to a dot on
-   the icon - the same affordance the old topbar bell had. */
-.side-nav a{position:relative}
-.nav-badge{
-  margin-left:auto;font-style:normal;font-size:11px;font-weight:800;line-height:1;
-  min-width:18px;padding:3px 6px;border-radius:9px;
-  background:var(--brand);color:#fff;text-align:center;
-}
-.nav-badge[hidden]{display:none}
-.side-nav a.active .nav-badge{background:#fff;color:var(--nav-active)}
-:root.sidebar-collapsed .nav-badge{
-  position:absolute;top:4px;right:8px;margin:0;
-  width:8px;height:8px;min-width:0;padding:0;border-radius:50%;
-  font-size:0;border:2px solid #fff;
-}
-/* ── Dropdown arrow ──
-   Chrome pins the native select arrow to the right border and ignores
-   padding-right, so it is replaced with one that can be placed. The extra
-   selectors match the class rules that set `background` as a shorthand -
-   without them, those rules would reset this image away. */
-select,
-.panel-body select,
-select.client-filter{
-  -webkit-appearance:none;
-  -moz-appearance:none;
-  appearance:none;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23667085' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;
-  background-position:right 14px center;
-  background-size:12px;
-  padding-right:38px;
-}
-</style>
-
-<script>
-// Runs before paint so the collapsed state never flashes open on load.
-(function () {
-  var root = document.documentElement;
-  var KEY = "wz_sidebar_collapsed";
-  var MOBILE = 950;
-  var DRAWER = 768;   // below this the sidebar is a drawer, never a rail
-  function prefersCollapsed(){ return localStorage.getItem(KEY) === "1"; }
-  function apply(){ root.classList.toggle("sidebar-collapsed", window.innerWidth > DRAWER && (window.innerWidth <= MOBILE || prefersCollapsed())); }
-  window.toggleSidebar = function(){
-    if (window.innerWidth <= MOBILE) return; // forced collapsed, nothing to toggle
-    localStorage.setItem(KEY, prefersCollapsed() ? "0" : "1");
-    apply();
-  };
-  apply();
-  window.addEventListener("resize", apply);
-})();
-
-// Sidebar account card -> popup. Admins have no editable profile record, so this
-// is identity + logout only; system config lives on settings.html.
-function openAccount(){ document.getElementById("acctModal").classList.add("show"); }
-function closeAccount(){ document.getElementById("acctModal").classList.remove("show"); }
-document.addEventListener("DOMContentLoaded", function () {
-  var a = {};
-  try { a = JSON.parse(localStorage.getItem("admin_user") || "{}"); } catch (e) {}
-  var name = a.name || "Admin";
-  var label = ({ owner: "Owner", super_admin: "Super Admin", account_manager: "Account Manager", seo_admin: "Admin" })[a.role] || "";
-  var initial = name.charAt(0).toUpperCase();
-  function set(id, v){ var el = document.getElementById(id); if (el) el.textContent = v; }
-  set("adminName", name);  set("adminRole", label);  set("adminAvatar", initial);
-  set("acctRole", label);
-});
-</script><link rel="stylesheet" href="assets/shell.css?v=5" />
-<style>
-/*
-| -- Clients on a phone -------------------------------------------------------
-|
-| Loaded after shell.css: a few rules here undo one of its .wz-tablewrap rules
-| and win on the id selector rather than on !important.
-|
-| Five columns do not fit at 390px, so below 768px each row stops being a row
-| and becomes a card, as the design draws it - client and email on the left,
-| the status pill opposite, and underneath the signup time beside the View
-| button. Same markup on every screen; nothing re-renders on resize.
-*/
-
-@media(max-width:768px){
-
-  .panel-head{padding:17px 17px 12px;border-bottom:none}
-  .panel-head h1{font-size:18px;line-height:24px;margin-bottom:2px}
-  .panel-head p{font-size:13px}
-
-  #pendingPanel table,#approvedPanel table{min-width:0;display:block}
-  #pendingPanel thead,#approvedPanel thead{display:none}
-  #pendingPanel tbody,#approvedPanel tbody{display:flex;flex-direction:column;gap:12px;padding:5px 17px 17px}
-
-  #pendingPanel tr,#approvedPanel tr{
-    display:grid;
-    grid-template-columns:minmax(0,1fr) auto;
-    grid-template-areas:
-      "name  status"
-      "email status"
-      "date  action";
-    column-gap:12px;
-    padding:15px;
-    border:1px solid var(--line);border-radius:12px;background:#fff;
-  }
-
-  #pendingPanel td,#approvedPanel td{
-    display:block;padding:0;border:none;
-    white-space:normal;overflow-wrap:anywhere;
-  }
-
-  #pendingPanel td:nth-child(1),#approvedPanel td:nth-child(1){grid-area:name;font-size:15px;font-weight:700;line-height:20px}
-  #pendingPanel td:nth-child(2),#approvedPanel td:nth-child(2){grid-area:email;font-size:12px;line-height:16px;color:var(--muted);margin-top:2px}
-  #pendingPanel td:nth-child(3),#approvedPanel td:nth-child(3){grid-area:status;align-self:start}
-  #pendingPanel td:nth-child(4),#approvedPanel td:nth-child(4){
-    grid-area:date;align-self:center;margin-top:10px;
-    display:flex;align-items:center;gap:8px;
-    font-size:12px;color:#98a2b3;
-  }
-  #pendingPanel td:nth-child(3),#approvedPanel td:nth-child(3),
-  #pendingPanel td:nth-child(5),#approvedPanel td:nth-child(5){justify-self:end}
-  #pendingPanel td:nth-child(5),#approvedPanel td:nth-child(5){grid-area:action;margin-top:10px}
-
-  /* A clock ahead of the signup time, drawn rather than shipped as a file. */
-  #pendingPanel td:nth-child(4)::before,#approvedPanel td:nth-child(4)::before{
-    content:"";width:10px;height:10px;flex:none;
-    border:1.5px solid currentColor;border-radius:50%;
-    background:
-      linear-gradient(currentColor,currentColor) 4px 2px/1.5px 3.5px no-repeat,
-      linear-gradient(currentColor,currentColor) 4px 4.5px/3px 1.5px no-repeat;
-  }
-
-  #pendingPanel .badge,#approvedPanel .badge{display:inline-block;padding:3px 10px;border:1px solid color-mix(in srgb, currentColor 35%, transparent);font-size:11px}
-
-  #pendingPanel .action-btn,#approvedPanel .action-btn{
-    display:inline-block;padding:4px 20px;border-radius:6px;
-    background:#101828;font-size:12px;font-weight:700;
-  }
-
-  /* The one-cell rows - loading, empty, failed - stay a plain line of text. */
-  #pendingPanel tr:has(> td[colspan]),#approvedPanel tr:has(> td[colspan]){display:block;border:none;padding:0}
-  #pendingPanel td[colspan],#approvedPanel td[colspan]{padding:20px 0;text-align:center}
-}
-</style>
-</head><body>
-<aside class="admin-sidebar">
-  <div>
-    <div class="side-head">
-      <div class="side-logo">
-        <img src="logo.png" alt="Logo" onerror="this.remove()">
+<body>
+  <aside class="admin-sidebar">
+    <div>
+      <div class="side-head">
+        <div class="side-logo">
+          <img src="logo.png" alt="Logo" onerror="this.remove()">
+        </div>
+        <button class="side-toggle" type="button" onclick="toggleSidebar()" title="Toggle sidebar"
+          aria-label="Toggle sidebar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="16" rx="2.5" />
+            <path d="M9.5 4v16" />
+          </svg>
+        </button>
       </div>
-      <button class="side-toggle" type="button" onclick="toggleSidebar()" title="Toggle sidebar" aria-label="Toggle sidebar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M9.5 4v16"/></svg>
-      </button>
+      <nav class="side-nav">
+        <a href="admin.html" title="Forms">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <path d="M9 11l3 3L22 4" />
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+          </svg>
+          <span>Forms</span>
+        </a>
+        <a href="admin-content.html" title="Content">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2.5" />
+            <path d="M3 9h18" />
+            <path d="M9 21V9" />
+          </svg>
+          <span>Content</span>
+        </a>
+        <a href="project-management.html" title="Project Management">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <rect x="2" y="7" width="20" height="14" rx="2" />
+            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+          </svg>
+          <span>Project Management</span>
+        </a>
+        <a href="inquiries.html" title="Inquiries">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <path
+              d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+          </svg>
+          <span>Inquiries</span>
+        </a>
+        <a href="clients-management.html" class="active" id="clientsManagementLink" title="Clients Management">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+          <span>Clients Management</span>
+        </a>
+        <a href="sources-files.html" title="Files">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+          </svg>
+          <span>Files</span>
+        </a>
+        <a href="admin-calendar.html" title="Calendar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+            <line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" />
+            <line x1="3" y1="10" x2="21" y2="10" />
+          </svg>
+          <span>Calendar</span>
+        </a>
+        <a href="admin-notifications.html" title="Notifications">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <path d="M18 8a6 6 0 1 0-12 0c0 6-3 7-3 7h18s-3-1-3-7" />
+            <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+          </svg>
+          <span>Notifications</span>
+          <em class="nav-badge" id="notifBadge" hidden></em>
+        </a>
+        <a href="settings.html" title="Settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3" />
+            <path
+              d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+          </svg>
+          <span>Settings</span>
+        </a>
+      </nav>
     </div>
-    <nav class="side-nav">
-      <a href="admin.html" title="Forms">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-        <span>Forms</span>
-      </a>
-      <a href="admin-content.html" title="Content">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2.5"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
-        <span>Content</span>
-      </a>
-      <a href="project-management.html" title="Project Management">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-        <span>Project Management</span>
-      </a>
-      <a href="inquiries.html" title="Inquiries">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-        <span>Inquiries</span>
-      </a>
-      <a href="clients-management.html" class="active" id="clientsManagementLink" title="Clients Management">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        <span>Clients Management</span>
-      </a>
-      <a href="sources-files.html" title="Files">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-        <span>Files</span>
-      </a>
-      <a href="admin-calendar.html" title="Calendar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        <span>Calendar</span>
-      </a>
-      <a href="admin-notifications.html" title="Notifications">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 6-3 7-3 7h18s-3-1-3-7"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
-        <span>Notifications</span>
-        <em class="nav-badge" id="notifBadge" hidden></em>
-      </a>
-      <a href="settings.html" title="Settings">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-        <span>Settings</span>
-      </a>
-    </nav>
-  </div>
 
-  <button class="side-user" type="button" onclick="openAccount()" title="Account">
-    <div class="side-avatar" id="adminAvatar">A</div>
-    <div class="side-meta">
-      <strong id="adminName">Admin</strong>
-      <span id="adminRole"></span>
-    </div>
-    <svg class="side-dots" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
-  </button>
-</aside>
-
-<div class="admin-main">
-  <div class="admin-content">
-
-    <div class="page-head">
-      <div class="page-title">
-        <h1 id="usersPanelTitle">Clients Management</h1>
-        <p id="usersPanelSub">Approve or reject newly registered clients.</p>
+    <button class="side-user" type="button" onclick="openAccount()" title="Account">
+      <div class="side-avatar" id="adminAvatar">A</div>
+      <div class="side-meta">
+        <strong id="adminName">Admin</strong>
+        <span id="adminRole"></span>
       </div>
-    </div>
+      <svg class="side-dots" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <circle cx="12" cy="5" r="1.6" />
+        <circle cx="12" cy="12" r="1.6" />
+        <circle cx="12" cy="19" r="1.6" />
+      </svg>
+    </button>
+  </aside>
 
-<!-- Pending registrations, and nothing else: an approved client belongs in the
+  <div class="admin-main">
+    <div class="admin-content">
+
+      <div class="page-head">
+        <div class="page-title">
+          <h1 id="usersPanelTitle">Clients Management</h1>
+          <p id="usersPanelSub">Approve or reject newly registered clients.</p>
+        </div>
+      </div>
+
+      <!-- Pending registrations, and nothing else: an approved client belongs in the
      list below. It sits on top because a queue waiting on a decision outranks a
      reference table, and it is hidden outright when the queue is empty - the
      same arrangement the Forms page uses for Form Review. -->
-<div class="panel" id="pendingPanel" hidden>
-  <div class="panel-head">
-    <h1>Pending Approval</h1>
-    <p id="pendingSub">Newly registered clients waiting on a decision.</p>
-  </div>
-  <table>
-    <thead><tr><th>Client</th><th>Email</th><th>Status</th><th>Registered</th><th>Actions</th></tr></thead>
-    <tbody id="pendingTable"></tbody>
-  </table>
-  <div class="pager" id="pendingPager" hidden>
-    <span class="pager-info" id="pendingPagerInfo"></span>
-    <div class="pager-pages" id="pendingPagerPages"></div>
-  </div>
-</div>
-
-<div class="panel" id="approvedPanel" style="margin-top:28px;">
-  <div class="panel-head">
-    <h1 id="approvedTitle">Clients</h1>
-    <p id="approvedSub">Approved accounts.</p>
-  </div>
-  <table>
-    <thead><tr><th>Client</th><th>Email</th><th>Status</th><th>Created At</th><th>Actions</th></tr></thead>
-    <tbody id="approvedTable"><tr><td colspan="5" class="empty">Loading clients...</td></tr></tbody>
-  </table>
-  <div class="pager" id="approvedPager" hidden>
-    <span class="pager-info" id="approvedPagerInfo"></span>
-    <div class="pager-pages" id="approvedPagerPages"></div>
-  </div>
-</div>
-<script>
-let adminToken = localStorage.getItem("admin_token");
-let adminUser = JSON.parse(localStorage.getItem("admin_user") || "{}");
-
-if(!adminToken || !adminUser.role){
-  window.location.href = "admin-login.html";
-}
-
-// Not for seo_admin: they work on content, not on client accounts. The link is
-// gone from their sidebar (assets/role-nav.js) and api/admin-user-details.php
-// refuses them; this only stops a typed-in URL landing on an empty page.
-if(adminUser.role === "seo_admin"){
-  window.location.replace("admin.html");
-}
-
-function logoutAdmin(){
-  localStorage.removeItem("admin_token");
-  localStorage.removeItem("admin_user");
-  window.location.href = "admin-login.html";
-}
-
-// Every role but seo_admin reaches this page - what changes between them is the
-// data scope and which actions render.
-const myRole = adminUser.role;
-const isOwner = myRole === "owner";
-
-// Wording for the clients table changes with role: the owner sees every signup
-// and decides on it from the client's own page, everyone below is just looking
-// at the slice handed down to them.
-const USERS_COPY = {
-  owner:       { title: "Clients Management", sub: "Approve or reject newly registered clients." },
-  super_admin: { title: "Clients Management", sub: "Clients whose team you are on." },
-  account_manager: { title: "Clients Management", sub: "Clients whose team you are on." }
-};
-
-// Who works on each client is set on the client's own page now, in its Team
-// section - see user-details.html and api/client-team.php.
-document.addEventListener("DOMContentLoaded", function(){
-  const copy = USERS_COPY[myRole] || USERS_COPY.super_admin;
-  document.getElementById("usersPanelTitle").textContent = copy.title;
-  document.getElementById("usersPanelSub").textContent = copy.sub;
-});
-
-let allUsers = [];
-
-// Ten rows to a page; the rest live behind the pager under the table.
-const USERS_PAGE_SIZE = 10;
-let pendingPage = 1;
-let approvedPage = 1;
-
-function esc(value){
-  return String(value == null ? "" : value)
-    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
-    .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
-}
-
-/* Both tables come out of one request: api/admin-users.php returns the whole
-   scope and the split is done here, so approving somebody moves them from one
-   table to the other without a second round trip. */
-async function loadUsers(){
-  const table = document.getElementById("approvedTable");
-
-  try{
-    const res = await fetch("api/admin-users.php",{
-      headers:{
-        Authorization:"Bearer " + adminToken
-      }
-    });
-
-    const data = await res.json();
-
-    if(!data.success){
-      allUsers = [];
-      failTables(data.message || "Unable to load clients.");
-      return;
-    }
-
-    allUsers = data.users || [];
-
-    // Keep the page the admin was on - approving someone should not send them
-    // back to page 1. renderUsers() clamps it if the page no longer exists.
-    renderUsers();
-
-  }catch(error){
-    allUsers = [];
-    failTables("Connection error.");
-  }
-}
-
-/* The message goes in the list, and the queue above it is put away - it has no
-   rows to show and an empty panel with an error in it says nothing useful
-   twice. */
-function failTables(message){
-  document.getElementById("pendingPanel").hidden = true;
-  document.getElementById("pendingPager").hidden = true;
-  document.getElementById("approvedPager").hidden = true;
-
-  document.getElementById("approvedTable").innerHTML = `
-    <tr>
-      <td colspan="5" class="empty">${esc(message)}</td>
-    </tr>
-  `;
-}
-
-/*
-|------------------------------------------------------------------------------
-| Two tables, not one
-|------------------------------------------------------------------------------
-|
-| Pending and approved are two different jobs. Pending is a queue: somebody has
-| to say yes or no, and once they have, the row leaves. Approved is a reference
-| list you come to in order to look something up. Mixed into one table sorted by
-| signup date, a registration waiting on a decision could be on page three.
-|
-| So: the queue on top, hidden when it is empty, and the list below it. The two
-| page independently - working through the queue does not move the list.
-|
-| A row is approved or it is pending; nothing is in both tables.
-|
-*/
-
-function pendingUsers(){
-  return allUsers.filter(user => Number(user.approved) !== 1);
-}
-
-function approvedUsers(){
-  return allUsers.filter(user => Number(user.approved) === 1);
-}
-
-function renderUsers(){
-  renderPending();
-  renderApproved();
-}
-
-/* One row, in whichever table it belongs to. View is the only action here:
-   Approve, Reject and Delete all decide something about one account, so they
-   live on that account's own page, where the rest of what the decision affects
-   is on screen. The list stays a list. */
-function userRow(user){
-  const approved = Number(user.approved) === 1;
-
-  return `
-    <tr>
-      <td>${esc(user.company_name || "—")}</td>
-      <td>${esc(user.email)}</td>
-      <td>
-        <span class="badge ${approved ? "approved" : "pending"}">
-          ${approved ? "Approved" : "Pending"}
-        </span>
-      </td>
-      <td>${esc(user.created_at)}</td>
-      <td>
-        <div class="actions">
-          <a class="btn action-btn" href="user-details.html?id=${esc(user.id)}">View</a>
+      <div class="panel" id="pendingPanel" hidden>
+        <div class="panel-head">
+          <h1>Pending Approval</h1>
+          <p id="pendingSub">Newly registered clients waiting on a decision.</p>
         </div>
-      </td>
-    </tr>
-  `;
-}
-
-function renderPending(){
-  const panel = document.getElementById("pendingPanel");
-  const table = document.getElementById("pendingTable");
-  const rows  = pendingUsers();
-
-  /* Nothing waiting is not an empty table to explain - it is the normal state,
-     so the panel goes away entirely rather than sitting there saying so. */
-  if(!rows.length){
-    panel.hidden = true;
-    document.getElementById("pendingPager").hidden = true;
-    return;
-  }
-
-  panel.hidden = false;
-
-  document.getElementById("pendingSub").textContent = isOwner
-    ? "Newly registered clients waiting on your decision - open one to approve or reject it."
-    : "Newly registered clients waiting on the owner's decision.";
-
-  // Deciding the last row on the last page would otherwise leave it blank.
-  const totalPages = Math.max(1, Math.ceil(rows.length / USERS_PAGE_SIZE));
-  pendingPage = Math.min(Math.max(1, pendingPage), totalPages);
-
-  const start = (pendingPage - 1) * USERS_PAGE_SIZE;
-  const shown = rows.slice(start, start + USERS_PAGE_SIZE);
-
-  table.innerHTML = shown.map(userRow).join("");
-
-  renderPager({
-    prefix: "pending",
-    page: pendingPage,
-    total: rows.length,
-    totalPages,
-    start,
-    shown: shown.length
-  });
-}
-
-function renderApproved(){
-  const table = document.getElementById("approvedTable");
-  const rows  = approvedUsers();
-
-  document.getElementById("approvedSub").textContent = isOwner
-    ? "Approved accounts. Open one to manage or delete it."
-    : "Approved accounts you can manage.";
-
-  if(!rows.length){
-    document.getElementById("approvedPager").hidden = true;
-
-    table.innerHTML = `
-      <tr>
-        <td colspan="5" class="empty">${
-          pendingUsers().length
-            ? "No approved clients yet - the registrations above are waiting on a decision."
-            : "No clients found."
-        }</td>
-      </tr>
-    `;
-    return;
-  }
-
-  const totalPages = Math.max(1, Math.ceil(rows.length / USERS_PAGE_SIZE));
-  approvedPage = Math.min(Math.max(1, approvedPage), totalPages);
-
-  const start = (approvedPage - 1) * USERS_PAGE_SIZE;
-  const shown = rows.slice(start, start + USERS_PAGE_SIZE);
-
-  table.innerHTML = shown.map(userRow).join("");
-
-  renderPager({
-    prefix: "approved",
-    page: approvedPage,
-    total: rows.length,
-    totalPages,
-    start,
-    shown: shown.length
-  });
-}
-
-/* Both tables share this, keyed by the id prefix of the one asking - the two
-   pagers are identical apart from which page number they move. */
-function renderPager(o){
-  const pager = document.getElementById(o.prefix + "Pager");
-
-  if(o.total <= USERS_PAGE_SIZE){
-    pager.hidden = true;
-    return;
-  }
-
-  pager.hidden = false;
-
-  document.getElementById(o.prefix + "PagerInfo").innerText =
-    `Showing ${o.start + 1}–${o.start + o.shown} of ${o.total}`;
-
-  const pages = Array.from({length: o.totalPages}, (unused, index) => index + 1);
-
-  document.getElementById(o.prefix + "PagerPages").innerHTML = `
-    <button type="button" onclick="goToPage('${o.prefix}', ${o.page - 1})" ${o.page === 1 ? "disabled" : ""}>Prev</button>
-    ${pages.map(page => `
-      <button type="button" class="${page === o.page ? "current" : ""}"
-              onclick="goToPage('${o.prefix}', ${page})">${page}</button>
-    `).join("")}
-    <button type="button" onclick="goToPage('${o.prefix}', ${o.page + 1})" ${o.page === o.totalPages ? "disabled" : ""}>Next</button>
-  `;
-}
-
-function goToPage(prefix, page){
-  if(prefix === "pending") pendingPage = page;
-  else approvedPage = page;
-
-  renderUsers();
-
-  document.getElementById(prefix + "Table")
-    .scrollIntoView({behavior:"smooth", block:"center"});
-}
-
-loadUsers();
-</script>
-  </div>
-</div>
-
-<!-- ACCOUNT POPUP (opened from the sidebar card) -->
-<div class="acct-modal" id="acctModal">
-  <div class="acct-box" role="dialog" aria-modal="true" aria-labelledby="acctTitle">
-    <div class="acct-head">
-      <h2 id="acctTitle">Account</h2>
-      <button type="button" onclick="closeAccount()" aria-label="Close">&times;</button>
-    </div>
-    <div class="acct-body">
-      <div class="acct-who">
-        <span class="acct-label">Your role</span>
-        <strong class="acct-role" id="acctRole"></strong>
+        <table>
+          <thead>
+            <tr>
+              <th>Client</th>
+              <th>Email</th>
+              <th>Status</th>
+              <th>Registered</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="pendingTable"></tbody>
+        </table>
+        <div class="pager" id="pendingPager" hidden>
+          <span class="pager-info" id="pendingPagerInfo"></span>
+          <div class="pager-pages" id="pendingPagerPages"></div>
+        </div>
       </div>
-      <button class="acct-logout" type="button" onclick="logoutAdmin()">&#8617; Log out</button>
+
+      <div class="panel" id="approvedPanel" style="margin-top:28px;">
+        <div class="panel-head">
+          <h1 id="approvedTitle">Clients</h1>
+          <p id="approvedSub">Approved accounts.</p>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Client</th>
+              <th>Email</th>
+              <th>Status</th>
+              <th>Created At</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="approvedTable">
+            <tr>
+              <td colspan="5" class="empty">Loading clients...</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="pager" id="approvedPager" hidden>
+          <span class="pager-info" id="approvedPagerInfo"></span>
+          <div class="pager-pages" id="approvedPagerPages"></div>
+        </div>
+      </div>
     </div>
   </div>
-</div>
+  
+  <!-- ACCOUNT POPUP (opened from the sidebar card) -->
+  <div class="acct-modal" id="acctModal">
+    <div class="acct-box" role="dialog" aria-modal="true" aria-labelledby="acctTitle">
+      <div class="acct-head">
+        <h2 id="acctTitle">Account</h2>
+        <button type="button" onclick="closeAccount()" aria-label="Close">&times;</button>
+      </div>
+      <div class="acct-body">
+        <div class="acct-who">
+          <span class="acct-label">Your role</span>
+          <strong class="acct-role" id="acctRole"></strong>
+        </div>
+        <button class="acct-logout" type="button" onclick="logoutAdmin()">&#8617; Log out</button>
+      </div>
+    </div>
+  </div>
+  
+  <script src="clients-management.js"></script>
+  
+  <script src="assets/notifications.js?v=1"></script>
+  <script src="assets/shell.js?v=4"></script>
+  <script src="assets/sources-lock.js?v=1"></script>
+  <script src="assets/role-nav.js?v=2"></script>
+  <script>
+    /* The calendar belongs to the roles that deal with clients. A plain seo_admin
+       works on content, so the link comes out of their sidebar. api/calendar.php
+       and the page itself refuse the role too - this only hides a dead link. */
+    (function () {
+      var CALENDAR_ROLES = ["owner", "super_admin", "account_manager"];
 
+      var role = "";
+      try {
+        role = (JSON.parse(localStorage.getItem("admin_user") || "{}") || {}).role || "";
+      } catch (e) { }
 
-<script src="assets/notifications.js?v=1"></script>
-<script src="assets/shell.js?v=4"></script>
-<script src="assets/sources-lock.js?v=1"></script>
-<script src="assets/role-nav.js?v=2"></script>
-<script>
-/* The calendar belongs to the roles that deal with clients. A plain seo_admin
-   works on content, so the link comes out of their sidebar. api/calendar.php
-   and the page itself refuse the role too - this only hides a dead link. */
-(function () {
-  var CALENDAR_ROLES = ["owner", "super_admin", "account_manager"];
+      if (!role || CALENDAR_ROLES.indexOf(role) !== -1) return;
 
-  var role = "";
-  try {
-    role = (JSON.parse(localStorage.getItem("admin_user") || "{}") || {}).role || "";
-  } catch (e) {}
+      document.querySelectorAll('a[href*="admin-calendar.html"]')
+        .forEach(function (link) { link.remove(); });
+    })();
+  </script>
+</body>
 
-  if (!role || CALENDAR_ROLES.indexOf(role) !== -1) return;
-
-  document.querySelectorAll('a[href*="admin-calendar.html"]')
-    .forEach(function (link) { link.remove(); });
-})();
-</script>
-</body></html>
+</html>

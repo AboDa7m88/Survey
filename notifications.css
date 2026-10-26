@@ -1,0 +1,1093 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: Arial, sans-serif
+}
+
+:root {
+    --brand: #c9000b;
+    --nav-active: #1b1e3a;
+    --text: #101828;
+    --muted: #667085;
+    --line: #eaecf0;
+    --sidebar-w: 260px
+}
+
+body {
+    background: #f7f8fc;
+    color: var(--text)
+}
+
+.app {
+    display: flex;
+    min-height: 100vh
+}
+
+.sidebar {
+    width: var(--sidebar-w);
+    background: #fff;
+    border-right: 1px solid var(--line);
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    padding: 26px 12px 18px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between
+}
+
+.nav a {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    text-decoration: none;
+    color: var(--muted);
+    padding: 8px 10px;
+    border-radius: 9px;
+    margin-bottom: 2px;
+    font-size: 14px;
+    font-weight: 600;
+    transition: background .15s, color .15s
+}
+
+.nav a svg {
+    width: 17px;
+    height: 17px;
+    flex: none
+}
+
+.nav a:hover {
+    background: #f6f7f9;
+    color: var(--text)
+}
+
+.nav a.active {
+    background: var(--nav-active);
+    color: #fff
+}
+
+.user-card {
+    width: 100%;
+    font: inherit;
+    text-align: left;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    cursor: pointer;
+    transition: background .15s, border-color .15s
+}
+
+.user-card:hover {
+    background: #fafbfc;
+    border-color: #d7dae0
+}
+
+.avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #dce3ff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 13px;
+    color: #3745a4;
+    background-size: cover;
+    background-position: center;
+    flex: none
+}
+
+.user-meta {
+    flex: 1;
+    min-width: 0
+}
+
+.user-meta h4 {
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis
+}
+
+.user-meta p {
+    font-size: 11px;
+    color: #98a2b3
+}
+
+.user-dots {
+    color: #98a2b3;
+    flex: none
+}
+
+.main {
+    margin-left: var(--sidebar-w);
+    width: calc(100% - var(--sidebar-w))
+}
+
+.content {
+    padding: 34px 44px
+}
+
+.page-title h1 {
+    font-size: 30px;
+    margin-bottom: 8px
+}
+
+.page-title p {
+    font-size: 14px;
+    color: #667085;
+    max-width: 620px
+}
+
+.filters {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+    margin: 28px 0 24px
+}
+
+.content-search {
+    width: 260px;
+    height: 36px;
+    border: 1px solid #e1e5ed;
+    border-radius: 22px;
+    background: #fff;
+    padding: 0 16px;
+    outline: none;
+    font-size: 13px
+}
+
+/* ── Card grid ── */
+/* Every thumbnail is the same square crop regardless of orientation — only the
+   detail panel below reflects the layout the admin picked. */
+.grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px
+}
+
+.card {
+    background: #fff;
+    border-radius: 14px;
+    padding: 8px;
+    box-shadow: 0 6px 18px rgba(16, 24, 40, .06);
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: border-color .15s, transform .15s
+}
+
+.card:hover {
+    transform: translateY(-2px)
+}
+
+.card.selected {
+    border-color: var(--nav-active)
+}
+
+.card-img {
+    background: #f1f3f7 center/cover no-repeat;
+    aspect-ratio: 1/1;
+    border-radius: 10px
+}
+
+.card-body {
+    padding: 14px 8px 10px
+}
+
+.card-eyebrow {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .4px;
+    color: var(--text);
+    text-transform: uppercase;
+    margin-bottom: 7px
+}
+
+.card-body h3 {
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.4;
+    color: var(--muted)
+}
+
+/* ── Detail panel: one markup block, the orientation class picks the layout ── */
+.detail-head {
+    margin-bottom: 18px
+}
+
+.detail-head .eyebrow {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .6px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 6px
+}
+
+.detail-head h2 {
+    font-size: 26px
+}
+
+.detail {
+    display: grid;
+    gap: 28px;
+    background: #fff;
+    border-radius: 18px;
+    padding: 26px;
+    box-shadow: 0 14px 30px rgba(0, 0, 0, .04)
+}
+
+.detail-media {
+    background: #f1f3f7 center/cover no-repeat;
+    border-radius: 12px;
+    overflow: hidden
+}
+
+.detail-meta {
+    display: grid;
+    gap: 22px 40px;
+    align-content: start
+}
+
+.field h5 {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .7px;
+    color: #98a2b3;
+    text-transform: uppercase;
+    margin-bottom: 8px
+}
+
+.field p,
+.field .caption {
+    font-size: 15px;
+    line-height: 1.55;
+    color: var(--text)
+}
+
+.field .caption ul,
+.field .caption ol {
+    padding-left: 20px;
+    margin: 6px 0
+}
+
+.field .caption a {
+    color: var(--nav-active)
+}
+
+.field.wide {
+    grid-column: 1/-1
+}
+
+/* Portrait media sits beside the copy. */
+.detail.is-vertical {
+    grid-template-columns: 300px 1fr
+}
+
+.detail.is-vertical .detail-media {
+    aspect-ratio: 9/16
+}
+
+.detail.is-vertical .detail-meta {
+    grid-template-columns: repeat(3, 1fr)
+}
+
+/* Landscape media banners across the top. */
+.detail.is-horizontal {
+    grid-template-columns: 1fr
+}
+
+/* A full-width 16/9 banner runs enormous on a wide screen, so the horizontal
+   media is a shorter strip, capped and centred rather than stretched edge to edge. */
+.detail.is-horizontal .detail-media {
+    aspect-ratio: 2.4/1;
+    width: 100%;
+    max-width: 672px;
+    max-height: 280px;
+    margin: 0 auto
+}
+
+.detail.is-horizontal .detail-meta {
+    grid-template-columns: repeat(3, 1fr)
+}
+
+/* ── Timing and the link share one line under the copy ── */
+.detail-footer {
+    grid-column: 1/-1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 22px 40px
+}
+
+.detail-footer .field {
+    min-width: 0
+}
+
+.link-slot:empty {
+    display: none
+}
+
+/* A plain blue link, not a button: no frame, no icon. */
+.view-link {
+    display: inline-block;
+    font-size: 13px;
+    font-weight: 800;
+    color: #1d6fe0;
+    text-decoration: none;
+    white-space: nowrap
+}
+
+.view-link:hover {
+    text-decoration: underline
+}
+
+.empty {
+    background: #fff;
+    border-radius: 18px;
+    padding: 30px;
+    color: #667085;
+    grid-column: 1/-1
+}
+
+/* ── Pagination: the grid never shows more than PAGE_SIZE cards ── */
+.pager {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 24px
+}
+
+.pager[hidden] {
+    display: none
+}
+
+.pager-info {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted)
+}
+
+.pager-pages {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap
+}
+
+.pager button {
+    min-width: 36px;
+    height: 36px;
+    padding: 0 12px;
+    border: 1px solid #dfe3ea;
+    background: #fff;
+    border-radius: 9px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    cursor: pointer
+}
+
+.pager button:hover:not(:disabled) {
+    background: #f6f7f9
+}
+
+.pager button.current {
+    background: var(--nav-active);
+    border-color: var(--nav-active);
+    color: #fff
+}
+
+.pager button:disabled {
+    opacity: .45;
+    cursor: not-allowed
+}
+
+/* The title reads left-aligned whatever the body does. */
+.detail-head h2 {
+    text-align: left
+}
+
+/* ── Collapsible sidebar ── */
+:root.sidebar-collapsed {
+    --sidebar-w: 78px
+}
+
+.sidebar,
+.main {
+    transition: width .18s ease, margin-left .18s ease
+}
+
+:root.sidebar-collapsed .sidebar {
+    padding: 26px 4px 18px
+}
+
+:root.sidebar-collapsed .nav a {
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    margin: 0 auto 4px;
+    border-radius: 10px;
+    justify-content: center
+}
+
+:root.sidebar-collapsed .nav a span {
+    display: none
+}
+
+/* The account card is the only route to profile and logout — collapse it, never hide it. */
+:root.sidebar-collapsed .user-card {
+    justify-content: center;
+    padding: 8px
+}
+
+:root.sidebar-collapsed .user-meta,
+:root.sidebar-collapsed .user-dots {
+    display: none
+}
+
+/* ── The collapse control lives in the sidebar head ── */
+.side-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 36px;
+    margin-bottom: 26px;
+    padding: 0 2px
+}
+
+.logo {
+    padding: 0;
+    margin: 0;
+    flex: 1;
+    min-width: 0
+}
+
+.logo img {
+    width: 132px;
+    max-width: 100%;
+    height: auto;
+    display: block
+}
+
+.sidebar-toggle {
+    width: 34px;
+    height: 34px;
+    flex: none;
+    border-radius: 9px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .15s, color .15s
+}
+
+.sidebar-toggle:hover {
+    background: #f2f4f8;
+    color: var(--text)
+}
+
+.sidebar-toggle svg {
+    width: 18px;
+    height: 18px
+}
+
+/* Collapsed to 78px the wordmark is illegible, so the head keeps only the toggle. */
+:root.sidebar-collapsed .side-head {
+    justify-content: center;
+    margin-bottom: 22px
+}
+
+:root.sidebar-collapsed .logo {
+    display: none
+}
+
+/* The account card opens a dropup; it is the only route to profile and logout. */
+.account {
+    position: relative
+}
+
+.account-menu {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 0;
+    min-width: 200px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: 0 16px 40px rgba(16, 24, 40, .14);
+    padding: 6px;
+    display: none;
+    z-index: 200
+}
+
+.account.open .account-menu {
+    display: block
+}
+
+.account-menu a,
+.account-menu button {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: none;
+    background: transparent;
+    border-radius: 9px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer
+}
+
+.account-menu a:hover,
+.account-menu button:hover {
+    background: #f6f7f9
+}
+
+.account-menu svg {
+    width: 16px;
+    height: 16px;
+    flex: none;
+    color: var(--muted)
+}
+
+.account-menu .danger,
+.account-menu .danger svg {
+    color: var(--brand)
+}
+
+.account-menu .danger:hover {
+    background: #fff5f5
+}
+
+@media(max-width:1100px) {
+    .grid {
+        grid-template-columns: repeat(2, 1fr)
+    }
+}
+
+@media(max-width:950px) {
+
+    /* Force-collapsed below this width, so the head has nothing left to show. */
+    .side-head {
+        display: none
+    }
+
+    .content {
+        padding: 24px 18px
+    }
+
+    .grid {
+        grid-template-columns: 1fr
+    }
+
+    .filters {
+        flex-direction: column;
+        align-items: flex-start
+    }
+
+    .content-search {
+        width: 100%
+    }
+
+    .detail.is-vertical,
+    .detail.is-horizontal {
+        grid-template-columns: 1fr
+    }
+
+    .detail-meta {
+        grid-template-columns: 1fr !important
+    }
+}
+
+/* ── Notifications page ── */
+.page-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 24px;
+    margin-bottom: 28px
+}
+
+.mark-all-btn {
+    flex: none;
+    background: var(--nav-active);
+    color: #fff;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer
+}
+
+.mark-all-btn:hover {
+    background: #282c52
+}
+
+.mark-all-btn[hidden] {
+    display: none
+}
+
+.panel {
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 14px 35px rgba(0, 0, 0, .06);
+    overflow: hidden
+}
+
+.panel-body {
+    padding: 8px 24px
+}
+
+/* ── One notification ──
+   Read rows keep the dot's slot at transparent rather than dropping it, so
+   every title stays on the same left edge down the list. Unread rows carry a
+   tinted field and a brand rail on top of that dot: telling read from unread
+   at a glance is the whole job of this list, and one 8px dot does not do it. */
+.notif {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    padding: 16px 14px;
+    border-bottom: 1px solid #eef1f5;
+    border-radius: 12px;
+    text-decoration: none;
+    color: inherit;
+    cursor: pointer;
+    position: relative;
+    transition: background .15s
+}
+
+.notif:last-child {
+    border-bottom: none
+}
+
+.notif:hover {
+    background: #fbfcfd
+}
+
+.notif.unread {
+    background: #fff6f6
+}
+
+.notif.unread:hover {
+    background: #fff0f0
+}
+
+.notif.unread::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 10px;
+    bottom: 10px;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: var(--brand)
+}
+
+.notif-dot {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    margin-top: 7px;
+    border-radius: 50%;
+    background: transparent
+}
+
+.notif.unread .notif-dot {
+    background: var(--brand)
+}
+
+.notif-text {
+    flex: 1;
+    min-width: 0
+}
+
+.notif-text strong {
+    display: block;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--muted);
+    margin-bottom: 4px
+}
+
+.notif.unread .notif-text strong {
+    color: var(--text);
+    font-weight: 800
+}
+
+.notif-text p {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.5
+}
+
+.notif time {
+    flex: none;
+    font-size: 12px;
+    color: #98a2b3;
+    white-space: nowrap
+}
+
+/* Says in words what the tint and the dot say in colour. */
+.notif-new {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 7px;
+    border-radius: 20px;
+    background: var(--brand);
+    color: #fff;
+    font-style: normal;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .4px;
+    text-transform: uppercase;
+    vertical-align: 2px
+}
+
+/* ── Detail popups ──
+   Nothing in this list navigates any more: a row opens over the list, in a
+   card that carries its own title and close control, so the reader keeps
+   their place and their scroll position. Announcements reuse the .detail /
+   .field vocabulary defined above, minus the frame the card already gives. */
+.notif.is-announcement {
+    cursor: pointer
+}
+
+.notif-clip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 8px;
+    font-size: 11px;
+    font-weight: 800;
+    color: #98a2b3
+}
+
+.notif-clip svg {
+    width: 12px;
+    height: 12px
+}
+
+.modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(16, 24, 40, .5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 99998
+}
+
+.modal.show {
+    display: flex
+}
+
+.modal-box {
+    background: #fff;
+    border-radius: 18px;
+    width: 100%;
+    max-width: 560px;
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 24px 60px rgba(16, 24, 40, .22)
+}
+
+.modal-box.wide {
+    max-width: 880px
+}
+
+.modal-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 22px 24px 16px;
+    border-bottom: 1px solid #eef1f5
+}
+
+.modal-head .eyebrow {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .6px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 6px
+}
+
+.modal-head h2 {
+    font-size: 20px;
+    line-height: 1.35;
+    text-align: left;
+    word-break: break-word
+}
+
+.modal-close {
+    flex: none;
+    border: 1px solid #dfe3ea;
+    background: #fff;
+    color: var(--muted);
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer
+}
+
+.modal-close:hover {
+    background: #f6f7f9;
+    color: var(--text)
+}
+
+.modal-body {
+    padding: 22px 24px;
+    overflow: auto
+}
+
+.modal-foot {
+    padding: 16px 24px;
+    border-top: 1px solid #eef1f5;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px
+}
+
+.modal-foot[hidden] {
+    display: none
+}
+
+.modal-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: none;
+    background: var(--nav-active);
+    color: #fff;
+    padding: 11px 18px;
+    border-radius: 10px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    text-decoration: none;
+    cursor: pointer
+}
+
+.modal-btn:hover {
+    background: #282c52
+}
+
+.modal-btn svg {
+    width: 15px;
+    height: 15px
+}
+
+.notif-detail-body {
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--text);
+    white-space: pre-wrap
+}
+
+.notif-detail-meta {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid #eef1f5;
+    font-size: 12px;
+    font-weight: 600;
+    color: #98a2b3
+}
+
+/* Inside the card the announcement panel drops the frame it carried as a
+   standalone block - the card is the frame now. */
+.modal .detail {
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
+    border-radius: 0;
+    grid-template-columns: 260px 1fr;
+    gap: 24px
+}
+
+.modal .detail-media {
+    aspect-ratio: 9/16
+}
+
+/* No attachment: the copy takes the whole card rather than sitting beside a grey box. */
+.modal .detail.no-media {
+    grid-template-columns: 1fr
+}
+
+.modal .detail.no-media .detail-media {
+    display: none
+}
+
+/* Line breaks the sender typed are part of the message. */
+.field p {
+    white-space: pre-wrap
+}
+
+@media(max-width:700px) {
+    .modal .detail {
+        grid-template-columns: 1fr
+    }
+}
+
+@media(max-width:600px) {
+    .page-head {
+        flex-direction: column;
+        gap: 16px
+    }
+
+    .notif {
+        flex-wrap: wrap
+    }
+}
+
+/* ── The list on a phone ──
+   As the design draws it: plain rows on hairlines, the title with its time
+   opposite and the message under both. The tinted field, the rail and the
+   "New" pill give way to the dot alone, which still marks what is unread;
+   the darker title says it a second time. .notif-text steps aside
+   (display:contents) so its title and message sit on the row's own grid
+   beside the time. */
+@media(max-width:768px) {
+    .panel-body {
+        padding: 4px 16px
+    }
+
+    .notif {
+        display: grid;
+        grid-template-columns: 8px minmax(0, 1fr) auto;
+        grid-template-areas:
+            "dot title time"
+            ".   body  body"
+            ".   clip  clip";
+        gap: 0 10px;
+        padding: 16px 0;
+        border-radius: 0;
+    }
+
+    .notif:hover,
+    .notif.unread,
+    .notif.unread:hover {
+        background: transparent
+    }
+
+    .notif.unread::before {
+        content: none
+    }
+
+    .notif-dot {
+        grid-area: dot;
+        margin-top: 6px
+    }
+
+    .notif-text {
+        display: contents
+    }
+
+    .notif-text strong {
+        grid-area: title;
+        margin: 0;
+        line-height: 20px;
+        font-weight: 700
+    }
+
+    .notif.unread .notif-text strong {
+        font-weight: 700
+    }
+
+    .notif-text p {
+        grid-area: body;
+        margin-top: 3px;
+        line-height: 20px
+    }
+
+    .notif-clip {
+        grid-area: clip
+    }
+
+    .notif time {
+        grid-area: time;
+        line-height: 20px
+    }
+
+    .notif-new {
+        display: none
+    }
+
+    /* The popups sit on the same 16px gutter as the page. */
+    .modal {
+        padding: 16px
+    }
+}
+
+/* ── Unread badge on the Notifications nav item ──
+   Collapsed, the sidebar hides labels, so the count degrades to a dot on
+   the icon - the same affordance the old topbar bell had. */
+.nav a {
+    position: relative
+}
+
+.nav-badge {
+    margin-left: auto;
+    font-style: normal;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1;
+    min-width: 18px;
+    padding: 3px 6px;
+    border-radius: 9px;
+    background: var(--brand);
+    color: #fff;
+    text-align: center;
+}
+
+.nav-badge[hidden] {
+    display: none
+}
+
+.nav a.active .nav-badge {
+    background: #fff;
+    color: var(--nav-active)
+}
+
+:root.sidebar-collapsed .nav-badge {
+    position: absolute;
+    top: 4px;
+    right: 8px;
+    margin: 0;
+    width: 8px;
+    height: 8px;
+    min-width: 0;
+    padding: 0;
+    border-radius: 50%;
+    font-size: 0;
+    border: 2px solid #fff;
+}
