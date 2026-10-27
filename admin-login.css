@@ -1,0 +1,138 @@
+* {
+    box-sizing: border-box;
+    font-family: Arial, sans-serif
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    background: #f6f7fb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.card {
+    width: 100%;
+    max-width: 420px;
+    background: #fff;
+    border-radius: 24px;
+    padding: 34px;
+    box-shadow: 0 14px 35px rgba(0, 0, 0, .08);
+}
+
+/* Same logo treatment as the sidebar: logo.png when the admin has
+   uploaded one, the bundled wordmark otherwise. */
+.brand {
+    text-align: center;
+    margin-bottom: 26px;
+}
+
+.brand img {
+    width: 132px;
+    max-width: 100%;
+    height: auto;
+    display: inline-block;
+}
+
+.auth-foot {
+    margin: 26px 0 0;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .4px;
+    text-transform: uppercase;
+    color: #98a1ad;
+}
+
+h1 {
+    margin-bottom: 24px;
+    color: #101828;
+}
+
+label {
+    display: block;
+    font-size: 13px;
+    font-weight: 400;
+    margin-bottom: 8px;
+}
+
+input {
+    width: 100%;
+    height: 54px;
+    border: 1px solid #dfe3ea;
+    background: #f1f3f6;
+    border-radius: 12px;
+    padding: 0 15px;
+    margin-bottom: 18px;
+    outline: none;
+}
+
+button {
+    width: 100%;
+    height: 56px;
+    border: none;
+    background: #1b1e3a;
+    color: #fff;
+    border-radius: 12px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.status {
+    margin-top: 14px;
+    text-align: center;
+    color: #1b1e3a;
+    font-size: 13px;
+}
+
+.password-box {
+    position: relative;
+    margin-bottom: 18px;
+}
+
+.password-box input {
+    margin-bottom: 0;
+    padding-right: 50px;
+}
+
+.toggle-password {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    font-size: 20px;
+    user-select: none;
+    color: #666;
+}
+
+.toggle-password:hover {
+    color: #1b1e3a;
+}
+
+/* Password label and its reset link share a row. */
+.label-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.label-row label {
+    margin-bottom: 0;
+}
+
+.forgot {
+    font-size: 12px;
+    font-weight: 700;
+    color: #1b1e3a;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.forgot:hover {
+    text-decoration: underline;
+}
