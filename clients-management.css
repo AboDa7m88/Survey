@@ -105,7 +105,7 @@ a.action-btn:hover {
     color: #667085
 }
 
-@media(max-width:800px) {
+@media(max-width:786px) {
     body {
         padding: 18px
     }
@@ -221,7 +221,7 @@ a.action-btn:hover {
     height: 16px
 }
 
-@media(max-width:700px) {
+@media(max-width:786px) {
     .page-head {
         flex-direction: column;
         gap: 16px

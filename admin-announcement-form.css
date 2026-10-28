@@ -744,8 +744,76 @@ textarea {
     }
 }
 
-@media(max-width:600px) {
+/* ============================================
+   Announcement form: phone layout
+   ============================================ */
+@media (max-width: 768px) {
+
+    /* Title block */
+    .admin-content .page-head {
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+
+    .page-title h1 {
+        font-size: 24px;
+        margin-bottom: 4px;
+    }
+
+    .page-title p {
+        font-size: 13px;
+        line-height: 1.5;
+    }
+
+    /* Panel: tighter padding */
+    .panel {
+        padding: 16px;
+        border-radius: 16px;
+    }
+
+    /* Audience tabs: full width, two equal halves */
+    .aud-tabs {
+        display: flex;
+        width: 100%;
+        margin-bottom: 18px;
+    }
+
+    .aud-tab {
+        flex: 1;
+        min-width: 0;
+        padding: 10px 8px;
+        font-size: 12px;
+        line-height: 1.3;
+        text-align: center;
+    }
+
+    /* 16px stops iOS from zooming in on focus */
+    input[type=text],
+    input[type=date],
+    textarea,
+    .picker-search input {
+        font-size: 16px;
+    }
+
+    textarea {
+        min-height: 120px;
+    }
+
+    /* Fields stack, dropdown uses the full width */
     .two-col {
-        grid-template-columns: 1fr
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    .picker {
+        max-width: none;
+    }
+
+    .radio-row {
+        gap: 16px;
+    }
+
+    .primary-btn {
+        margin-top: 20px;
     }
 }

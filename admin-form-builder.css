@@ -243,23 +243,7 @@ textarea:focus {
     color: #667085;
 }
 
-@media(max-width:800px) {
-    body {
-        padding: 18px;
-    }
 
-    .form-row {
-        grid-template-columns: 1fr;
-    }
-
-    .question-box {
-        grid-template-columns: 1fr;
-    }
-
-    .panel {
-        overflow-x: auto;
-    }
-}
 
 /* ── Admin shell: sidebar + header (shared across admin pages) ── */
 :root {
@@ -696,10 +680,128 @@ select.client-filter {
     padding-right: 38px;
 }
 
-/* .form-row and .question-box collapse at 800px; the card body was left
-   behind on a phone, where its 180px column squeezes the answer field. */
-@media(max-width:800px) {
+/* ============================================
+   Create Form: phone layout
+   ============================================ */
+@media (max-width: 768px) {
+
+    /* Page title */
+    .admin-content .page-head {
+        margin-bottom: 18px;
+    }
+
+    .admin-content .page-title h1 {
+        font-size: 22px;
+        margin-bottom: 4px;
+    }
+
+    .admin-content .page-title p {
+        font-size: 13px;
+        line-height: 1.5;
+    }
+
+    /* Restored-draft bar wraps instead of squeezing */
+    .restore-bar {
+        flex-wrap: wrap;
+        padding: 10px 12px;
+        font-size: 12px;
+    }
+
+    /* Panel: tighter padding, no inner scrollbar */
+    .admin-content .panel {
+        overflow: hidden;
+        border-radius: 16px;
+    }
+
+    .admin-content .panel-head {
+        padding: 16px;
+    }
+
+    .admin-content .panel-head h1 {
+        font-size: 18px;
+    }
+
+    .admin-content .panel-head p {
+        font-size: 13px;
+    }
+
+    .form {
+        padding: 16px;
+    }
+
+    /* One column, smaller gaps */
+    .form-row {
+        grid-template-columns: 1fr;
+        gap: 14px;
+        margin-bottom: 14px;
+    }
+
+    /* 16px stops iOS from zooming in on focus.
+       Only top/bottom padding is changed, so the select arrow keeps its space. */
+    input,
+    select,
+    textarea {
+        font-size: 16px;
+        padding-top: 11px;
+        padding-bottom: 11px;
+    }
+
+    /* Question cards */
+    .question-card {
+        border-radius: 12px;
+        margin-bottom: 10px;
+    }
+
+    .question-card-header {
+        padding: 12px;
+        gap: 8px;
+    }
+
+    .question-card-header-left {
+        min-width: 0;
+        gap: 8px;
+    }
+
+    .question-card-title-preview {
+        flex: 1;
+        min-width: 0;
+        max-width: none;
+    }
+
+    .type-badge {
+        flex: none;
+        font-size: 10px;
+        padding: 3px 8px;
+    }
+
+    .question-card-actions {
+        flex: none;
+    }
+
     .question-card-body {
         grid-template-columns: 1fr;
+        padding: 14px 12px;
+        gap: 12px;
     }
+
+    /* Buttons: stacked, full width, easy to tap */
+    .form-actions {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .form-actions .primary-btn,
+    .form-actions .secondary-btn {
+        width: 100%;
+        min-height: 46px;
+        margin-left: 0;
+    }
+}
+
+/* Very small phones: hide the type badge to give the title room */
+@media (max-width: 360px) {
+    .question-card-header-left .type-badge {
+        display: none;
+    }
+    
 }
