@@ -676,3 +676,133 @@ body {
     font-size: 0;
     border: 2px solid #fff;
 }
+
+
+
+/* Responsive styles for screens up to 768px */
+@media (max-width: 768px) {
+    .help-content {
+        padding: 22px 18px;
+    }
+
+    /* Help Hero */
+    .help-hero {
+        padding: 30px 24px;
+        margin-bottom: 30px;
+        border-radius: 14px;
+    }
+
+    .help-hero h1 {
+        font-size: 24px;
+    }
+
+    .help-hero p {
+        font-size: 13px;
+        line-height: 1.7;
+    }
+
+    /* How It Works */
+    .how-grid {
+        gap: 16px;
+        margin-bottom: 34px;
+    }
+
+    .how-card {
+        padding: 20px 18px;
+        border-radius: 12px;
+    }
+
+    .how-card h3 {
+        font-size: 14px;
+    }
+
+    .how-card p {
+        font-size: 13px;
+        line-height: 1.6;
+    }
+
+    /* Section Titles */
+    .section-title {
+        font-size: 20px;
+        margin-bottom: 20px;
+    }
+
+    /* FAQ */
+    .faq-section {
+        margin-bottom: 34px;
+    }
+
+    .faq-question {
+        padding: 15px 18px;
+        font-size: 13px;
+        gap: 12px;
+    }
+
+    .faq-answer-inner {
+        padding: 0 18px 16px;
+        font-size: 13px;
+        line-height: 1.7;
+    }
+
+    /* Contact */
+    .contact-section {
+        margin-bottom: 30px;
+    }
+
+    .contact-grid {
+        gap: 16px;
+    }
+
+    .contact-card {
+        padding: 20px 18px;
+        border-radius: 12px;
+    }
+
+    .contact-card h3 {
+        font-size: 14px;
+    }
+
+    .contact-card p {
+        font-size: 13px;
+    }
+
+    .contact-card .contact-btn {
+        padding: 9px 16px;
+        font-size: 12px;
+    }
+}
+
+/* Smaller mobile screens */
+@media (max-width: 480px) {
+    .help-content {
+        padding: 18px 14px;
+    }
+
+    .help-hero {
+        padding: 24px 18px;
+        margin-bottom: 26px;
+    }
+
+    .help-hero h1 {
+        font-size: 21px;
+    }
+
+    .section-title {
+        font-size: 18px;
+        margin-bottom: 16px;
+    }
+
+    .how-card,
+    .contact-card {
+        padding: 18px 16px;
+    }
+
+    .faq-question {
+        padding: 14px;
+        font-size: 12px;
+    }
+
+    .faq-answer-inner {
+        padding: 0 14px 14px;
+    }
+}

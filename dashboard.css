@@ -1134,7 +1134,7 @@ th {
     color: #17803d;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 768px) {
     .request-form {
         grid-template-columns: minmax(0, 1fr);
     }
@@ -1676,5 +1676,22 @@ th {
 
     .schedule-row {
         gap: 12px;
+    }
+}
+
+
+@media (max-width: 768px) {
+
+    /* 16px stops iOS from zooming in on focus */
+    .request-form input,
+    .request-form select,
+    .request-form textarea {
+        font-size: 16px;
+    }
+
+    /* A 7px dot is not a safe tap target: the tap selects the day instead.
+       The post stays reachable from the Daily Schedule row. */
+    .calendar-grid:not(.one-day) .day-cell .event-card.content {
+        pointer-events: none;
     }
 }
