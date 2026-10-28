@@ -76,7 +76,7 @@ table {
 }
 
 th {
-    text-align: left;
+    text-align: center;
     background: #f8fafc;
     padding: 14px 24px;
     color: #667085;
@@ -160,20 +160,6 @@ td {
     color: #667085;
 }
 
-@media(max-width:800px) {
-    body {
-        padding: 18px;
-    }
-
-    table {
-        min-width: 760px;
-    }
-
-    .panel {
-        overflow-x: auto;
-    }
-}
-
 /* Filters: the Content page's row - a small label on the same line as its
    pill dropdown, both filters side by side, wrapping to one per line when the
    screen is too narrow for two. */
@@ -231,16 +217,7 @@ td {
     margin-bottom: 30px;
 }
 
-@media(max-width:950px) {
-    .survey-filters .filter-box {
-        flex: 1 1 260px
-    }
 
-    .survey-filters .client-filter {
-        width: 100%;
-        min-width: 0
-    }
-}
 
 /* ── Admin shell: sidebar + header (shared across admin pages) ── */
 :root {
@@ -423,12 +400,6 @@ body {
     display: none
 }
 
-@media(max-width:950px) {
-
-    .admin-content {
-        padding: 24px 18px
-    }
-}
 
 
 /* ── Shell refresh: the collapse control lives in the sidebar head ── */
@@ -514,13 +485,7 @@ body {
 }
 
 
-@media(max-width:950px) {
 
-    /* Force-collapsed below this width, so the head has nothing left to show. */
-    .side-head {
-        display: none
-    }
-}
 
 /* ── Page header: the Create action sits on the title line, same as Content ── */
 .page-head {
@@ -544,12 +509,7 @@ body {
 
 /* Same as every other list page: below the rail breakpoint the title takes the
    full width and the Create button drops underneath it. */
-@media(max-width:950px) {
-    .page-head {
-        flex-direction: column;
-        gap: 16px
-    }
-}
+
 
 .create-btn {
     flex: none;
@@ -979,11 +939,7 @@ body {
     font-size: 13px
 }
 
-@media(max-width:800px) {
-    .review-meta {
-        grid-template-columns: 1fr
-    }
-}
+
 
 /* ── Dropdown arrow ──
    Chrome pins the native select arrow to the right border and ignores
@@ -1014,13 +970,18 @@ select.client-filter {
 |
 | Both tables are too wide to read on a phone, and every column that makes them
 | wide - the id, the email, the status pill, the timestamp - is repeated inside
-| the review modal the row opens. So the phone keeps the two columns that
-| identify the row, Form and Client, and swaps the action button for a kebab
-| that opens the same actions in a menu.
+| the review modal the row opens. So the phone keeps the columns that identify
+| the row and swaps the action button for a kebab that opens the same actions
+| in a menu.
 */
 
 .row-kebab {
     display: none
+}
+
+.row-kebab svg {
+    width: 16px;
+    height: 16px
 }
 
 .row-menu {
@@ -1063,93 +1024,148 @@ select.client-filter {
 /* The two tables on this page carry the same columns, so they share widths
    too - left to size themselves, a long rejection note in one table pushed
    its columns out of line with the other. */
-@media(min-width:769px) {
+@media (min-width: 769px) {
 
     #reviewListTable,
     #formsListTable {
         table-layout: fixed;
-        width: 100%
+        width: 100%;
     }
 
     #reviewListTable th:nth-child(1),
     #formsListTable th:nth-child(1) {
-        width: 38%
+        width: 38%;
     }
 
     #reviewListTable th:nth-child(2),
     #formsListTable th:nth-child(2) {
-        width: 30%
+        width: 30%;
     }
 
     #reviewListTable th:nth-child(3),
     #formsListTable th:nth-child(3) {
-        width: 18%
+        width: 18%;
     }
 
     #reviewListTable th:nth-child(4),
     #formsListTable th:nth-child(4) {
-        width: 14%
+        width: 14%;
     }
 }
 
-@media(max-width:768px) {
 
-    /* Both tables share one column order - Form, Client, Status, Actions - and
-     keep Client, Status and Actions. The .empty guard keeps the
-     "Loading forms..." and "No forms found." rows, which are a single colspan
-     cell sitting in first position. */
-    #reviewListTable th:nth-child(1),
-    #reviewListTable td:nth-child(1):not(.empty),
-    #formsListTable th:nth-child(1),
-    #formsListTable td:nth-child(1):not(.empty) {
-        display: none;
+/* =========================
+   Responsive Tables
+========================= */
+
+/* Tablet */
+@media (max-width: 950px) {
+    .panel {
+        max-width: 100%;
     }
 
-    /* Three columns fit, so let a long form title wrap instead of handing the
-     panel a horizontal scrollbar. The min-width undoes the 760px this page
-     puts on every table below 800px; the wrapping beats shell.css. Both win
-     on the id rather than on !important. */
-    #reviewListTable,
-    #formsListTable {
-        min-width: 0
+    .panel table {
+        width: 100%;
     }
 
-    /* Fixed widths here too, so both tables line up on a phone as they do on a
-     desktop: Status and Actions sized to their badge and kebab, Client takes
-     what is left. */
+    th,
+    td {
+        padding: 14px 12px;
+    }
+}
+
+
+/* Mobile table layout */
+@media (max-width: 768px) {
+
+    .panel {
+        min-width: 0;
+        width: 100%;
+        overflow-x: hidden;
+    }
+
     #reviewListTable,
     #formsListTable {
+        width: 100%;
+        min-width: 0;
         table-layout: fixed;
-        width: 100%
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    /* Header cells: one line each, small and centred */
+    #reviewListTable th,
+    #formsListTable th {
+        box-sizing: border-box;
+        font-size: 10px;
+        text-align: center;
+        white-space: nowrap;
+        padding: 12px 4px;
+        text-align: center;
+        vertical-align: middle;
+    }
+
+    /* Body cells: may wrap, long words break instead of widening the table */
+    #reviewListTable td,
+    #formsListTable td {
+        box-sizing: border-box;
+        font-size: 11px;
+        line-height: 1.4;
+        padding: 12px 6px;
+        text-align: center;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        vertical-align: middle;
+    }
+
+    /* Balanced column widths (total 100%) */
+    #reviewListTable th:nth-child(1),
+    #reviewListTable td:nth-child(1),
+    #formsListTable th:nth-child(1),
+    #formsListTable td:nth-child(1) {
+        width: 27%;
+        padding-left: 10px;
+    }
+
+    #reviewListTable th:nth-child(2),
+    #reviewListTable td:nth-child(2),
+    #formsListTable th:nth-child(2),
+    #formsListTable td:nth-child(2) {
+        width: 25%;
     }
 
     #reviewListTable th:nth-child(3),
-    #formsListTable th:nth-child(3) {
-        width: 130px
+    #reviewListTable td:nth-child(3),
+    #formsListTable th:nth-child(3),
+    #formsListTable td:nth-child(3) {
+        width: 28%;
     }
 
     #reviewListTable th:nth-child(4),
-    #formsListTable th:nth-child(4) {
-        width: 68px
+    #reviewListTable td:nth-child(4),
+    #formsListTable th:nth-child(4),
+    #formsListTable td:nth-child(4) {
+        width: 20%;
+        padding-right: 10px;
+        text-align: center;
     }
 
-    #reviewListTable th,
-    #reviewListTable td,
-    #formsListTable th,
-    #formsListTable td {
+    /* Smaller status badges */
+    #reviewListTable .badge,
+    #formsListTable .badge {
+        display: inline-block;
+        max-width: 100%;
+        padding: 4px 5px;
+        font-size: 9px;
+        line-height: 1.3;
         white-space: normal;
-        padding-left: 12px;
-        padding-right: 12px;
+        overflow-wrap: anywhere;
     }
 
-    #reviewListTable td:last-child,
-    #formsListTable td:last-child {
-        width: 44px
-    }
-
-    #reviewListTable .actions .action-btn,
-    #formsListTable .actions .action-btn {
-        display: none
+    /* Compact action menu */
+    #reviewListTable .action-btn,
+    #formsListTable .action-btn {
+        display: none;
     }
 
     #reviewListTable .row-kebab,
@@ -1157,10 +1173,10 @@ select.client-filter {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 36px;
-        height: 36px;
+        width: 28px;
+        height: 30px;
         padding: 0;
-        flex: none;
+        flex-shrink: 0;
         border: 1px solid #dfe3ea;
         border-radius: 9px;
         background: #fff;
@@ -1168,8 +1184,34 @@ select.client-filter {
         cursor: pointer;
     }
 
-    .row-kebab svg {
-        width: 18px;
-        height: 18px
+    #reviewListTable .actions,
+    #formsListTable .actions {
+        justify-content: center;
+        gap: 0;
+    }
+
+    /* Pagination */
+    .pager {
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 12px;
+    }
+
+    .pager-pages {
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+
+    /* Smaller Create Form button */
+    .create-btn {
+        padding: 9px 13px;
+        font-size: 11px;
+        gap: 6px;
+        border-radius: 8px;
+    }
+
+    .create-btn svg {
+        width: 14px;
+        height: 14px;
     }
 }
