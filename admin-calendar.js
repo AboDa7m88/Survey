@@ -367,6 +367,21 @@ function padCell(dayNumber) {
   return cell;
 }
 
+// Show Today button only when the selected date or displayed month differs from today
+function updateTodayButton() {
+  const todayBtn = document.getElementById("todayBtn");
+  if (!todayBtn) return;
+
+  const today = new Date();
+  const todayStr = toDateStr(today);
+  const isTodaySelected = selectedDate === todayStr;
+  const isCurrentMonth =
+    currentDate.getFullYear() === today.getFullYear() &&
+    currentDate.getMonth() === today.getMonth();
+
+  todayBtn.hidden = isTodaySelected && isCurrentMonth;
+}
+
 function renderCalendar() {
   const grid = document.getElementById("calendarGrid");
   const monthTitle = document.getElementById("calendarMonthTitle");
@@ -396,6 +411,8 @@ function renderCalendar() {
     grid.innerHTML = headers
       .map((day) => `<div class="day-header">${day}</div>`)
       .join("");
+
+    updateTodayButton();
   }
 
   // Month view pads to whole weeks so the columns line up with the headers.
@@ -1009,6 +1026,209 @@ function logoutAdmin() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  const datePickerBtn = document.getElementById("datePickerBtn");
+  const customDatePicker = document.getElementById("customDatePicker");
+  const customDatePickerTitle = document.getElementById(
+    "customDatePickerTitle",
+  );
+  const customDatePickerGrid = document.getElementById("customDatePickerGrid");
+  const directDateInput = document.getElementById("directDateInput");
+
+  function renderCustomDatePicker() {
+    if (!customDatePickerGrid) return;
+
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+
+    customDatePickerTitle.textContent = new Date(
+      year,
+      month,
+      1,
+    ).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+
+    customDatePickerGrid.innerHTML = "";
+
+    const firstDay = new Date(year, month, 1).getDay();
+    const startOffset = (firstDay + 6) % 7;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const daysInPreviousMonth = new Date(year, month, 0).getDate();
+
+    for (let i = 0; i < 42; i++) {
+      let day;
+      let date;
+      let otherMonth = false;
+
+      if (i < startOffset) {
+        day = daysInPreviousMonth - startOffset + i + 1;
+        date = new Date(year, month - 1, day);
+        otherMonth = true;
+      } else if (i >= startOffset + daysInMonth) {
+        day = i - startOffset - daysInMonth + 1;
+        date = new Date(year, month + 1, day);
+        otherMonth = true;
+      } else {
+        day = i - startOffset + 1;
+        date = new Date(year, month, day);
+      }
+
+      const dateString = toDateStr(date);
+      const button = document.createElement("button");
+
+      button.type = "button";
+      button.textContent = day;
+      button.setAttribute("aria-label", dateString);
+
+      if (dateString === selectedDate) button.classList.add("selected");
+      if (dateString === toDateStr(new Date())) button.classList.add("today");
+      if (otherMonth) button.classList.add("other-month");
+
+      button.addEventListener("click", () => {
+        selectedDate = dateString;
+        currentDate = new Date(date.getFullYear(), date.getMonth(), 1);
+
+        renderAll();
+        renderCustomDatePicker();
+
+        customDatePicker.hidden = true;
+        datePickerBtn.setAttribute("aria-expanded", "false");
+      });
+
+      customDatePickerGrid.appendChild(button);
+    }
+  }
+
+  datePickerBtn.onclick = () => {
+    const isOpening = customDatePicker.hidden;
+
+    if (isOpening) {
+      currentDate = parseDateStr(selectedDate);
+      renderCustomDatePicker();
+    }
+
+    customDatePicker.hidden = !isOpening;
+    datePickerBtn.setAttribute("aria-expanded", String(isOpening));
+  };
+
+  document.getElementById("datePickerPrev").onclick = () => {
+    currentDate.setMonth(currentDate.getMonth() - 1);
+    renderCustomDatePicker();
+  };
+
+  document.getElementById("datePickerNext").onclick = () => {
+    currentDate.setMonth(currentDate.getMonth() + 1);
+    renderCustomDatePicker();
+  };
+
+  function goToEnteredDate() {
+    const value = directDateInput.value.trim();
+
+    if (!value) return;
+
+    let date = null;
+    let match;
+
+    // YYYY-MM-DD or YYYY/MM/DD
+    match = value.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
+
+    if (match) {
+      date = new Date(+match[1], +match[2] - 1, +match[3]);
+    } else {
+      // DD/MM/YYYY, DD-MM-YYYY, or MM/DD/YYYY
+      match = value.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
+
+      if (match) {
+        const first = +match[1];
+        const second = +match[2];
+        const year = +match[3];
+
+        // If one number is above 12, the format is unambiguous.
+        // Otherwise, interpret as DD/MM/YYYY.
+        const day = first > 12 ? first : second > 12 ? second : first;
+        const month = first > 12 ? second : second > 12 ? first : second;
+
+        date = new Date(year, month - 1, day);
+      } else {
+        // Natural language formats supported by the browser, e.g. 25 Dec 2026
+        const parsed = Date.parse(value);
+
+        if (!Number.isNaN(parsed)) {
+          date = new Date(parsed);
+        }
+      }
+    }
+
+    // Reject invalid or impossible dates.
+    if (
+      !date ||
+      Number.isNaN(date.getTime()) ||
+      !/^\d{4}$/.test(String(date.getFullYear())) ||
+      !isValidEnteredDate(value, date)
+    ) {
+      alert(
+        "Couldn't recognize that date. Try a format like 25/12/2026 or 2026-12-25.",
+      );
+      return;
+    }
+
+    selectedDate = toDateStr(date);
+    currentDate = new Date(date.getFullYear(), date.getMonth(), 1);
+
+    renderAll();
+    renderCustomDatePicker();
+
+    customDatePicker.hidden = true;
+    datePickerBtn.setAttribute("aria-expanded", "false");
+  }
+
+  function isValidEnteredDate(value, date) {
+    const match = value.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
+
+    if (match) {
+      return (
+        date.getFullYear() === +match[1] &&
+        date.getMonth() === +match[2] - 1 &&
+        date.getDate() === +match[3]
+      );
+    }
+
+    const numericMatch = value.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
+
+    if (numericMatch) {
+      const first = +numericMatch[1];
+      const second = +numericMatch[2];
+      const year = +numericMatch[3];
+
+      const day = first > 12 ? first : second > 12 ? first : second;
+      const month = first > 12 ? second : second > 12 ? first : first;
+
+      return (
+        date.getFullYear() === year &&
+        date.getMonth() === month - 1 &&
+        date.getDate() === day
+      );
+    }
+
+    return true;
+  }
+
+  document.getElementById("goToDateBtn").onclick = goToEnteredDate;
+
+  directDateInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      goToEnteredDate();
+    }
+  });
+
+  document.getElementById("customDatePickerToday").onclick = () => {
+    selectedDate = toDateStr(new Date());
+    currentDate = new Date();
+
+    renderAll();
+    customDatePicker.hidden = true;
+    datePickerBtn.setAttribute("aria-expanded", "false");
+  };
+
   document.getElementById("prevMonthBtn").onclick = () => {
     currentDate.setDate(1);
     currentDate.setMonth(currentDate.getMonth() - 1);
@@ -1024,24 +1244,17 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("todayBtn").onclick = () => {
     currentDate = new Date();
     selectedDate = toDateStr(new Date());
-    renderCalendar();
-    renderDailySchedule();
+    renderAll();
   };
 
-  document.querySelectorAll("#viewToggle .view-btn").forEach((button) => {
-    button.onclick = () => {
-      document
-        .querySelectorAll("#viewToggle .view-btn")
-        .forEach((other) => other.classList.toggle("active", other === button));
-
-      currentView = button.dataset.view;
-
-      // Day and Week read from selectedDate, so keep the month in step with
-      // whatever day is selected before repainting.
-      currentDate = parseDateStr(selectedDate);
-
-      renderCalendar();
-    };
+  document.addEventListener("click", (event) => {
+    if (
+      !event.target.closest(".date-picker-wrapper") &&
+      !customDatePicker.hidden
+    ) {
+      customDatePicker.hidden = true;
+      datePickerBtn.setAttribute("aria-expanded", "false");
+    }
   });
 
   loadClients();
