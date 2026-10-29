@@ -1,0 +1,1157 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>W ZONE — Calendar Concept</title>
+
+    <style>
+        :root {
+            --bg: #f6f8fc;
+            --surface: #ffffff;
+            --text: #20243a;
+            --muted: #858ba3;
+            --line: #e9ecf5;
+            --blue: #3984f7;
+            --blue-soft: #eaf3ff;
+            --purple: #6d5ce8;
+            --purple-soft: #efedff;
+            --green: #16866a;
+            --green-soft: #e5f7f0;
+            --amber: #b7791f;
+            --amber-soft: #fff4dc;
+            --red: #d34f67;
+            --red-soft: #fff0f2;
+            --shadow: 0 12px 32px rgba(33, 48, 90, .06);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system,
+                BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        button {
+            font: inherit;
+        }
+
+        .page {
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 30px;
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 18px;
+            margin-bottom: 26px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 13px;
+        }
+
+        .brand-mark {
+            width: 44px;
+            height: 44px;
+            display: grid;
+            place-items: center;
+            border-radius: 14px;
+            color: white;
+            font-weight: 800;
+            letter-spacing: -1px;
+            background: linear-gradient(135deg, var(--blue), var(--purple));
+            box-shadow: 0 7px 18px rgba(109, 92, 232, .22);
+        }
+
+        .brand-name {
+            font-size: 17px;
+            font-weight: 800;
+            letter-spacing: .3px;
+        }
+
+        .brand-sub {
+            margin-top: 3px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .demo-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 9px 12px;
+            border: 1px solid #dcd7ff;
+            background: var(--purple-soft);
+            color: var(--purple);
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .page-heading {
+            margin-bottom: 22px;
+        }
+
+        .page-heading h1 {
+            margin: 0 0 7px;
+            font-size: clamp(24px, 3vw, 32px);
+            letter-spacing: -.8px;
+        }
+
+        .page-heading p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        /* Summary cards */
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 16px;
+            margin-bottom: 22px;
+        }
+
+        .summary-card {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 18px;
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            box-shadow: var(--shadow);
+            min-width: 0;
+        }
+
+        .summary-icon {
+            width: 44px;
+            height: 44px;
+            flex: 0 0 44px;
+            display: grid;
+            place-items: center;
+            border-radius: 14px;
+            font-size: 20px;
+        }
+
+        .summary-icon.blue {
+            background: var(--blue-soft);
+        }
+
+        .summary-icon.purple {
+            background: var(--purple-soft);
+        }
+
+        .summary-icon.green {
+            background: var(--green-soft);
+        }
+
+        .summary-label {
+            color: var(--muted);
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+
+        .summary-value {
+            font-size: 24px;
+            line-height: 1.1;
+            font-weight: 800;
+            letter-spacing: -.6px;
+        }
+
+        .summary-note {
+            color: var(--muted);
+            font-size: 11px;
+            margin-top: 5px;
+        }
+
+        /* Calendar container */
+        .calendar-panel {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: 22px;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+
+        .calendar-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 18px;
+            padding: 22px 24px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .toolbar-title h2 {
+            margin: 0;
+            font-size: 18px;
+            letter-spacing: -.3px;
+        }
+
+        .toolbar-title p {
+            margin: 5px 0 0;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .toolbar-actions {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+        }
+
+        .month-label {
+            min-width: 145px;
+            text-align: center;
+            font-size: 15px;
+            font-weight: 750;
+        }
+
+        .icon-btn,
+        .today-btn {
+            height: 38px;
+            border: 1px solid var(--line);
+            background: #fff;
+            color: var(--text);
+            border-radius: 11px;
+            cursor: pointer;
+            transition: .18s ease;
+        }
+
+        .icon-btn {
+            width: 38px;
+            display: grid;
+            place-items: center;
+            font-size: 20px;
+        }
+
+        .today-btn {
+            padding: 0 14px;
+            color: var(--purple);
+            border-color: #dcd7ff;
+            font-size: 12px;
+            font-weight: 750;
+        }
+
+        .icon-btn:hover,
+        .today-btn:hover {
+            border-color: var(--purple);
+            background: var(--purple-soft);
+        }
+
+        .calendar-content {
+            padding: 18px 22px 22px;
+        }
+
+        /* Calendar grid */
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, minmax(0, 1fr));
+            border: 1px solid var(--line);
+            border-radius: 15px;
+            overflow: hidden;
+        }
+
+        .weekday {
+            background: #fafbff;
+            color: var(--muted);
+            text-align: center;
+            padding: 13px 4px;
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .day-cell {
+            position: relative;
+            min-height: 122px;
+            padding: 10px 9px;
+            border: 0;
+            border-right: 1px solid var(--line);
+            border-bottom: 1px solid var(--line);
+            background: #fff;
+            cursor: pointer;
+            text-align: left;
+            color: inherit;
+            transition: background .16s ease, box-shadow .16s ease;
+        }
+
+        .day-cell:nth-child(7n) {
+            border-right: 0;
+        }
+
+        .day-cell:hover {
+            background: #fafaff;
+        }
+
+        .day-cell.outside {
+            background: #fbfcfe;
+            color: #b9bfd0;
+        }
+
+        .day-cell.selected {
+            background: #f6f4ff;
+            box-shadow: inset 0 0 0 2px var(--purple);
+            z-index: 1;
+        }
+
+        .day-number {
+            width: 27px;
+            height: 27px;
+            display: grid;
+            place-items: center;
+            border-radius: 9px;
+            font-size: 12px;
+            font-weight: 750;
+            margin-bottom: 8px;
+        }
+
+        .day-cell.today .day-number {
+            background: var(--blue);
+            color: white;
+        }
+
+        .day-cell.selected .day-number {
+            background: var(--purple);
+            color: white;
+        }
+
+        /* Appointment labels inside calendar */
+        .event-chip {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin-top: 5px;
+            padding: 5px 7px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 700;
+            border-left: 3px solid transparent;
+        }
+
+        .event-chip.approved {
+            background: var(--green-soft);
+            color: var(--green);
+            border-left-color: var(--green);
+        }
+
+        .event-chip.pending {
+            background: var(--amber-soft);
+            color: var(--amber);
+            border-left-color: #e3a33d;
+        }
+
+        .event-chip.rejected {
+            background: var(--red-soft);
+            color: var(--red);
+            border-left-color: var(--red);
+        }
+
+        .more-events {
+            margin: 6px 0 0 3px;
+            color: var(--purple);
+            font-size: 10px;
+            font-weight: 800;
+        }
+
+        /* Selected day's appointment list */
+        .agenda {
+            margin-top: 20px;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .agenda-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            padding: 17px 18px;
+            background: #fcfcff;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .agenda-heading {
+            font-size: 15px;
+            font-weight: 800;
+        }
+
+        .agenda-subtitle {
+            color: var(--muted);
+            font-size: 11px;
+            margin-top: 4px;
+        }
+
+        .agenda-count {
+            background: var(--purple-soft);
+            color: var(--purple);
+            border-radius: 999px;
+            padding: 6px 10px;
+            font-size: 11px;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .agenda-list {
+            padding: 0 18px;
+        }
+
+        .appointment {
+            display: grid;
+            grid-template-columns: 88px minmax(0, 1fr) auto;
+            gap: 16px;
+            align-items: center;
+            padding: 17px 0;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .appointment:last-child {
+            border-bottom: 0;
+        }
+
+        .appointment-time {
+            font-size: 12px;
+            font-weight: 800;
+            color: var(--purple);
+        }
+
+        .appointment-duration {
+            margin-top: 5px;
+            color: var(--muted);
+            font-size: 10px;
+        }
+
+        .appointment-name {
+            font-size: 13px;
+            font-weight: 800;
+            margin-bottom: 5px;
+        }
+
+        .appointment-meta {
+            color: var(--muted);
+            font-size: 11px;
+            line-height: 1.5;
+        }
+
+        .status {
+            padding: 6px 9px;
+            border-radius: 999px;
+            font-size: 10px;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .status.approved {
+            background: var(--green-soft);
+            color: var(--green);
+        }
+
+        .status.pending {
+            background: var(--amber-soft);
+            color: var(--amber);
+        }
+
+        .status.rejected {
+            background: var(--red-soft);
+            color: var(--red);
+        }
+
+        .empty {
+            text-align: center;
+            padding: 32px 16px;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        /* Status legend */
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            padding: 15px 2px 0;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            color: var(--muted);
+            font-size: 11px;
+        }
+
+        .legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .footer-note {
+            margin-top: 16px;
+            color: var(--muted);
+            font-size: 11px;
+            text-align: center;
+        }
+
+        /* Desktop layout */
+        @media (min-width: 1100px) {
+            .agenda {
+                display: none;
+            }
+        }
+
+        /* Tablet layout */
+        @media (max-width: 1099px) {
+            .page {
+                padding: 22px;
+            }
+
+            .calendar-content {
+                padding: 16px;
+            }
+
+            .day-cell {
+                min-height: 96px;
+                padding: 8px 6px;
+            }
+
+            .event-chip {
+                padding: 4px 5px;
+                font-size: 9px;
+            }
+        }
+
+        /* Mobile layout */
+        @media (max-width: 700px) {
+            .page {
+                padding: 16px 12px 24px;
+            }
+
+            .topbar {
+                align-items: flex-start;
+                margin-bottom: 20px;
+            }
+
+            .demo-tag {
+                font-size: 10px;
+                padding: 7px 9px;
+            }
+
+            .brand-mark {
+                width: 40px;
+                height: 40px;
+            }
+
+            .brand-name {
+                font-size: 15px;
+            }
+
+            .summary {
+                gap: 9px;
+                margin-bottom: 15px;
+            }
+
+            .summary-card {
+                display: block;
+                padding: 12px 10px;
+                border-radius: 14px;
+            }
+
+            .summary-icon {
+                width: 34px;
+                height: 34px;
+                margin-bottom: 9px;
+                border-radius: 11px;
+                font-size: 16px;
+            }
+
+            .summary-label {
+                font-size: 10px;
+                line-height: 1.3;
+            }
+
+            .summary-value {
+                font-size: 20px;
+            }
+
+            .summary-note {
+                display: none;
+            }
+
+            .page-heading {
+                margin-bottom: 16px;
+            }
+
+            .page-heading p {
+                font-size: 12px;
+            }
+
+            .calendar-panel {
+                border-radius: 17px;
+            }
+
+            .calendar-toolbar {
+                padding: 16px 13px;
+                align-items: flex-start;
+                flex-direction: column;
+                gap: 13px;
+            }
+
+            .toolbar-title h2 {
+                font-size: 16px;
+            }
+
+            .toolbar-actions {
+                width: 100%;
+                gap: 7px;
+            }
+
+            .month-label {
+                flex: 1;
+                min-width: 0;
+                font-size: 13px;
+            }
+
+            .icon-btn {
+                width: 35px;
+                height: 35px;
+                flex: 0 0 35px;
+            }
+
+            .today-btn {
+                height: 35px;
+                padding: 0 10px;
+            }
+
+            .calendar-content {
+                padding: 10px;
+            }
+
+            .calendar-grid {
+                border-radius: 11px;
+            }
+
+            .weekday {
+                padding: 10px 1px;
+                font-size: 9px;
+                letter-spacing: 0;
+            }
+
+            .day-cell {
+                min-height: 58px;
+                padding: 5px 2px;
+                text-align: center;
+            }
+
+            .day-number {
+                width: 25px;
+                height: 25px;
+                margin: 0 auto 4px;
+                font-size: 11px;
+                border-radius: 8px;
+            }
+
+            /* Mobile calendar appointment dots */
+            .event-chip {
+                display: inline-block;
+                width: 6px;
+                height: 6px;
+                padding: 0;
+                margin: 3px 1px 0;
+                border: none;
+                border-radius: 50%;
+                font-size: 0;
+                vertical-align: middle;
+                box-shadow: none;
+            }
+
+            /* Approved appointment dot */
+            .event-chip.approved {
+                background: #16866a;
+            }
+
+            /* Pending appointment dot */
+            .event-chip.pending {
+                background: #e3a33d;
+            }
+
+            /* Rejected appointment dot */
+            .event-chip.rejected {
+                background: #d34f67;
+            }
+
+            /* Highlight the selected day */
+            .day-cell.selected {
+                background: #f0edff;
+                box-shadow: inset 0 0 0 2px #6d5ce8;
+                border-radius: 9px;
+            }
+
+            /* Keep the current day easy to recognize */
+            .day-cell.today:not(.selected) .day-number {
+                background: #3984f7;
+                color: #fff;
+            }
+
+            /* Hide appointment details inside mobile calendar cells */
+            .more-events {
+                display: none;
+            }
+
+            .event-chip.approved {
+                background: var(--green);
+            }
+
+            .event-chip.pending {
+                background: #e3a33d;
+            }
+
+            .event-chip.rejected {
+                background: var(--red);
+            }
+
+            .more-events {
+                display: none;
+            }
+
+            .appointment {
+                grid-template-columns: 65px minmax(0, 1fr);
+                gap: 10px;
+                padding: 14px 0;
+            }
+
+            .appointment .status {
+                grid-column: 2;
+                justify-self: start;
+            }
+
+            .agenda-header {
+                padding: 14px 12px;
+            }
+
+            .agenda-list {
+                padding: 0 12px;
+            }
+
+            .agenda-heading {
+                font-size: 13px;
+            }
+
+            .agenda-subtitle {
+                font-size: 10px;
+            }
+
+            .legend {
+                gap: 10px;
+            }
+        }
+
+        @media (max-width: 380px) {
+            .summary {
+                grid-template-columns: 1fr;
+            }
+
+            .summary-card {
+                display: flex;
+                align-items: center;
+            }
+
+            .summary-icon {
+                margin-bottom: 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="page">
+
+        <header class="topbar">
+            <div class="brand">
+                <div class="brand-mark">W</div>
+                <div>
+                    <div class="brand-name">W ZONE</div>
+                    <div class="brand-sub">Administration Dashboard</div>
+                </div>
+            </div>
+
+            <div class="demo-tag">
+                <span>●</span>
+                Calendar Preview
+            </div>
+        </header>
+
+        <section class="page-heading">
+            <h1>Appointments Calendar</h1>
+            <p>Manage appointments, review daily schedules, and track booking statuses.</p>
+        </section>
+
+        <section class="summary">
+            <article class="summary-card">
+                <div class="summary-icon blue">▦</div>
+                <div>
+                    <div class="summary-label">Total Appointments</div>
+                    <div class="summary-value" id="totalCount">0</div>
+                    <div class="summary-note">All demo appointments</div>
+                </div>
+            </article>
+
+            <article class="summary-card">
+                <div class="summary-icon purple">◷</div>
+                <div>
+                    <div class="summary-label">Pending Appointments</div>
+                    <div class="summary-value" id="pendingCount">0</div>
+                    <div class="summary-note">Waiting for confirmation</div>
+                </div>
+            </article>
+
+            <article class="summary-card">
+                <div class="summary-icon green">✓</div>
+                <div>
+                    <div class="summary-label">Approved Appointments</div>
+                    <div class="summary-value" id="approvedCount">0</div>
+                    <div class="summary-note">Confirmed appointments</div>
+                </div>
+            </article>
+        </section>
+
+        <main class="calendar-panel">
+            <div class="calendar-toolbar">
+                <div class="toolbar-title">
+                    <h2>Appointment Schedule</h2>
+                    <p>Select a date to review its appointments.</p>
+                </div>
+
+                <div class="toolbar-actions">
+                    <button class="today-btn" id="todayBtn" type="button">Today</button>
+                    <button class="icon-btn" id="prevBtn" type="button" aria-label="Previous month">‹</button>
+                    <div class="month-label" id="monthLabel" aria-live="polite">October 2026</div>
+                    <button class="icon-btn" id="nextBtn" type="button" aria-label="Next month">›</button>
+                </div>
+            </div>
+
+            <div class="calendar-content">
+                <div class="calendar-grid" id="calendarGrid" aria-label="Calendar"></div>
+
+                <div class="legend">
+                    <div class="legend-item">
+                        <span class="legend-dot" style="background:var(--green)"></span>
+                        Approved
+                    </div>
+
+                    <div class="legend-item">
+                        <span class="legend-dot" style="background:#e3a33d"></span>
+                        Pending
+                    </div>
+
+                    <div class="legend-item">
+                        <span class="legend-dot" style="background:var(--red)"></span>
+                        Rejected
+                    </div>
+                </div>
+
+                <section class="agenda">
+                    <div class="agenda-header">
+                        <div>
+                            <div class="agenda-heading" id="agendaHeading">Selected day</div>
+                            <div class="agenda-subtitle">Appointments and their current status</div>
+                        </div>
+
+                        <div class="agenda-count" id="agendaCount">0 appointments</div>
+                    </div>
+
+                    <div class="agenda-list" id="agendaList"></div>
+                </section>
+            </div>
+        </main>
+
+        <div class="footer-note">
+            Concept preview only — all names, dates and appointments are illustrative.
+        </div>
+    </div>
+
+    <script>
+        /* Demo records only. Replace with real site data only after approval. */
+        const appointments = [
+            { date: "2026-10-02", time: "09:00 AM", duration: "45 min", name: "Sarah Ahmed", service: "Consultation", staff: "Mona Khaled", status: "approved" },
+            { date: "2026-10-02", time: "11:30 AM", duration: "30 min", name: "Omar Hassan", service: "Follow-up", staff: "Nour Adel", status: "pending" },
+            { date: "2026-10-05", time: "10:00 AM", duration: "60 min", name: "Mariam Ali", service: "Service appointment", staff: "Mona Khaled", status: "approved" },
+            { date: "2026-10-06", time: "12:00 PM", duration: "30 min", name: "Youssef Samir", service: "Consultation", staff: "Nour Adel", status: "pending" },
+            { date: "2026-10-08", time: "09:30 AM", duration: "45 min", name: "Farah Mostafa", service: "Follow-up", staff: "Mona Khaled", status: "approved" },
+            { date: "2026-10-08", time: "01:00 PM", duration: "60 min", name: "Karim Nabil", service: "Service appointment", staff: "Salma Hany", status: "rejected" },
+            { date: "2026-10-10", time: "10:30 AM", duration: "30 min", name: "Laila Tarek", service: "Consultation", staff: "Nour Adel", status: "approved" },
+            { date: "2026-10-12", time: "09:00 AM", duration: "45 min", name: "Adam Sherif", service: "Follow-up", staff: "Salma Hany", status: "pending" },
+            { date: "2026-10-12", time: "11:00 AM", duration: "60 min", name: "Jana Wael", service: "Service appointment", staff: "Mona Khaled", status: "approved" },
+            { date: "2026-10-14", time: "12:30 PM", duration: "30 min", name: "Malak Emad", service: "Consultation", staff: "Nour Adel", status: "approved" },
+            { date: "2026-10-15", time: "10:00 AM", duration: "45 min", name: "Ali Mahmoud", service: "Follow-up", staff: "Salma Hany", status: "pending" },
+            { date: "2026-10-16", time: "02:00 PM", duration: "30 min", name: "Nour Mostafa", service: "Consultation", staff: "Mona Khaled", status: "approved" },
+            { date: "2026-10-19", time: "09:30 AM", duration: "60 min", name: "Hana Ibrahim", service: "Service appointment", staff: "Nour Adel", status: "approved" },
+            { date: "2026-10-20", time: "11:00 AM", duration: "30 min", name: "Ziad Ashraf", service: "Follow-up", staff: "Salma Hany", status: "pending" },
+            { date: "2026-10-21", time: "10:00 AM", duration: "45 min", name: "Reem Fathy", service: "Consultation", staff: "Mona Khaled", status: "approved" },
+            { date: "2026-10-21", time: "12:30 PM", duration: "30 min", name: "Amr Hossam", service: "Follow-up", staff: "Nour Adel", status: "approved" },
+            { date: "2026-10-23", time: "09:00 AM", duration: "60 min", name: "Dina Wael", service: "Service appointment", staff: "Salma Hany", status: "pending" },
+            { date: "2026-10-24", time: "01:30 PM", duration: "30 min", name: "Seif Adel", service: "Consultation", staff: "Mona Khaled", status: "approved" },
+            { date: "2026-10-26", time: "10:30 AM", duration: "45 min", name: "Rana Sameh", service: "Follow-up", staff: "Nour Adel", status: "approved" },
+            { date: "2026-10-27", time: "11:00 AM", duration: "60 min", name: "Tamer Ali", service: "Service appointment", staff: "Salma Hany", status: "pending" },
+            { date: "2026-10-28", time: "09:30 AM", duration: "30 min", name: "Nada Karim", service: "Consultation", staff: "Mona Khaled", status: "approved" },
+            { date: "2026-10-28", time: "12:00 PM", duration: "45 min", name: "Bassem Atef", service: "Follow-up", staff: "Nour Adel", status: "pending" },
+            { date: "2026-10-29", time: "10:00 AM", duration: "45 min", name: "Yara Hany", service: "Consultation", staff: "Mona Khaled", status: "approved" },
+            { date: "2026-10-29", time: "01:00 PM", duration: "30 min", name: "Mostafa Reda", service: "Follow-up", staff: "Salma Hany", status: "pending" }
+        ];
+
+        const statusLabels = {
+            approved: "Approved",
+            pending: "Pending",
+            rejected: "Rejected"
+        };
+
+        const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+        const monthNames = [
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"
+        ];
+
+        let viewDate = new Date(2026, 9, 1);
+        let selectedDate = "2026-10-29";
+        const todayKey = "2026-10-29";
+
+        const keyFor = date =>
+            `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+
+        const recordsFor = key =>
+            appointments
+                .filter(item => item.date === key)
+                .sort((a, b) => a.time.localeCompare(b.time));
+
+        const escapeText = value =>
+            String(value).replace(/[&<>"']/g, ch => ({
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+                '"': "&quot;",
+                "'": "&#39;"
+            }[ch]));
+
+        /* Update the summary cards */
+        function renderSummary() {
+            document.getElementById("totalCount").textContent = appointments.length;
+
+            document.getElementById("pendingCount").textContent =
+                appointments.filter(a => a.status === "pending").length;
+
+            document.getElementById("approvedCount").textContent =
+                appointments.filter(a => a.status === "approved").length;
+        }
+
+        /* Build the month grid */
+        function renderCalendar() {
+            const year = viewDate.getFullYear();
+            const month = viewDate.getMonth();
+
+            document.getElementById("monthLabel").textContent =
+                `${monthNames[month]} ${year}`;
+
+            const grid = document.getElementById("calendarGrid");
+
+            let html = weekdays
+                .map(day => `<div class="weekday">${day}</div>`)
+                .join("");
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const prevMonthDays = new Date(year, month, 0).getDate();
+
+            const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7;
+
+            for (let i = 0; i < totalCells; i++) {
+                let date;
+                let outside = false;
+
+                if (i < firstDay) {
+                    date = new Date(
+                        year,
+                        month - 1,
+                        prevMonthDays - firstDay + i + 1
+                    );
+                    outside = true;
+                } else if (i >= firstDay + daysInMonth) {
+                    date = new Date(
+                        year,
+                        month + 1,
+                        i - firstDay - daysInMonth + 1
+                    );
+                    outside = true;
+                } else {
+                    date = new Date(year, month, i - firstDay + 1);
+                }
+
+                const key = keyFor(date);
+                const dayItems = recordsFor(key);
+
+                const classes = [
+                    "day-cell",
+                    outside ? "outside" : "",
+                    key === todayKey ? "today" : "",
+                    key === selectedDate ? "selected" : ""
+                ].filter(Boolean).join(" ");
+
+                const chips = dayItems
+                    .slice(0, 2)
+                    .map(item => `
+        <span class="event-chip ${item.status}">
+          ${escapeText(item.time)} · ${escapeText(item.name)}
+        </span>
+      `)
+                    .join("");
+
+                const more = dayItems.length > 2
+                    ? `<div class="more-events">+${dayItems.length - 2} more</div>`
+                    : "";
+
+                html += `
+      <button
+        type="button"
+        class="${classes}"
+        data-date="${key}"
+        aria-label="${key}, ${dayItems.length} appointments"
+      >
+        <span class="day-number">${date.getDate()}</span>
+        ${chips}
+        ${more}
+      </button>
+    `;
+            }
+
+            grid.innerHTML = html;
+
+            grid.querySelectorAll(".day-cell").forEach(cell => {
+                cell.addEventListener("click", () => {
+                    selectedDate = cell.dataset.date;
+
+                    if (
+                        new Date(selectedDate + "T12:00:00").getMonth() !==
+                        viewDate.getMonth()
+                    ) {
+                        const [y, m] = selectedDate.split("-").map(Number);
+                        viewDate = new Date(y, m - 1, 1);
+                    }
+
+                    renderCalendar();
+                    renderAgenda();
+                });
+            });
+        }
+
+        /* Show appointments for the selected day */
+        function renderAgenda() {
+            const [y, m, d] = selectedDate.split("-").map(Number);
+            const date = new Date(y, m - 1, d);
+
+            document.getElementById("agendaHeading").textContent =
+                date.toLocaleDateString("en-US", {
+                    weekday: "long",
+                    month: "long",
+                    day: "numeric",
+                    year: "numeric"
+                });
+
+            const items = recordsFor(selectedDate);
+
+            document.getElementById("agendaCount").textContent =
+                `${items.length} appointment${items.length === 1 ? "" : "s"}`;
+
+            const list = document.getElementById("agendaList");
+
+            if (!items.length) {
+                list.innerHTML = `
+      <div class="empty">
+        No appointments scheduled for this day.
+      </div>
+    `;
+                return;
+            }
+
+            list.innerHTML = items.map(item => `
+    <article class="appointment">
+      <div>
+        <div class="appointment-time">
+          ${escapeText(item.time)}
+        </div>
+        <div class="appointment-duration">
+          ${escapeText(item.duration)}
+        </div>
+      </div>
+
+      <div>
+        <div class="appointment-name">
+          ${escapeText(item.name)}
+        </div>
+        <div class="appointment-meta">
+          ${escapeText(item.service)} · Assigned to ${escapeText(item.staff)}
+        </div>
+      </div>
+
+      <span class="status ${item.status}">
+        ${statusLabels[item.status]}
+      </span>
+    </article>
+  `).join("");
+        }
+
+        /* Navigate to the previous month */
+        document.getElementById("prevBtn").addEventListener("click", () => {
+            viewDate = new Date(
+                viewDate.getFullYear(),
+                viewDate.getMonth() - 1,
+                1
+            );
+
+            renderCalendar();
+        });
+
+        /* Navigate to the next month */
+        document.getElementById("nextBtn").addEventListener("click", () => {
+            viewDate = new Date(
+                viewDate.getFullYear(),
+                viewDate.getMonth() + 1,
+                1
+            );
+
+            renderCalendar();
+        });
+
+        /* Return to the demo's current date */
+        document.getElementById("todayBtn").addEventListener("click", () => {
+            viewDate = new Date(2026, 9, 1);
+            selectedDate = todayKey;
+
+            renderCalendar();
+            renderAgenda();
+        });
+
+        /* Initial rendering */
+        renderSummary();
+        renderCalendar();
+        renderAgenda();
+    </script>
+</body>
+
+</html>

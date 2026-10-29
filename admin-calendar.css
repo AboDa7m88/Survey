@@ -1010,7 +1010,8 @@ body {
     color: #17803d;
 }
 
-@media (max-width: 760px) {
+/* Phone: the request form goes to one column. iPad keeps two. */
+@media (max-width: 600px) {
     .request-form {
         grid-template-columns: minmax(0, 1fr);
     }
@@ -1079,7 +1080,7 @@ select.client-filter {
     padding-right: 38px;
 }
 
-/* ── Calendar panels on a tablet ── */
+/* ── Calendar panels on a tablet (iPad) ── */
 @media (max-width: 950px) {
     .panel {
         overflow-x: auto;
@@ -1094,7 +1095,7 @@ select.client-filter {
 
     .calendar-grid {
         margin: 18px;
-        min-width: 620px;
+        min-width: 560px;
     }
 
     .day-cell {
@@ -1109,7 +1110,7 @@ select.client-filter {
    tapping it. The Daily Schedule panel below already renders the selected
    day in full, which is the detail view. */
 
-@media (max-width: 768px) {
+@media (max-width: 600px) {
 
     .cal-month {
         min-width: 0;
@@ -1322,7 +1323,7 @@ select.client-filter {
    Several rules name .card to outrank a .wz-tablewrap rule in shell.css,
    which is loaded after this stylesheet and would otherwise win the tie. */
 
-@media (max-width: 768px) {
+@media (max-width: 600px) {
 
     /* 24px of card padding either side is 48px the seven-column month grid
      could be using. */
@@ -1467,5 +1468,51 @@ select.client-filter {
 
     .schedule-row {
         gap: 12px;
+    }
+
+    /* 16px stops iOS from zooming in when a field is tapped */
+    .request-form input,
+    .request-form select,
+    .request-form textarea {
+        font-size: 16px;
+    }
+}
+
+
+
+
+/* Mobile table layout */
+@media (max-width: 600px) {
+    .card .wz-tablewrap {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden !important;
+    }
+
+    .card .data-table {
+        width: 100%;
+        max-width: 100%;
+        table-layout: fixed;
+    }
+
+    .card .data-table th,
+    .card .data-table td {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .card .data-table th:nth-child(1) {
+        width: 54%;
+    }
+
+    .card .data-table th:nth-child(2) {
+        width: auto;
+    }
+
+    .card .data-table th:last-child,
+    .card .data-table td:last-child {
+        width: 44px;
+        padding-right: 0;
     }
 }
