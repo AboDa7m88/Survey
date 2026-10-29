@@ -84,6 +84,7 @@ th {
 }
 
 td {
+    text-align: center;
     padding: 15px 24px;
     border-top: 1px solid #eef1f5;
     font-size: 13px;
@@ -1023,8 +1024,8 @@ select.client-filter {
 
 /* The two tables on this page carry the same columns, so they share widths
    too - left to size themselves, a long rejection note in one table pushed
-   its columns out of line with the other. */
-@media (min-width: 769px) {
+   its columns out of line with the other. iPad and desktop only. */
+@media (min-width: 601px) {
 
     #reviewListTable,
     #formsListTable {
@@ -1075,8 +1076,8 @@ select.client-filter {
 }
 
 
-/* Mobile table layout */
-@media (max-width: 768px) {
+/* Phone */
+@media (max-width: 600px) {
 
     .panel {
         min-width: 0;
@@ -1101,7 +1102,6 @@ select.client-filter {
         text-align: center;
         white-space: nowrap;
         padding: 12px 4px;
-        text-align: center;
         vertical-align: middle;
     }
 
@@ -1118,12 +1118,12 @@ select.client-filter {
         vertical-align: middle;
     }
 
-    /* Balanced column widths (total 100%) */
+    /* Column widths (total 100%) */
     #reviewListTable th:nth-child(1),
     #reviewListTable td:nth-child(1),
     #formsListTable th:nth-child(1),
     #formsListTable td:nth-child(1) {
-        width: 27%;
+        width: 33%;
         padding-left: 10px;
     }
 
@@ -1131,21 +1131,21 @@ select.client-filter {
     #reviewListTable td:nth-child(2),
     #formsListTable th:nth-child(2),
     #formsListTable td:nth-child(2) {
-        width: 25%;
+        width: 23%;
     }
 
     #reviewListTable th:nth-child(3),
     #reviewListTable td:nth-child(3),
     #formsListTable th:nth-child(3),
     #formsListTable td:nth-child(3) {
-        width: 28%;
+        width: 27%;
     }
 
     #reviewListTable th:nth-child(4),
     #reviewListTable td:nth-child(4),
     #formsListTable th:nth-child(4),
     #formsListTable td:nth-child(4) {
-        width: 20%;
+        width: 17%;
         padding-right: 10px;
         text-align: center;
     }
@@ -1190,6 +1190,13 @@ select.client-filter {
         gap: 0;
     }
 
+    /* Loading / empty / error row */
+    #reviewListTable td.empty,
+    #formsListTable td.empty {
+        font-size: 13px;
+        padding: 28px 12px;
+    }
+
     /* Pagination */
     .pager {
         flex-wrap: wrap;
@@ -1215,13 +1222,13 @@ select.client-filter {
         height: 14px;
     }
 
-    .form-list-des{
+    .form-list-des {
         font-size: 12px;
         white-space: nowrap;
         letter-spacing: -0.3px;
     }
 
-        /* Panel header: tighter on a phone */
+    /* Panel header: tighter on a phone */
     .panel-head {
         padding: 18px 16px;
     }
@@ -1234,38 +1241,40 @@ select.client-filter {
         font-size: 13px;
     }
 
-    /* Filters: two compact columns, label above each dropdown */
+    /* Filters: one compact row each, label beside the dropdown */
     .survey-filters {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
+        display: flex;
+        flex-direction: column;
+        flex-wrap: nowrap;
+        align-items: stretch;
         gap: 10px;
-        margin-top: 16px;
+        margin-top: 14px;
     }
 
     .survey-filters .filter-box {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 6px;
+        flex-direction: row;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
         min-width: 0;
     }
 
     .survey-filters .filter-box label {
+        flex: none;
+        width: 52px;
         font-size: 10px;
     }
 
+    /* 16px stops iOS from zooming in when the dropdown is tapped */
     .survey-filters .client-filter {
-        width: 100%;
+        flex: 1;
+        width: auto;
         min-width: 0;
-        height: 34px;
-        padding: 0 28px 0 12px;
-        font-size: 12px;
-        background-position: right 10px center;
-        background-size: 10px;
-    }
-}
-
-@media (max-width: 360px) {
-    .survey-filters {
-        grid-template-columns: 1fr;
+        height: 40px;
+        padding: 0 32px 0 14px;
+        font-size: 14px;
+        font-weight: 600;
+        background-position: right 12px center;
+        background-size: 11px;
     }
 }

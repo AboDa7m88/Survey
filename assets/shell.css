@@ -176,6 +176,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   .sidebar,
   .admin-sidebar,
   .wz-scrim {
@@ -199,9 +200,9 @@
 
 @media (max-width: 768px) {
 
-  :root .admin-main > .admin-content,
-  :root .main > .content,
-  :root .main-wrapper > .main-content {
+  :root .admin-main>.admin-content,
+  :root .main>.content,
+  :root .main-wrapper>.main-content {
     padding-top: 20px;
     padding-left: 16px;
     padding-right: 16px;
@@ -246,7 +247,7 @@
     -webkit-overflow-scrolling: touch;
   }
 
-  .wz-tablewrap > table {
+  .wz-tablewrap>table {
     min-width: 100%;
   }
 
@@ -408,4 +409,20 @@
 #acctModal .acct-logout:focus-visible {
   outline: 2px solid var(--nav-active, #1b1e3a);
   outline-offset: 2px;
+}
+
+
+@media (max-width: 768px) {
+
+  :root input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]),
+  :root select,
+  :root textarea {
+    font-size: 16px;
+  }
+}
+
+
+/* iPad: wide tables scroll inside their panel instead of being clipped */
+@media (max-width: 950px) {
+  .wz-tablewrap { overflow-x: auto; }
 }

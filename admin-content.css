@@ -926,3 +926,16 @@ select.client-filter {
     background-size: 12px;
     padding-right: 38px;
 }
+
+
+@media (max-width: 950px) {
+    .grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 560px) {
+    .grid {
+        grid-template-columns: 1fr;
+    }
+}

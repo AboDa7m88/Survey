@@ -965,3 +965,14 @@ td.empty {
     font-size: 0;
     border: 2px solid #fff;
 }
+
+
+@media (max-width: 360px) {
+    .stat {
+        padding: 12px;
+    }
+
+    .stat p {
+        font-size: 11px;
+    }
+}
